@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "JournalInteraction": {
+      "title": "JournalInteraction",
+      "description": "A user's journal reflection interaction containing multi-turn dialogue, summary, and metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the interaction" },
+        "userId": { "type": "string", "description": "UID of the owner user" },
+        "title": { "type": "string", "description": "Title of the journal entry" },
+        "mode": { "type": "string", "description": "Reflection mode (reflect, summarize, brainstorm, chat)" },
+        "messages": { "type": "array", "description": "Chronological turn messages between user and Gemini" },
+        "summary": { "type": "string", "description": "Executive summary of the reflection" },
+        "tags": { "type": "array", "description": "Thematic tags" },
+        "modelUsed": { "type": "string", "description": "Gemini model used for generation" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation ISO timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update ISO timestamp" }
+      },
+      "required": ["id", "userId", "title", "mode", "messages", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/interactions/{interactionId}": {
+      "schema": { "$ref": "#/entities/JournalInteraction" },
+      "description": "User's isolated journal reflection documents"
+    }
+  }
+}
