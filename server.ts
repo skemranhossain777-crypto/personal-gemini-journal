@@ -6,7 +6,10 @@ import { createServer as createViteServer } from 'vite';
 import jwt from 'jsonwebtoken';
 import jwksClient from 'jwks-client';
 
-dotenv.config();
+// Load env from .env and .env.local (local dev config). Cloud Run / AI Studio
+// inject secrets directly into the process environment, taking precedence.
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local'), override: false });
 
 const app = express();
 const PORT = 3000;
