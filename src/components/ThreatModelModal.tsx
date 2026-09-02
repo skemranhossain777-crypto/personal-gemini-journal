@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Lock, Database, Cpu, Network, X, CheckCircle2 } from 'lucide-react';
+import { Shield, Lock, Database, Cpu, Network, X, CheckCircle2, MapPin, Crown, Bell } from 'lucide-react';
 
 interface ThreatModelModalProps {
   isOpen: boolean;
@@ -21,7 +21,7 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
             </div>
             <div>
               <h2 className="text-lg font-semibold text-[#F1F1F1]">Agentic Threat Modeling & Security Posture</h2>
-              <p className="text-xs text-[#888]">5 Threat Zones mapped to production defenses and verification</p>
+              <p className="text-xs text-[#888]">8 Threat Zones mapped to production defenses and verification</p>
             </div>
           </div>
           <button
@@ -54,7 +54,7 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
           {/* Threat Summary Table (The 5 Threat Zones) */}
           <div className="space-y-3">
             <h3 className="text-xs font-semibold text-[#888] uppercase tracking-wider">
-              Threat Summary Table (5 Threat Zones)
+              Threat Summary Table (8 Threat Zones)
             </h3>
             <div className="overflow-x-auto rounded-xl border border-[#262629]">
               <table className="w-full text-left text-xs text-[#A0A0A5]">
@@ -135,6 +135,48 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
                       Zero client-side secrets; Gemini calls run exclusively server-side via environment variables / Secret Manager.
                     </td>
                     <td className="p-3 text-emerald-400 font-medium">Strict Server Proxy</td>
+                  </tr>
+
+                  <tr>
+                    <td className="p-3 font-medium text-[#F1F1F1] flex items-center gap-2">
+                      <MapPin className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                      6. Maps API Exposure
+                    </td>
+                    <td className="p-3 text-[#A0A0A5]">
+                      Google Maps/Places API keys exposed to client-side JavaScript, enabling quota theft or abuse.
+                    </td>
+                    <td className="p-3 text-[#A0A0A5]">
+                      Places Autocomplete proxied server-side with restricted <code className="text-amber-400 font-mono">GOOGLE_MAPS_API_KEY</code>. Client uses separate Maps JS API key with HTTP referrer restrictions.
+                    </td>
+                    <td className="p-3 text-emerald-400 font-medium">Dual-Key Isolation</td>
+                  </tr>
+
+                  <tr>
+                    <td className="p-3 font-medium text-[#F1F1F1] flex items-center gap-2">
+                      <Crown className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                      7. RBAC Privilege Escalation
+                    </td>
+                    <td className="p-3 text-[#A0A0A5]">
+                      Regular users elevating to admin role, accessing other users' data or admin endpoints.
+                    </td>
+                    <td className="p-3 text-[#A0A0A5]">
+                      Admin role seeded via <code className="text-amber-400 font-mono">ADMIN_EMAILS</code> env var. Server verifies Firebase ID token + email on every admin request. No client-side role toggling.
+                    </td>
+                    <td className="p-3 text-emerald-400 font-medium">Server-Side RBAC</td>
+                  </tr>
+
+                  <tr>
+                    <td className="p-3 font-medium text-[#F1F1F1] flex items-center gap-2">
+                      <Bell className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                      8. Webhook Credential Leakage
+                    </td>
+                    <td className="p-3 text-[#A0A0A5]">
+                      Slack/Discord webhook URLs stored in client-accessible Firestore, allowing injection of spam notifications.
+                    </td>
+                    <td className="p-3 text-[#A0A0A5]">
+                      Webhook URLs stored under user-isolated Firestore path (<code className="text-amber-400 font-mono">{'/users/{userId}/settings/'}</code>). Notifications dispatched server-side only. Webhook URLs never returned to client after save.
+                    </td>
+                    <td className="p-3 text-emerald-400 font-medium">Server-Only Dispatch</td>
                   </tr>
                 </tbody>
               </table>

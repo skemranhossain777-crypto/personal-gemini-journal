@@ -1,27 +1,24 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
+import jwt from 'jsonwebtoken';
+import jwksClient from 'jwks-client';
 
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
 
-// Top-Level Request Deserialization (Ordering Guarantee)
 app.use(express.json({ limit: '2mb' }));
 
 // Lazy GoogleGenAI client accessor
 let aiClient: GoogleGenAI | null = null;
 function getGenAI(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY environment variable is not configured');
-  }
-  if (!aiClient) {
-    aiClient = new GoogleGenAI({ apiKey });
-  }
+  if (!apiKey) throw new Error('GEMINI_API_KEY environment variable is not configured');
+  if (!aiClient) aiClient = new GoogleGenAI({ apiKey });
   return aiClient;
 }
 
@@ -34,11 +31,6 @@ const MODEL_FALLBACK_LADDER = [
   'gemini-3.7-flash',
 ];
 
-/**
- * Standard Helper: generateContentWithFallback
- * Sequentially attempts models across the resilience ladder when encountering recoverable errors
- * (503 UNAVAILABLE, 429 RESOURCE_EXHAUSTED, 404 NOT_FOUND, 500 INTERNAL, high demand, timeouts).
- */
 async function generateContentWithFallback(
   contents: any,
   systemInstruction: string,
@@ -50,20 +42,14 @@ async function generateContentWithFallback(
   for (const model of MODEL_FALLBACK_LADDER) {
     try {
       console.log(`[Gemini Engine] Attempting generation with model: ${model}`);
-      // Guard against hanging calls with an 18-second timeout per model
       const generatePromise = ai.models.generateContent({
         model,
         contents,
-        config: {
-          systemInstruction,
-          temperature,
-        },
+        config: { systemInstruction, temperature },
       });
-
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error(`Model ${model} request timed out after 18s`)), 18000)
       );
-
       const response = await Promise.race([generatePromise, timeoutPromise]);
       const text = response.text || '';
       if (text.trim()) {
@@ -75,67 +61,188 @@ async function generateContentWithFallback(
       const errMsg = err?.message || String(err);
       const errStatus = err?.status || err?.error?.status || '';
       const errCode = err?.statusCode || err?.error?.code || '';
-      console.warn(
-        `[Gemini Engine] Model ${model} encountered error (status: ${errStatus}, code: ${errCode}): ${errMsg.slice(0, 150)}`
-      );
+      console.warn(`[Gemini Engine] Model ${model} error (status: ${errStatus}, code: ${errCode}): ${errMsg.slice(0, 150)}`);
+      if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('apiKey is invalid') || errMsg.includes('API key not valid')) throw err;
+      console.log(`[Gemini Engine] Falling back to next model...`);
+    }
+  }
+  throw new Error(`All Gemini models exhausted. Last error: ${lastError?.message || lastError}`);
+}
 
-      // Check if fatal auth error (e.g. invalid API key)
-      const isFatalAuth =
-        errMsg.includes('API_KEY_INVALID') ||
-        errMsg.includes('apiKey is invalid') ||
-        errMsg.includes('API key not valid');
+// ─── Firebase Token Verification (Lightweight, no Admin SDK) ─────────────────
 
-      if (isFatalAuth) {
-        throw err;
-      }
+const FIREBASE_PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID || '';
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
 
-      // For all recoverable conditions (503, 429, 404, 500, UNAVAILABLE, high demand, timeouts), proceed to next model in ladder
-      console.log(`[Gemini Engine] Falling back to next available model in resilience ladder...`);
+const firebaseClient = jwksClient({
+  jwksUri: `https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com`,
+  cache: true,
+  rateLimit: true,
+  jwksRequestsPerMinute: 10,
+});
+
+function getFirebasePublicKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
+  firebaseClient.getSigningKey(header.kid, (err, key) => {
+    if (err) return callback(err);
+    callback(null, key?.getPublicKey());
+  });
+}
+
+interface AuthenticatedRequest extends Request {
+  auth?: {
+    uid: string;
+    email?: string;
+    emailVerified?: boolean;
+  };
+}
+
+function verifyFirebaseToken(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Missing or invalid Authorization header' });
+    return;
+  }
+  const token = authHeader.slice(7);
+  jwt.verify(token, getFirebasePublicKey, {
+    algorithms: ['RS256'],
+    issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+    audience: FIREBASE_PROJECT_ID,
+  }, (err, decoded) => {
+    if (err || !decoded) {
+      res.status(401).json({ error: 'Invalid or expired token' });
+      return;
+    }
+    req.auth = {
+      uid: decoded.sub as string,
+      email: (decoded as any).email as string | undefined,
+      emailVerified: (decoded as any).email_verified as boolean | undefined,
+    };
+    next();
+  });
+}
+
+function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  if (!req.auth) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+  if (ADMIN_EMAILS.includes(req.auth.email || '')) {
+    next();
+    return;
+  }
+  res.status(403).json({ error: 'Admin access required' });
+}
+
+// ─── Notification Service (Slack & Discord Webhooks) ─────────────────────────
+
+class NotificationService {
+  static async sendSlack(webhookUrl: string, title: string, summary: string, mode: string): Promise<boolean> {
+    try {
+      const resp = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blocks: [
+            {
+              type: 'header',
+              text: { type: 'plain_text', text: `Journal Reflection: ${title}`, emoji: true },
+            },
+            {
+              type: 'section',
+              text: { type: 'mrkdwn', text: `*Mode:* ${mode}\n*Summary:* ${summary}` },
+            },
+          ],
+          text: `New journal entry: ${title} — ${summary}`,
+        }),
+      });
+      return resp.ok;
+    } catch {
+      return false;
     }
   }
 
-  throw new Error(`All Gemini models in fallback ladder exhausted. Last error: ${lastError?.message || lastError}`);
+  static async sendDiscord(webhookUrl: string, title: string, summary: string, mode: string): Promise<boolean> {
+    try {
+      const resp = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          embeds: [
+            {
+              title: `Journal Reflection: ${title}`,
+              description: summary,
+              color: 0xf59e0b,
+              fields: [
+                { name: 'Mode', value: mode, inline: true },
+              ],
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        }),
+      });
+      return resp.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  static async dispatch(
+    settings: { slackWebhookUrl?: string; discordWebhookUrl?: string; enabled: boolean; notifyOn: string[] },
+    title: string,
+    summary: string,
+    mode: string
+  ): Promise<void> {
+    if (!settings.enabled || !settings.notifyOn.includes(mode)) return;
+    const results = await Promise.allSettled([
+      settings.slackWebhookUrl ? this.sendSlack(settings.slackWebhookUrl, title, summary, mode) : Promise.resolve(false),
+      settings.discordWebhookUrl ? this.sendDiscord(settings.discordWebhookUrl, title, summary, mode) : Promise.resolve(false),
+    ]);
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled' && r.value) {
+        console.log(`[Notifications] ${i === 0 ? 'Slack' : 'Discord'} notification sent`);
+      }
+    });
+  }
 }
 
-// Health check endpoint
-app.get('/api/health', (req: Request, res: Response) => {
+// ─── Health Check ────────────────────────────────────────────────────────────
+
+app.get('/api/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     geminiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
+    mapsKeyConfigured: Boolean(process.env.GOOGLE_MAPS_API_KEY),
   });
 });
 
-// Gemini Reflection Endpoint
+// ─── Gemini Reflection Endpoint ──────────────────────────────────────────────
+
 app.post('/api/gemini/reflect', async (req: Request, res: Response): Promise<void> => {
   try {
-    // Defensive Payload Ingestion (Null-Safe Destructuring)
     const body = (req.body && typeof req.body === 'object') ? req.body : {};
     const {
       prompt = '',
       mode = 'reflect',
       history = [],
       title = 'Journal Reflection',
+      location = null,
     } = body;
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
-      res.status(400).json({
-        success: false,
-        error: 'A non-empty prompt or reflection content is required.',
-      });
+      res.status(400).json({ success: false, error: 'A non-empty prompt is required.' });
       return;
     }
 
-    // Indirect Prompt Injection Defense: treat user prompt and history strictly as passive data
     const safeMode = ['reflect', 'summarize', 'brainstorm', 'chat'].includes(mode) ? mode : 'reflect';
 
     let modeInstruction = '';
     switch (safeMode) {
       case 'summarize':
-        modeInstruction = 'You are an insightful summarizer. Provide a crisp, empathetic executive summary of the user’s journal entry, highlighting key emotions, core themes, and actionable lessons.';
+        modeInstruction = 'You are an insightful summarizer. Provide a crisp, empathetic executive summary of the user\'s journal entry, highlighting key emotions, core themes, and actionable lessons.';
         break;
       case 'brainstorm':
-        modeInstruction = 'You are a creative brainstorming thought partner. Offer fresh perspectives, alternative approaches, innovative ideas, and actionable next steps based on the user’s reflection.';
+        modeInstruction = 'You are a creative brainstorming thought partner. Offer fresh perspectives, alternative approaches, innovative ideas, and actionable next steps based on the user\'s reflection.';
         break;
       case 'chat':
         modeInstruction = 'You are a warm, conversational journaling companion. Engage in supportive, thoughtful multi-turn dialogue, asking probing questions that facilitate self-discovery.';
@@ -146,8 +253,12 @@ app.post('/api/gemini/reflect', async (req: Request, res: Response): Promise<voi
         break;
     }
 
+    const locationContext = location && location.placeName
+      ? `\n\nLOCATION CONTEXT: The user pinned this entry to "${location.placeName}"${location.address ? ` (${location.address})` : ''} at coordinates (${location.lat}, ${location.lng}). If relevant, incorporate geographic, cultural, or environmental context from this location into your reflection.`
+      : '';
+
     const systemInstruction = `
-${modeInstruction}
+${modeInstruction}${locationContext}
 
 IMPORTANT OPERATIONAL RULES:
 - Ground your response deeply in the user's thoughts and emotions.
@@ -160,29 +271,23 @@ TAGS: <3 to 5 comma-separated tags, e.g., Mindfulness, Career, Growth, Resilienc
 Do not include any text after ---END_METADATA---.
 `.trim();
 
-    // Prepare contents array for multi-turn conversation context
     const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
-
     if (Array.isArray(history) && history.length > 0) {
       for (const item of history) {
         if (item && typeof item === 'object' && item.content && (item.role === 'user' || item.role === 'model')) {
-          contents.push({
-            role: item.role,
-            parts: [{ text: String(item.content) }],
-          });
+          contents.push({ role: item.role, parts: [{ text: String(item.content) }] });
         }
       }
     }
 
-    // Add current user prompt
+    const locationTag = location?.placeName ? ` [Location: ${location.placeName}]` : '';
     contents.push({
       role: 'user',
-      parts: [{ text: `Entry Title: ${String(title || 'Untitled')}\n\nUser Input:\n${prompt}` }],
+      parts: [{ text: `Entry Title: ${String(title || 'Untitled')}${locationTag}\n\nUser Input:\n${prompt}` }],
     });
 
     const { text, modelUsed } = await generateContentWithFallback(contents, systemInstruction, 0.7);
 
-    // Parse out the structured metadata if present
     let reply = text;
     let summary = 'A thoughtful reflection on personal experiences and insights.';
     let tags: string[] = ['Reflection', 'Personal Growth'];
@@ -192,35 +297,379 @@ Do not include any text after ---END_METADATA---.
       reply = text.replace(/---METADATA---[\s\S]*?---END_METADATA---/, '').trim();
       const metaContent = metadataMatch[1];
       const summaryMatch = metaContent.match(/SUMMARY:\s*(.+)/i);
-      if (summaryMatch && summaryMatch[1]) {
-        summary = summaryMatch[1].trim();
-      }
+      if (summaryMatch?.[1]) summary = summaryMatch[1].trim();
       const tagsMatch = metaContent.match(/TAGS:\s*(.+)/i);
-      if (tagsMatch && tagsMatch[1]) {
-        tags = tagsMatch[1]
-          .split(',')
-          .map((t) => t.trim())
-          .filter((t) => t.length > 0);
+      if (tagsMatch?.[1]) {
+        tags = tagsMatch[1].split(',').map((t) => t.trim()).filter((t) => t.length > 0);
       }
     }
 
-    res.json({
-      success: true,
-      reply,
-      summary,
-      tags,
-      modelUsed,
-    });
+    res.json({ success: true, reply, summary, tags, modelUsed });
   } catch (error: any) {
     console.error('Gemini Reflection API error:', error);
-    res.status(500).json({
-      success: false,
-      error: error?.message || 'Failed to generate reflection with Gemini',
-    });
+    res.status(500).json({ success: false, error: error?.message || 'Failed to generate reflection' });
   }
 });
 
-// Vite middleware & Static Serving
+// ─── Google Places Autocomplete Proxy ────────────────────────────────────────
+
+app.post('/api/google/places/autocomplete', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      res.status(500).json({ error: 'GOOGLE_MAPS_API_KEY not configured on server' });
+      return;
+    }
+    const { input, sessiontoken } = req.body;
+    if (!input || typeof input !== 'string' || input.trim().length < 2) {
+      res.status(400).json({ error: 'Input must be at least 2 characters' });
+      return;
+    }
+
+    const params = new URLSearchParams({
+      input: input.trim(),
+      key: apiKey,
+      types: 'geocode|establishment',
+      ...(sessiontoken ? { sessiontoken } : {}),
+    });
+
+    const resp = await fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`);
+    const data = await resp.json();
+
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      console.warn('[Places API]', data.status, data.error_message);
+    }
+
+    const suggestions = (data.predictions || []).map((p: any) => ({
+      placeId: p.place_id,
+      description: p.description,
+      mainText: p.structured_formatting?.main_text || '',
+      secondaryText: p.structured_formatting?.secondary_text || '',
+    }));
+
+    res.json({ suggestions, status: data.status });
+  } catch (error: any) {
+    console.error('Places autocomplete error:', error);
+    res.status(500).json({ error: error?.message || 'Places API request failed' });
+  }
+});
+
+app.post('/api/google/places/details', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      res.status(500).json({ error: 'GOOGLE_MAPS_API_KEY not configured' });
+      return;
+    }
+    const { placeId } = req.body;
+    if (!placeId) {
+      res.status(400).json({ error: 'placeId is required' });
+      return;
+    }
+
+    const params = new URLSearchParams({
+      place_id: placeId,
+      fields: 'geometry/location,formatted_address,name',
+      key: apiKey,
+    });
+
+    const resp = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?${params}`);
+    const data = await resp.json();
+
+    if (data.status !== 'OK') {
+      res.status(404).json({ error: 'Place details not found' });
+      return;
+    }
+
+    const result = data.result;
+    res.json({
+      lat: result.geometry?.location?.lat,
+      lng: result.geometry?.location?.lng,
+      placeName: result.name || '',
+      address: result.formatted_address || '',
+    });
+  } catch (error: any) {
+    console.error('Place details error:', error);
+    res.status(500).json({ error: error?.message || 'Place details request failed' });
+  }
+});
+
+// ─── Admin Endpoints ─────────────────────────────────────────────────────────
+
+app.get('/api/admin/users', verifyFirebaseToken, requireAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const adminEmail = req.auth?.email;
+    const isAdminViaEnv = ADMIN_EMAILS.includes(adminEmail || '');
+    const adminUid = req.auth?.uid;
+
+    const users: any[] = [];
+
+    // List all users from Firestore using REST API
+    const projectId = FIREBASE_PROJECT_ID;
+    const authToken = req.headers.authorization?.slice(7);
+
+    if (!authToken) {
+      res.status(401).json({ error: 'Valid auth token required' });
+      return;
+    }
+
+    // Query Firestore for all user documents
+    const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users`;
+    const fsResp = await fetch(firestoreUrl, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+
+    if (!fsResp.ok) {
+      // If we can't list all users (expected with user-level tokens), return limited info
+      res.json({
+        users: [{
+          uid: adminUid,
+          email: adminEmail,
+          role: 'admin',
+          interactionCount: 0,
+          lastActive: null,
+        }],
+        note: 'Full user listing requires Firebase Admin SDK. Role seeding via ADMIN_EMAILS is active.',
+      });
+      return;
+    }
+
+    const fsData = await fsResp.json();
+    for (const doc of fsData.documents || []) {
+      const nameParts = doc.name.split('/');
+      const uid = nameParts[nameParts.length - 1];
+      const fields = doc.fields || {};
+      users.push({
+        uid,
+        displayName: fields.displayName?.stringValue || null,
+        email: fields.email?.stringValue || null,
+        role: ADMIN_EMAILS.includes(fields.email?.stringValue || '') ? 'admin' : 'user',
+        interactionCount: 0,
+        lastActive: null,
+      });
+    }
+
+    res.json({ users });
+  } catch (error: any) {
+    console.error('Admin users error:', error);
+    res.status(500).json({ error: error?.message || 'Failed to fetch users' });
+  }
+});
+
+app.post('/api/admin/seed-role', verifyFirebaseToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const uid = req.auth?.uid;
+    const email = req.auth?.email;
+
+    if (!uid || !email) {
+      res.status(400).json({ error: 'Valid auth context required' });
+      return;
+    }
+
+    if (ADMIN_EMAILS.includes(email)) {
+      res.json({ isAdmin: true, email, uid });
+    } else {
+      res.json({ isAdmin: false, email, uid });
+    }
+  } catch (error: any) {
+    console.error('Role seed error:', error);
+    res.status(500).json({ error: error?.message || 'Failed to check role' });
+  }
+});
+
+app.post('/api/admin/roles', verifyFirebaseToken, requireAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { targetUid, role } = req.body;
+    if (!targetUid || !['admin', 'user'].includes(role)) {
+      res.status(400).json({ error: 'targetUid and valid role (admin/user) required' });
+      return;
+    }
+
+    // Write role document to Firestore via REST
+    const projectId = FIREBASE_PROJECT_ID;
+    const authToken = req.headers.authorization?.slice(7);
+    const docPath = `projects/${projectId}/databases/(default)/documents/roles/${targetUid}`;
+
+    const fsResp = await fetch(
+      `https://firestore.googleapis.com/v1/${docPath}?currentDocument.exists=true`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fields: {
+            role: { stringValue: role },
+            assignedBy: { stringValue: req.auth?.uid || '' },
+            assignedAt: { timestampValue: new Date().toISOString() },
+          },
+        }),
+      }
+    );
+
+    // If doc doesn't exist, create it
+    if (!fsResp.ok) {
+      const createResp = await fetch(
+        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/roles?documentId=${targetUid}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            fields: {
+              role: { stringValue: role },
+              assignedBy: { stringValue: req.auth?.uid || '' },
+              assignedAt: { timestampValue: new Date().toISOString() },
+            },
+          }),
+        }
+      );
+      if (!createResp.ok) {
+        res.status(500).json({ error: 'Failed to create role document' });
+        return;
+      }
+    }
+
+    res.json({ success: true, targetUid, role });
+  } catch (error: any) {
+    console.error('Role assignment error:', error);
+    res.status(500).json({ error: error?.message || 'Failed to assign role' });
+  }
+});
+
+// ─── Notification Endpoints ──────────────────────────────────────────────────
+
+app.get('/api/notifications/settings', verifyFirebaseToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const uid = req.auth?.uid;
+    if (!uid) { res.status(401).json({ error: 'Auth required' }); return; }
+
+    const projectId = FIREBASE_PROJECT_ID;
+    const authToken = req.headers.authorization?.slice(7);
+    const docPath = `projects/${projectId}/databases/(default)/documents/${uid}/settings/notifications`;
+
+    const fsResp = await fetch(
+      `https://firestore.googleapis.com/v1/${docPath}`,
+      { headers: { Authorization: `Bearer ${authToken}` } }
+    );
+
+    if (!fsResp.ok) {
+      res.json({ enabled: false, notifyOn: ['reflect', 'summarize', 'brainstorm', 'chat'] });
+      return;
+    }
+
+    const data = await fsResp.json();
+    const fields = data.fields || {};
+    res.json({
+      slackWebhookUrl: fields.slackWebhookUrl?.stringValue || '',
+      discordWebhookUrl: fields.discordWebhookUrl?.stringValue || '',
+      enabled: fields.enabled?.booleanValue || false,
+      notifyOn: (fields.notifyOn?.arrayValue?.values || []).map((v: any) => v.stringValue),
+    });
+  } catch (error: any) {
+    console.error('Get notification settings error:', error);
+    res.status(500).json({ error: error?.message || 'Failed to get settings' });
+  }
+});
+
+app.put('/api/notifications/settings', verifyFirebaseToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const uid = req.auth?.uid;
+    if (!uid) { res.status(401).json({ error: 'Auth required' }); return; }
+
+    const { slackWebhookUrl, discordWebhookUrl, enabled, notifyOn } = req.body;
+    const projectId = FIREBASE_PROJECT_ID;
+    const authToken = req.headers.authorization?.slice(7);
+
+    // Ensure parent document exists
+    const parentPath = `projects/${projectId}/databases/(default)/documents/${uid}`;
+    await fetch(
+      `https://firestore.googleapis.com/v1/${parentPath}`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: { createdAt: { timestampValue: new Date().toISOString() } } }),
+      }
+    );
+
+    const settingsPath = `projects/${projectId}/databases/(default)/documents/${uid}/settings/notifications`;
+    const fsResp = await fetch(
+      `https://firestore.googleapis.com/v1/${settingsPath}?currentDocument.exists=true`,
+      {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fields: {
+            slackWebhookUrl: { stringValue: slackWebhookUrl || '' },
+            discordWebhookUrl: { stringValue: discordWebhookUrl || '' },
+            enabled: { booleanValue: Boolean(enabled) },
+            notifyOn: {
+              arrayValue: {
+                values: (Array.isArray(notifyOn) ? notifyOn : ['reflect', 'summarize', 'brainstorm', 'chat']).map((v: string) => ({ stringValue: v })),
+              },
+            },
+          },
+        }),
+      }
+    );
+
+    if (!fsResp.ok) {
+      // Create new doc
+      await fetch(
+        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${uid}/settings?documentId=notifications`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fields: {
+              slackWebhookUrl: { stringValue: slackWebhookUrl || '' },
+              discordWebhookUrl: { stringValue: discordWebhookUrl || '' },
+              enabled: { booleanValue: Boolean(enabled) },
+              notifyOn: {
+                arrayValue: {
+                  values: (Array.isArray(notifyOn) ? notifyOn : ['reflect', 'summarize', 'brainstorm', 'chat']).map((v: string) => ({ stringValue: v })),
+                },
+              },
+            },
+          }),
+        }
+      );
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Save notification settings error:', error);
+    res.status(500).json({ error: error?.message || 'Failed to save settings' });
+  }
+});
+
+app.post('/api/notifications/test', verifyFirebaseToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { channel, webhookUrl } = req.body;
+    if (!channel || !webhookUrl) {
+      res.status(400).json({ error: 'channel (slack/discord) and webhookUrl required' });
+      return;
+    }
+
+    let sent = false;
+    if (channel === 'slack') {
+      sent = await NotificationService.sendSlack(webhookUrl, 'Test Notification', 'Your journal notification setup is working correctly!', 'reflect');
+    } else if (channel === 'discord') {
+      sent = await NotificationService.sendDiscord(webhookUrl, 'Test Notification', 'Your journal notification setup is working correctly!', 'reflect');
+    }
+
+    res.json({ success: sent, channel });
+  } catch (error: any) {
+    console.error('Test notification error:', error);
+    res.status(500).json({ error: error?.message || 'Failed to send test notification' });
+  }
+});
+
+// ─── Vite Middleware & Static Serving ────────────────────────────────────────
+
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

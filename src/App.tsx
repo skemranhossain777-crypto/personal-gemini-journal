@@ -13,6 +13,8 @@ import { AuthLanding } from './components/AuthLanding';
 import { HistorySidebar } from './components/HistorySidebar';
 import { JournalEditor } from './components/JournalEditor';
 import { ThreatModelModal } from './components/ThreatModelModal';
+import { AdminDashboard } from './components/AdminDashboard';
+import { NotificationSettingsModal } from './components/NotificationSettings';
 import { BookOpen, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -22,13 +24,38 @@ export default function App() {
   const [isInteractionsLoading, setIsInteractionsLoading] = useState(false);
   const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null);
   const [isThreatModalOpen, setIsThreatModalOpen] = useState(false);
+  const [isAdminDashboardOpen, setIsAdminDashboardOpen] = useState(false);
+  const [isNotificationSettingsOpen, setIsNotificationSettingsOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [authToken, setAuthToken] = useState<string>('');
   const [mobileTab, setMobileTab] = useState<'editor' | 'history'>('editor');
 
   // Monitor Firebase Auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       setIsAuthLoading(false);
+
+      if (user && !user.uid.startsWith('demo-')) {
+        try {
+          const token = await user.getIdToken();
+          setAuthToken(token);
+
+          // Check admin role via server
+          const resp = await fetch('/api/admin/seed-role', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            setIsAdmin(data.isAdmin === true);
+          }
+        } catch {
+          setIsAdmin(false);
+        }
+      } else {
+        setAuthToken('');
+        setIsAdmin(false);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -57,7 +84,6 @@ export default function App() {
     return () => unsubscribe();
   }, [currentUser?.uid]);
 
-  // Selected interaction reference
   const selectedInteraction =
     interactions.find((item) => item.id === selectedInteractionId) || null;
 
@@ -90,6 +116,8 @@ export default function App() {
     }
     setSelectedInteractionId(null);
     setInteractions([]);
+    setIsAdmin(false);
+    setAuthToken('');
   };
 
   const handleNewEntry = () => {
@@ -173,7 +201,10 @@ export default function App() {
         onSignOut={handleSignOut}
         onNewEntry={handleNewEntry}
         onOpenThreatModel={() => setIsThreatModalOpen(true)}
+        onOpenNotifications={() => setIsNotificationSettingsOpen(true)}
+        onOpenAdminDashboard={() => setIsAdminDashboardOpen(true)}
         onSignInGoogle={handleSignIn}
+        isAdmin={isAdmin}
       />
 
       {/* Mobile Tab Switcher */}
@@ -239,6 +270,25 @@ export default function App() {
         onClose={() => setIsThreatModalOpen(false)}
         userUid={currentUser.uid}
       />
+
+      {/* Admin Dashboard Modal */}
+      {isAdmin && authToken && (
+        <AdminDashboard
+          isOpen={isAdminDashboardOpen}
+          onClose={() => setIsAdminDashboardOpen(false)}
+          authToken={authToken}
+          adminEmail={currentUser.email || ''}
+        />
+      )}
+
+      {/* Notification Settings Modal */}
+      {authToken && (
+        <NotificationSettingsModal
+          isOpen={isNotificationSettingsOpen}
+          onClose={() => setIsNotificationSettingsOpen(false)}
+          authToken={authToken}
+        />
+      )}
     </div>
   );
 }

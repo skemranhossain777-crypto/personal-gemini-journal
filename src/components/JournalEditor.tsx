@@ -14,9 +14,11 @@ import {
   Tag,
   Copy,
   Check,
+  MapPin,
 } from 'lucide-react';
-import type { JournalInteraction, JournalMessage, ReflectionMode } from '../types';
+import type { JournalInteraction, JournalMessage, ReflectionMode, JournalLocation } from '../types';
 import { saveUserInteraction } from '../lib/firebase';
+import { LocationPicker } from './LocationPicker';
 
 interface JournalEditorProps {
   userId: string;
@@ -39,6 +41,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [location, setLocation] = useState<JournalLocation | null>(interaction?.location || null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -48,11 +51,13 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     if (interaction) {
       setTitle(interaction.title || '');
       setMode(interaction.mode || 'reflect');
+      setLocation(interaction.location || null);
       setSaveStatus('saved');
       setErrorMessage(null);
     } else {
       setTitle('');
       setMode('reflect');
+      setLocation(null);
       setInputBuffer('');
       setSaveStatus('idle');
       setErrorMessage(null);
@@ -118,6 +123,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           prompt: promptToSend,
           mode,
           title: activeTitle,
+          location,
           history: currentMessages.map((m) => ({ role: m.role, content: m.content })),
         }),
       });
@@ -148,6 +154,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         summary: data.summary || interaction?.summary,
         tags: data.tags || interaction?.tags || ['Reflection'],
         modelUsed: data.modelUsed || 'gemini-3.6-flash',
+        location: location || interaction?.location || undefined,
         createdAt: interaction?.createdAt || nowIso,
         updatedAt: nowIso,
       };
@@ -246,6 +253,17 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               </button>
             );
           })}
+        </div>
+
+        {/* Location Picker */}
+        <div className="flex items-center gap-3 pt-1">
+          <LocationPicker location={location} onLocationChange={setLocation} />
+          {location && (
+            <span className="text-[10px] text-[#666] flex items-center gap-1">
+              <MapPin className="h-2.5 w-2.5" />
+              Pinned to entry
+            </span>
+          )}
         </div>
       </div>
 
@@ -393,6 +411,16 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             <p className="text-xs text-[#D5D5DB] leading-relaxed italic">
               "{interaction.summary}"
             </p>
+            {/* Location tag in summary */}
+            {interaction.location && (
+              <div className="mt-2 flex items-center gap-1.5 text-[10px] text-[#888]">
+                <MapPin className="h-2.5 w-2.5 text-emerald-400" />
+                <span>{interaction.location.placeName}</span>
+                {interaction.location.address && (
+                  <span className="text-[#666]">— {interaction.location.address}</span>
+                )}
+              </div>
+            )}
             {interaction.tags && interaction.tags.length > 0 && (
               <div className="mt-3 flex items-center gap-1.5 flex-wrap">
                 <Tag className="h-3 w-3 text-amber-400" />

@@ -1,13 +1,17 @@
 import React from 'react';
-import { Sparkles, Shield, LogOut, Plus, User as UserIcon } from 'lucide-react';
+import { Sparkles, Shield, LogOut, Plus, User as UserIcon, Bell, LayoutDashboard } from 'lucide-react';
 import type { User } from 'firebase/auth';
+import { AdminBadge } from './AdminBadge';
 
 interface NavbarProps {
   user: User | null;
   onSignOut: () => void;
   onNewEntry: () => void;
   onOpenThreatModel: () => void;
+  onOpenNotifications?: () => void;
+  onOpenAdminDashboard?: () => void;
   onSignInGoogle?: () => void;
+  isAdmin?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -15,7 +19,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSignOut,
   onNewEntry,
   onOpenThreatModel,
+  onOpenNotifications,
+  onOpenAdminDashboard,
   onSignInGoogle,
+  isAdmin = false,
 }) => {
   const isDemo = user?.uid?.startsWith('demo-');
 
@@ -40,6 +47,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   Demo Workspace
                 </span>
               )}
+              {isAdmin && <AdminBadge />}
             </div>
             <p className="hidden text-xs text-[#888] md:block">
               {isDemo ? 'Exploring in local demo mode — connect Google to sync to Firestore' : 'Authenticated & User-Isolated Journaling'}
@@ -66,11 +74,37 @@ export const Navbar: React.FC<NavbarProps> = ({
             id="threat-model-btn"
             onClick={onOpenThreatModel}
             className="flex items-center gap-1.5 rounded-lg border border-[#262629] bg-[#161619] px-3 py-1.5 text-xs font-medium text-[#E0E0E0] hover:bg-[#1E1E22] hover:text-[#F1F1F1] hover:border-[#3A3A40] transition-colors"
-            title="Inspect 5 Threat Zones & Firestore Isolation"
+            title="Inspect 5+ Threat Zones & Firestore Isolation"
           >
             <Shield className="h-3.5 w-3.5 text-emerald-400" />
             <span className="hidden sm:inline">Security Posture</span>
           </button>
+
+          {/* Notification Settings (authenticated users) */}
+          {user && onOpenNotifications && (
+            <button
+              id="notification-settings-btn"
+              onClick={onOpenNotifications}
+              className="flex items-center gap-1.5 rounded-lg border border-[#262629] bg-[#161619] px-3 py-1.5 text-xs font-medium text-[#E0E0E0] hover:bg-[#1E1E22] hover:text-[#F1F1F1] hover:border-[#3A3A40] transition-colors"
+              title="Configure Slack & Discord notifications"
+            >
+              <Bell className="h-3.5 w-3.5 text-blue-400" />
+              <span className="hidden sm:inline">Alerts</span>
+            </button>
+          )}
+
+          {/* Admin Dashboard (admin-only) */}
+          {user && isAdmin && onOpenAdminDashboard && (
+            <button
+              id="admin-dashboard-btn"
+              onClick={onOpenAdminDashboard}
+              className="flex items-center gap-1.5 rounded-lg border border-amber-900/50 bg-amber-950/30 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-900/50 transition-colors"
+              title="Open Admin Dashboard"
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Admin</span>
+            </button>
+          )}
 
           {user && (
             <>
