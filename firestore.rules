@@ -1,25 +1,65 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    // Owner-scoped access for a doc whose {userId} segment equals the caller.
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // A message: { id, role, content, timestamp } with minimal type/size bounds.
+    function isMessage(m) {
+      return m is map
+        && ('id' in m && m.id is string && m.id.size() <= 128)
+        && ('role' in m && m.role is string && (m.role == 'user' || m.role == 'model'))
+        && ('content' in m && m.content is string && m.content.size() <= 120000)
+        && ('timestamp' in m && m.timestamp is string && m.timestamp.size() <= 64);
+    }
+
+    // An interaction document shape with type safety + resource-use bounds.
+    function isValidInteraction(data) {
+      return data is map
+        && ('id' in data && data.id is string && data.id.size() <= 128)
+        && ('userId' in data && data.userId is string)
+        // author must be the owning UID — prevents cross-user attribution
+        && data.userId == request.auth.uid
+        && ('title' in data && data.title is string && data.title.size() <= 200)
+        && ('mode' in data && data.mode is string && data.mode.size() <= 24)
+        && ('messages' in data && data.messages is list
+            && data.messages.size() <= 200
+            && data.messages.all(m is map && isMessage(m)))
+        && ('createdAt' in data && data.createdAt is string)
+        && ('updatedAt' in data && data.updatedAt is string)
+        // optional summary / modelUsed bounded strings
+        && (!('summary' in data) || (data.summary is string && data.summary.size() <= 120000))
+        && (!('modelUsed' in data) || (data.modelUsed is string && data.modelUsed.size() <= 128));
+    }
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, create, update, delete: if isOwner(userId);
 
       match /interactions/{interactionId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidInteraction(request.resource.data);
+        allow delete: if isOwner(userId);
       }
 
       match /settings/{settingId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId);
       }
 
       match /{document=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isOwner(userId);
       }
     }
 
     match /roles/{uid} {
+      // Reads: owner can view their own role.
       allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if request.auth != null;
+      // Writes: DENIED for all clients. Role assignment is a privileged,
+      // server-only operation performed via the Firebase Admin SDK (bypasses
+      // rules). This blocks self-assigned-admin / privilege escalation.
+      allow create, update, delete: if false;
     }
   }
 }

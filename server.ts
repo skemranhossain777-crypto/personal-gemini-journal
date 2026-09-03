@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 import jwt from 'jsonwebtoken';
+import admin from 'firebase-admin';
 
 // Load env from .env and .env.local (local dev config). Cloud Run / AI Studio
 // inject secrets directly into the process environment, taking precedence.
@@ -96,6 +97,39 @@ async function generateContentWithFallback(
 
 const FIREBASE_PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID || '';
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
+
+// ─── Firebase Admin SDK (privileged server writes) ───────────────────────────
+// Used for /roles so role assignment is a server-authorized action that bypasses
+// client security rules (which deny all client-side role writes). The service
+// account key is loaded from FIREBASE_SERVICE_ACCOUNT_PATH / GOOGLE_APPLICATION_CREDENTIALS,
+// defaulting to the local ./sa-keys/firebase-admin.json (never committed).
+let adminAppPromise: Promise<admin.app.App> | null = null;
+function getAdminApp(): Promise<admin.app.App> {
+  if (admin.apps.length) return Promise.resolve(admin.app());
+  if (!adminAppPromise) {
+    adminAppPromise = (async () => {
+      const credPath =
+        process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
+        process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+        path.join(process.cwd(), 'sa-keys', 'firebase-admin.json');
+      let credentials: any;
+      try {
+        const raw = await import('fs').then((fs) => fs.promises.readFile(credPath, 'utf8'));
+        credentials = JSON.parse(raw);
+      } catch {
+        credentials = undefined;
+      }
+      return admin.initializeApp(
+        credentials
+          ? { credential: admin.credential.cert(credentials), projectId: credentials.projectId || FIREBASE_PROJECT_ID }
+          : { projectId: FIREBASE_PROJECT_ID },
+        `journal-${process.pid}`
+      );
+    })();
+  }
+  return adminAppPromise;
+}
+const getAdminFirestore = () => getAdminApp().then((a) => a.firestore());
 
 // Cache of { kid -> PEM public key }
 let cachedKeys: Record<string, string> | null = null;
@@ -552,53 +586,15 @@ app.post('/api/admin/roles', verifyFirebaseToken, requireAdmin, async (req: Auth
       return;
     }
 
-    // Write role document to Firestore via REST
-    const projectId = FIREBASE_PROJECT_ID;
-    const authToken = req.headers.authorization?.slice(7);
-    const docPath = `projects/${projectId}/databases/(default)/documents/roles/${targetUid}`;
-
-    const fsResp = await fetch(
-      `https://firestore.googleapis.com/v1/${docPath}?currentDocument.exists=true`,
-      {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fields: {
-            role: { stringValue: role },
-            assignedBy: { stringValue: req.auth?.uid || '' },
-            assignedAt: { timestampValue: new Date().toISOString() },
-          },
-        }),
-      }
-    );
-
-    // If doc doesn't exist, create it
-    if (!fsResp.ok) {
-      const createResp = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/roles?documentId=${targetUid}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${authToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            fields: {
-              role: { stringValue: role },
-              assignedBy: { stringValue: req.auth?.uid || '' },
-              assignedAt: { timestampValue: new Date().toISOString() },
-            },
-          }),
-        }
-      );
-      if (!createResp.ok) {
-        res.status(500).json({ error: 'Failed to create role document' });
-        return;
-      }
-    }
+    // Write role document via Firebase Admin SDK (server-authorized, bypasses
+    // client security rules which deny all client-side /roles writes). The route
+    // is already gated by requireAdmin above, so only allow-listed admins reach this.
+    const fs = await getAdminFirestore();
+    await fs.collection('roles').doc(targetUid).set({
+      role,
+      assignedBy: req.auth?.uid || '',
+      assignedAt: new Date(),
+    }, { merge: true });
 
     res.json({ success: true, targetUid, role });
   } catch (error: any) {
