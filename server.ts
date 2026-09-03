@@ -25,12 +25,18 @@ function getGenAI(): GoogleGenAI {
 }
 
 // Model Fallback Ladder
+// Order = preference. Prefer the newest stable dated Gemini 3.x Flash first
+// (reliable, no alias contention), then lighter/fallback tiers.
+// `gemini-flash-latest` is the most contended alias and frequently 503s under
+// high demand, so it lives mid-ladder, not first. Model names verified as of
+// 2026-09: gemini-3.7-flash (stable), gemini-3.6-flash, gemini-3.5-flash,
+// gemini-3.1-flash-lite. There is no gemini-3.8-flash.
 const MODEL_FALLBACK_LADDER = [
-  'gemini-flash-latest',
-  'gemini-3.6-flash',
-  'gemini-3.1-flash-lite',
-  'gemini-3.8-flash',
   'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-flash-latest',
+  'gemini-3.1-flash-lite',
 ];
 
 async function generateContentWithFallback(
