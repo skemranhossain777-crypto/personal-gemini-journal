@@ -46,32 +46,44 @@ async function generateContentWithFallback(
 ): Promise<{ text: string; modelUsed: string }> {
   const ai = getGenAI();
   let lastError: any = null;
+  const REQUEST_TIMEOUT_MS = 30000; // frontier models do heavy reasoning; 18s was too tight
+  const MAX_ATTEMPTS = 2; // retry transient 503 "high demand" responses before falling back
 
   for (const model of MODEL_FALLBACK_LADDER) {
-    try {
-      console.log(`[Gemini Engine] Attempting generation with model: ${model}`);
-      const generatePromise = ai.models.generateContent({
-        model,
-        contents,
-        config: { systemInstruction, temperature },
-      });
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error(`Model ${model} request timed out after 18s`)), 18000)
-      );
-      const response = await Promise.race([generatePromise, timeoutPromise]);
-      const text = response.text || '';
-      if (text.trim()) {
-        console.log(`[Gemini Engine] Generation successful with model: ${model}`);
-        return { text, modelUsed: model };
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        console.log(`[Gemini Engine] Attempting generation with model: ${model} (attempt ${attempt}/${MAX_ATTEMPTS})`);
+        const generatePromise = ai.models.generateContent({
+          model,
+          contents,
+          config: { systemInstruction, temperature },
+        });
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Model ${model} request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`)), REQUEST_TIMEOUT_MS)
+        );
+        const response = await Promise.race([generatePromise, timeoutPromise]);
+        const text = response.text || '';
+        if (text.trim()) {
+          console.log(`[Gemini Engine] Generation successful with model: ${model}`);
+          return { text, modelUsed: model };
+        }
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = err?.message || String(err);
+        const errStatus = err?.status || err?.error?.status || '';
+        const errCode = err?.statusCode || err?.error?.code || '';
+        const isTransient503 = errStatus === 503 || errCode === 503 || errMsg.includes('high demand');
+        console.warn(`[Gemini Engine] Model ${model} error (status: ${errStatus}, code: ${errCode}): ${errMsg.slice(0, 150)}`);
+        if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('apiKey is invalid') || errMsg.includes('API key not valid')) throw err;
+        // Retry this same model once on transient capacity spikes; otherwise move on
+        if (isTransient503 && attempt < MAX_ATTEMPTS) {
+          console.log(`[Gemini Engine] Transient 503 on ${model}, retrying (attempt ${attempt + 1})...`);
+          await new Promise((r) => setTimeout(r, 250));
+          continue;
+        }
+        console.log(`[Gemini Engine] Falling back to next model...`);
+        break;
       }
-    } catch (err: any) {
-      lastError = err;
-      const errMsg = err?.message || String(err);
-      const errStatus = err?.status || err?.error?.status || '';
-      const errCode = err?.statusCode || err?.error?.code || '';
-      console.warn(`[Gemini Engine] Model ${model} error (status: ${errStatus}, code: ${errCode}): ${errMsg.slice(0, 150)}`);
-      if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('apiKey is invalid') || errMsg.includes('API key not valid')) throw err;
-      console.log(`[Gemini Engine] Falling back to next model...`);
     }
   }
   throw new Error(`All Gemini models exhausted. Last error: ${lastError?.message || lastError}`);
