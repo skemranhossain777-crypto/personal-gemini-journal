@@ -10,7 +10,7 @@
  */
 
 import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
+import type { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import http from 'http';
 
 // ─── Mock Data Stores ────────────────────────────────────────────────────────
@@ -23,13 +23,13 @@ let APP_BASE_URL = '';
 
 // ─── Mock Auth Middleware (bypasses real JWT, reads base64-encoded JSON) ──────
 
-interface MockAuthRequest extends Request {
+interface MockAuthRequest extends ExpressRequest {
   auth?: { uid: string; email?: string; emailVerified?: boolean };
 }
 
 const ADMIN_EMAILS = (process.env.E2E_ADMIN_EMAILS || 'admin@test.com').split(',').map(e => e.trim());
 
-function mockVerifyToken(req: MockAuthRequest, res: Response, next: NextFunction): void {
+function mockVerifyToken(req: MockAuthRequest, res: ExpressResponse, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Missing or invalid Authorization header' });
@@ -53,7 +53,7 @@ function mockVerifyToken(req: MockAuthRequest, res: Response, next: NextFunction
   }
 }
 
-function mockRequireAdmin(req: MockAuthRequest, res: Response, next: NextFunction): void {
+function mockRequireAdmin(req: MockAuthRequest, res: ExpressResponse, next: NextFunction): void {
   if (!req.auth) {
     res.status(401).json({ error: 'Authentication required' });
     return;
@@ -176,12 +176,12 @@ function buildMockApp(): express.Express {
   const FIREBASE_PROJECT_ID = 'test-project';
 
   // Health
-  app.get('/api/health', (_req: Request, res: Response) => {
+  app.get('/api/health', (_req: ExpressRequest, res: ExpressResponse) => {
     res.json({ status: 'ok', geminiKeyConfigured: true, mapsKeyConfigured: false });
   });
 
   // Admin: seed-role (uses mock auth)
-  app.post('/api/admin/seed-role', mockVerifyToken, async (req: MockAuthRequest, res: Response) => {
+  app.post('/api/admin/seed-role', mockVerifyToken, async (req: MockAuthRequest, res: ExpressResponse) => {
     const uid = req.auth?.uid;
     const email = req.auth?.email;
     if (!uid || !email) { res.status(400).json({ error: 'Valid auth context required' }); return; }
@@ -193,7 +193,7 @@ function buildMockApp(): express.Express {
   });
 
   // Admin: list users
-  app.get('/api/admin/users', mockVerifyToken, mockRequireAdmin, async (req: MockAuthRequest, res: Response) => {
+  app.get('/api/admin/users', mockVerifyToken, mockRequireAdmin, async (req: MockAuthRequest, res: ExpressResponse) => {
     try {
       const authToken = req.headers.authorization?.slice(7);
       const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users`;
@@ -223,7 +223,7 @@ function buildMockApp(): express.Express {
   });
 
   // Admin: assign role
-  app.post('/api/admin/roles', mockVerifyToken, mockRequireAdmin, async (req: MockAuthRequest, res: Response) => {
+  app.post('/api/admin/roles', mockVerifyToken, mockRequireAdmin, async (req: MockAuthRequest, res: ExpressResponse) => {
     try {
       const { targetUid, role } = req.body;
       if (!targetUid || !['admin', 'user'].includes(role)) {
@@ -270,7 +270,7 @@ function buildMockApp(): express.Express {
   });
 
   // Notifications: get settings
-  app.get('/api/notifications/settings', mockVerifyToken, async (req: MockAuthRequest, res: Response) => {
+  app.get('/api/notifications/settings', mockVerifyToken, async (req: MockAuthRequest, res: ExpressResponse) => {
     try {
       const uid = req.auth?.uid;
       if (!uid) { res.status(401).json({ error: 'Auth required' }); return; }
@@ -295,7 +295,7 @@ function buildMockApp(): express.Express {
   });
 
   // Notifications: save settings
-  app.put('/api/notifications/settings', mockVerifyToken, async (req: MockAuthRequest, res: Response) => {
+  app.put('/api/notifications/settings', mockVerifyToken, async (req: MockAuthRequest, res: ExpressResponse) => {
     try {
       const uid = req.auth?.uid;
       if (!uid) { res.status(401).json({ error: 'Auth required' }); return; }
@@ -361,7 +361,7 @@ function buildMockApp(): express.Express {
   });
 
   // Notifications: test dispatch
-  app.post('/api/notifications/test', mockVerifyToken, async (req: MockAuthRequest, res: Response) => {
+  app.post('/api/notifications/test', mockVerifyToken, async (req: MockAuthRequest, res: ExpressResponse) => {
     try {
       const { channel, webhookUrl } = req.body;
       if (!channel || !webhookUrl) {

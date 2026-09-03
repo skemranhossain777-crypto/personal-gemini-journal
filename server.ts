@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 import jwt from 'jsonwebtoken';
-import jwksClient from 'jwks-client';
 
 // Load env from .env and .env.local (local dev config). Cloud Run / AI Studio
 // inject secrets directly into the process environment, taking precedence.
@@ -73,22 +72,35 @@ async function generateContentWithFallback(
 }
 
 // ─── Firebase Token Verification (Lightweight, no Admin SDK) ─────────────────
+// Fetches Google's public certificate (JWKS x509) once and caches it, then
+// verifies Firebase ID tokens with the RS256 algorithm using Node's crypto.
+// No fragile ESM/CJS dependencies — works in both dev and the bundled prod server.
 
 const FIREBASE_PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID || '';
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
 
-const firebaseClient = jwksClient({
-  jwksUri: `https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com`,
-  cache: true,
-  rateLimit: true,
-  jwksRequestsPerMinute: 10,
-});
+// Cache of { kid -> PEM public key }
+let cachedKeys: Record<string, string> | null = null;
+let keysCacheTime = 0;
+const KEYS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
-function getFirebasePublicKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
-  firebaseClient.getSigningKey(header.kid, (err, key) => {
-    if (err) return callback(err);
-    callback(null, key?.getPublicKey());
-  });
+async function getFirebasePublicKeys(): Promise<Record<string, string>> {
+  if (cachedKeys && Date.now() - keysCacheTime < KEYS_CACHE_TTL_MS) {
+    return cachedKeys;
+  }
+  const resp = await fetch(
+    'https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com'
+  );
+  if (!resp.ok) {
+    throw new Error('Failed to fetch Firebase public keys');
+  }
+  // Load PEM-format keys; normalize line endings for Node's crypto
+  const raw: Record<string, string> = await resp.json();
+  cachedKeys = Object.fromEntries(
+    Object.entries(raw).map(([kid, pem]) => [kid, pem.replace(/\\n/g, '\n')])
+  );
+  keysCacheTime = Date.now();
+  return cachedKeys;
 }
 
 interface AuthenticatedRequest extends Request {
@@ -99,29 +111,63 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-function verifyFirebaseToken(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+async function verifyFirebaseTokenAsync(req: AuthenticatedRequest, res: Response): Promise<boolean> {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Missing or invalid Authorization header' });
-    return;
+    return false;
   }
   const token = authHeader.slice(7);
-  jwt.verify(token, getFirebasePublicKey, {
-    algorithms: ['RS256'],
-    issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
-    audience: FIREBASE_PROJECT_ID,
-  }, (err, decoded) => {
-    if (err || !decoded) {
-      res.status(401).json({ error: 'Invalid or expired token' });
-      return;
+
+  // Decode header to find the key id (kid)
+  let header: any;
+  try {
+    header = jwt.decode(token, { complete: true })?.header;
+  } catch {
+    res.status(401).json({ error: 'Malformed token' });
+    return false;
+  }
+  if (!header || !header.kid) {
+    res.status(401).json({ error: 'Token missing key id' });
+    return false;
+  }
+
+  try {
+    const keys = await getFirebasePublicKeys();
+    const publicKey = keys[header.kid];
+    if (!publicKey) {
+      res.status(401).json({ error: 'Unknown signing key' });
+      return false;
     }
+
+    const decoded = jwt.verify(token, publicKey, {
+      algorithms: ['RS256'],
+      issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+      audience: FIREBASE_PROJECT_ID,
+    }) as any;
+
     req.auth = {
       uid: decoded.sub as string,
-      email: (decoded as any).email as string | undefined,
-      emailVerified: (decoded as any).email_verified as boolean | undefined,
+      email: decoded.email as string | undefined,
+      emailVerified: decoded.email_verified as boolean | undefined,
     };
-    next();
-  });
+    return true;
+  } catch (err: any) {
+    res.status(401).json({
+      error: err?.name === 'TokenExpiredError'
+        ? 'Token expired'
+        : `Invalid or expired token: ${err?.message || ''}`,
+    });
+    return false;
+  }
+}
+
+function verifyFirebaseToken(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  void (async () => {
+    if (await verifyFirebaseTokenAsync(req, res)) {
+      next();
+    }
+  })();
 }
 
 function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
