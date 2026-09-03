@@ -28,14 +28,18 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
         // Ignored
       } else if (err?.code === 'auth/popup-blocked') {
         setAuthError(
-          'The sign-in popup was blocked by your browser or iframe security policy. Please open the app in a new tab or use Instant Demo Mode.'
+          `The sign-in popup was blocked by your browser or iframe security policy. Please open the app in a new tab or use Instant Demo Mode. [${err.code}]`
         );
       } else if (err?.code === 'auth/unauthorized-domain') {
         setAuthError(
-          'This preview domain is pending authorization in Firebase Console. You can explore immediately using Instant Demo Mode or open in a new tab.'
+          `This domain is pending authorization in Firebase Console. You can explore immediately using Instant Demo Mode or open in a new tab. [${err.code}]`
         );
+      } else if (err?.code === 'auth/operation-not-allowed') {
+        setAuthError(`Google sign-in is currently unavailable for this Firebase project (provider not fully enabled). [${err.code}]`);
+      } else if (err?.code === 'auth/configuration-not-found') {
+        setAuthError(`Firebase Auth is not fully provisioned for this project (provider/API not enabled). [${err.code}]`);
       } else {
-        setAuthError(err?.message || 'Authentication failed. Please try again or use Instant Demo Mode.');
+        setAuthError(`${err?.message || 'Authentication failed. Please try again or use Instant Demo Mode.'} ${err?.code ? `[${err.code}]` : ''}`);
       }
     }
   };

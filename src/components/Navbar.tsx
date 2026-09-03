@@ -1,10 +1,10 @@
 import React from 'react';
 import { Sparkles, Shield, LogOut, Plus, User as UserIcon, Bell, LayoutDashboard } from 'lucide-react';
-import type { User } from 'firebase/auth';
+import type { SessionUser } from '../services/auth';
 import { AdminBadge } from './AdminBadge';
 
 interface NavbarProps {
-  user: User | null;
+  user: SessionUser | null;
   onSignOut: () => void;
   onNewEntry: () => void;
   onOpenThreatModel: () => void;

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { onAuthStateChanged, type User } from 'firebase/auth';
 import {
-  auth,
-  signInWithGoogle,
-  logOut,
+  authService,
+  type SessionUser,
+} from './services/auth';
+import {
   subscribeUserInteractions,
   deleteUserInteraction,
-} from './lib/firebase';
+} from './services/firestore';
+import { dataService } from './services/data';
+import { toast } from './services/toast';
+import { Toaster } from './components/Toaster';
 import type { JournalInteraction } from './types';
 import { Navbar } from './components/Navbar';
 import { AuthLanding } from './components/AuthLanding';
@@ -18,7 +21,7 @@ import { NotificationSettingsModal } from './components/NotificationSettings';
 import { BookOpen, Sparkles } from 'lucide-react';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [interactions, setInteractions] = useState<JournalInteraction[]>([]);
   const [isInteractionsLoading, setIsInteractionsLoading] = useState(false);
@@ -30,25 +33,34 @@ export default function App() {
   const [authToken, setAuthToken] = useState<string>('');
   const [mobileTab, setMobileTab] = useState<'editor' | 'history'>('editor');
 
-  // Monitor Firebase Auth state
+  // Monitor Firebase Auth state (observable pub/sub, skill Phase 3)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let cancelled = false;
+
+    // Instant hydration from the local-first cache while auth resolves.
+    const cachedUid = authService.currentUser?.uid;
+    if (cachedUid) dataService.markHydrated(cachedUid);
+
+    const unsubUser = authService.subscribe(async (user) => {
+      if (cancelled) return;
       setCurrentUser(user);
       setIsAuthLoading(false);
 
-      if (user && !user.uid.startsWith('demo-')) {
+      if (user && !user.isDemo) {
         try {
-          const token = await user.getIdToken();
-          setAuthToken(token);
-
-          // Check admin role via server
-          const resp = await fetch('/api/admin/seed-role', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (resp.ok) {
-            const data = await resp.json();
-            setIsAdmin(data.isAdmin === true);
+          const token = await authService.idToken;
+          if (token) {
+            setAuthToken(token);
+            // Check admin role via server
+            const resp = await fetch('/api/admin/seed-role', {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              setIsAdmin(data.isAdmin === true);
+            }
           }
+          if (user.source) dataService.markHydrated(user.uid);
         } catch {
           setIsAdmin(false);
         }
@@ -57,7 +69,18 @@ export default function App() {
         setIsAdmin(false);
       }
     });
-    return () => unsubscribe();
+
+    // Complete any in-progress redirect sign-in (fire-and-forget; the auth
+    // pub/sub will re-emit the authenticated user when it resolves).
+    authService.completeRedirectSignIn().catch((err) => {
+      console.error('Failed to complete redirect sign-in:', err);
+      setIsAuthLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+      unsubUser();
+    };
   }, []);
 
   // Subscribe to real-time user-isolated Firestore entries
@@ -69,10 +92,11 @@ export default function App() {
     }
 
     setIsInteractionsLoading(true);
-    const unsubscribe = subscribeUserInteractions(
+    const unsubData = subscribeUserInteractions(
       currentUser.uid,
       (list) => {
         setInteractions(list);
+        dataService.cacheInteractions(currentUser.uid, list);
         setIsInteractionsLoading(false);
       },
       (err) => {
@@ -81,7 +105,7 @@ export default function App() {
       }
     );
 
-    return () => unsubscribe();
+    return () => unsubData();
   }, [currentUser?.uid]);
 
   const selectedInteraction =
@@ -90,30 +114,31 @@ export default function App() {
   const handleSignIn = async () => {
     setIsAuthLoading(true);
     try {
-      await signInWithGoogle();
+      try {
+        await authService.signInWithGoogle('redirect');
+      } catch (e: any) {
+        // REDIRECT_IN_PROGRESS is the expected result of a redirect sign-in
+        // (the page reloads right after to complete the handshake).
+        if (e?.message !== 'REDIRECT_IN_PROGRESS') {
+          throw e;
+        }
+      }
+      if (authService.firebaseUser) {
+        await authService.completeRedirectSignIn();
+      }
     } finally {
       setIsAuthLoading(false);
     }
   };
 
   const handleDemoSignIn = () => {
-    const demoUser = {
-      uid: 'demo-local-user',
-      displayName: 'Guest Explorer',
-      email: 'guest@demo.local',
-      photoURL: null,
-      isAnonymous: true,
-      emailVerified: true,
-    } as unknown as User;
+    const demoUser = authService.signInAsDemo();
     setCurrentUser(demoUser);
   };
 
   const handleSignOut = async () => {
-    if (currentUser?.uid?.startsWith('demo-')) {
-      setCurrentUser(null);
-    } else {
-      await logOut();
-    }
+    await authService.signOut();
+    setCurrentUser(null);
     setSelectedInteractionId(null);
     setInteractions([]);
     setIsAdmin(false);
@@ -141,9 +166,10 @@ export default function App() {
       if (selectedInteractionId === id) {
         setSelectedInteractionId(null);
       }
+      toast.success('Reflection deleted.');
     } catch (err) {
       console.error('Failed to delete interaction:', err);
-      alert('Could not delete interaction. Please try again.');
+      toast.error('Could not delete interaction. Please try again.');
     }
   };
 
@@ -188,6 +214,7 @@ export default function App() {
           isOpen={isThreatModalOpen}
           onClose={() => setIsThreatModalOpen(false)}
         />
+        <Toaster />
       </div>
     );
   }
@@ -289,6 +316,8 @@ export default function App() {
           authToken={authToken}
         />
       )}
+
+      <Toaster />
     </div>
   );
 }

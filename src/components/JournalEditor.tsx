@@ -17,7 +17,8 @@ import {
   MapPin,
 } from 'lucide-react';
 import type { JournalInteraction, JournalMessage, ReflectionMode, JournalLocation } from '../types';
-import { saveUserInteraction } from '../lib/firebase';
+import { saveUserInteraction } from '../services/firestore';
+import { reflect as callReflect } from '../services/ai';
 import { LocationPicker } from './LocationPicker';
 
 interface JournalEditorProps {
@@ -115,24 +116,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     const optimisticMessages = [...currentMessages, userMessage];
 
     try {
-      // 1. Call Gemini Server API
-      const response = await fetch('/api/gemini/reflect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: promptToSend,
-          mode,
-          title: activeTitle,
-          location,
-          history: currentMessages.map((m) => ({ role: m.role, content: m.content })),
-        }),
+      // 1. Call Gemini Server API (via the AI service, skill Phase 5)
+      const data = await callReflect({
+        prompt: promptToSend,
+        mode,
+        title: activeTitle,
+        location,
+        history: currentMessages.map((m) => ({ role: m.role, content: m.content })),
       });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Server returned an error generating reflection.');
-      }
 
       // 2. Formulate model response message
       const modelMessage: JournalMessage = {
