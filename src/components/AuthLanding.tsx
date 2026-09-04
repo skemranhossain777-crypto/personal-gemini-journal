@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Sparkles, ShieldCheck, BookOpen, Brain, Lock, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Sparkles, ShieldCheck, BookOpen, Brain, Lock, ArrowRight } from 'lucide-react';
+import { fadeUp, stagger } from '../lib/animations';
 
 interface AuthLandingProps {
   onSignIn: () => Promise<void>;
@@ -7,6 +9,30 @@ interface AuthLandingProps {
   isLoading: boolean;
   onOpenThreatModel: () => void;
 }
+
+const features = [
+  {
+    icon: Brain,
+    iconColor: 'text-amber-400',
+    title: 'Gemini 3.x Flash Intelligence',
+    description:
+      'Provides empathetic reflections, creative brainstorming angles, and executive summaries with a 5-model automatic fallback ladder.',
+  },
+  {
+    icon: ShieldCheck,
+    iconColor: 'text-emerald-400',
+    title: 'Isolated Cloud Firestore',
+    description:
+      'Every journal entry is stored under your UID. Firestore Security Rules prevent other users from accessing your records.',
+  },
+  {
+    icon: BookOpen,
+    iconColor: 'text-blue-400',
+    title: 'Multi-Turn History',
+    description:
+      'Carry on deep, ongoing discussions or re-read past reflections at any time with full message history and tag categorization.',
+  },
+];
 
 export const AuthLanding: React.FC<AuthLandingProps> = ({
   onSignIn,
@@ -45,36 +71,54 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-12 bg-[#0A0A0B] text-[#E0E0E0]">
-      <div className="w-full max-w-4xl space-y-12">
+    <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center overflow-hidden bg-[#0A0A0B] px-4 py-12 text-[#E0E0E0]">
+      {/* Aurora background blobs */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="animate-aurora absolute -left-32 top-16 h-[420px] w-[420px] rounded-full bg-amber-500/10 blur-[120px]" />
+        <div className="animate-aurora-slow absolute -right-24 top-40 h-[380px] w-[380px] rounded-full bg-indigo-500/10 blur-[120px]" />
+        <div className="animate-aurora absolute bottom-0 left-1/3 h-[300px] w-[480px] rounded-full bg-emerald-500/[0.07] blur-[120px]" />
+      </div>
+
+      <motion.div
+        className="relative z-10 w-full max-w-4xl space-y-12"
+        initial="hidden"
+        animate="show"
+        variants={stagger(0.1, 0.05)}
+      >
         {/* Hero Section */}
-        <div className="text-center space-y-4 max-w-2xl mx-auto">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#262629] bg-[#161619] px-3.5 py-1 text-xs font-medium text-amber-400 shadow-sm">
+        <motion.div variants={fadeUp} className="mx-auto max-w-2xl space-y-4 text-center">
+          <motion.div
+            variants={fadeUp}
+            className="inline-flex items-center gap-2 rounded-full border border-[#262629] bg-[#161619] px-3.5 py-1 text-xs font-medium text-amber-400 shadow-sm"
+          >
             <Sparkles className="h-3.5 w-3.5 text-amber-400" />
             <span>AI-Guided Reflection & Thought Partner</span>
-          </div>
+          </motion.div>
 
-          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-[#F1F1F1] leading-tight">
+          <motion.h1
+            variants={fadeUp}
+            className="font-serif text-3xl font-bold leading-tight tracking-tight text-[#F1F1F1] sm:text-4xl lg:text-5xl"
+          >
             Reflect deeper, brainstorm ideas, and understand your journey.
-          </h1>
+          </motion.h1>
 
-          <p className="text-base sm:text-lg text-[#A0A0A5] leading-relaxed">
-            A private journaling sanctuary paired with Gemini 3.6 Flash. Write multi-turn reflections, receive thoughtful summaries, and keep your entries strictly isolated to your account.
-          </p>
+          <motion.p variants={fadeUp} className="text-base leading-relaxed text-[#A0A0A5] sm:text-lg">
+            A private journaling sanctuary paired with Gemini 3.x Flash. Write multi-turn reflections, receive thoughtful summaries, and keep your entries strictly isolated to your account.
+          </motion.p>
 
           {/* Authentication Action Box */}
-          <div className="pt-4 flex flex-col items-center justify-center gap-3">
+          <motion.div variants={fadeUp} className="flex flex-col items-center justify-center gap-3 pt-4">
             <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 id="google-signin-btn"
                 onClick={handleSignInClick}
                 disabled={isLoading}
-                className="flex items-center justify-center gap-3 rounded-xl bg-[#1A1A1C] border border-[#333338] px-6 py-3 text-sm font-medium text-[#F1F1F1] shadow-lg shadow-black/40 hover:bg-[#242428] hover:border-[#44444C] focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all active:scale-98 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-3 rounded-xl border border-[#333338] bg-[#1A1A1C] px-6 py-3 text-sm font-medium text-[#F1F1F1] shadow-lg shadow-black/40 transition-all hover:border-[#44444C] hover:bg-[#242428] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isLoading ? (
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 ) : (
-                  <svg className="h-5 w-5" viewBox="0 0 24 24">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
                     <path
                       fill="#4285F4"
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -100,7 +144,7 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
                 <button
                   id="instant-demo-btn"
                   onClick={onDemoSignIn}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-[#161619] border border-[#262629] px-5 py-3 text-sm font-medium text-[#A0A0A5] hover:text-[#F1F1F1] hover:bg-[#1E1E22] hover:border-[#3E3E44] transition-all active:scale-98"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-[#262629] bg-[#161619] px-5 py-3 text-sm font-medium text-[#A0A0A5] transition-all hover:border-[#3E3E44] hover:bg-[#1E1E22] hover:text-[#F1F1F1] active:scale-[0.98]"
                   title="Explore all reflection features instantly in demo workspace"
                 >
                   <Sparkles className="h-4 w-4 text-amber-400" />
@@ -110,90 +154,91 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
             </div>
 
             {authError && (
-              <div className="text-xs text-amber-300 bg-amber-950/40 border border-amber-900/60 rounded-xl p-3 max-w-md space-y-2 text-left">
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                role="alert"
+                className="max-w-md space-y-2 rounded-xl border border-amber-900/60 bg-amber-950/40 p-3 text-left text-xs text-amber-300"
+              >
                 <p className="font-medium text-amber-200">{authError}</p>
                 <div className="flex items-center gap-3 pt-1">
                   <a
                     href={window.location.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 underline text-amber-400 hover:text-amber-300 font-semibold"
+                    className="inline-flex items-center gap-1 font-semibold text-amber-400 underline hover:text-amber-300"
                   >
                     Open in New Tab &rarr;
                   </a>
                   {onDemoSignIn && (
                     <button
                       onClick={onDemoSignIn}
-                      className="inline-flex items-center gap-1 rounded bg-amber-900/40 px-2 py-0.5 text-[11px] text-amber-200 border border-amber-700/50 hover:bg-amber-800/50"
+                      className="inline-flex items-center gap-1 rounded border border-amber-700/50 bg-amber-900/40 px-2 py-0.5 text-[11px] text-amber-200 hover:bg-amber-800/50"
                     >
                       Continue in Demo Mode
                     </button>
                   )}
                 </div>
-              </div>
+              </motion.div>
             )}
 
             <p className="text-xs text-[#666]">
               No passwords stored. Federated Google authentication via Firebase Auth.
             </p>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Feature Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
-          <div className="rounded-2xl border border-[#262629] bg-[#121214] p-6 shadow-sm hover:border-[#3E3E44] transition-colors">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1A1A1C] border border-[#262629] text-amber-400 mb-4">
-              <Brain className="h-5 w-5" />
-            </div>
-            <h3 className="font-semibold text-[#F1F1F1] text-base mb-2">Gemini 3.6 Flash Intelligence</h3>
-            <p className="text-xs text-[#888] leading-relaxed">
-              Provides empathetic reflections, creative brainstorming angles, and executive summaries with automatic fallback resilience.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#262629] bg-[#121214] p-6 shadow-sm hover:border-[#3E3E44] transition-colors">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1A1A1C] border border-[#262629] text-emerald-400 mb-4">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <h3 className="font-semibold text-[#F1F1F1] text-base mb-2">Isolated Cloud Firestore</h3>
-            <p className="text-xs text-[#888] leading-relaxed">
-              Every journal entry is stored under your UID. Firestore Security Rules prevent other users from accessing your records.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#262629] bg-[#121214] p-6 shadow-sm hover:border-[#3E3E44] transition-colors">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1A1A1C] border border-[#262629] text-blue-400 mb-4">
-              <BookOpen className="h-5 w-5" />
-            </div>
-            <h3 className="font-semibold text-[#F1F1F1] text-base mb-2">Multi-Turn History</h3>
-            <p className="text-xs text-[#888] leading-relaxed">
-              Carry on deep, ongoing discussions or re-read past reflections at any time with full message history and tag categorization.
-            </p>
-          </div>
-        </div>
+        <motion.div
+          variants={stagger(0.12, 0.1)}
+          className="grid grid-cols-1 gap-6 pt-4 md:grid-cols-3"
+        >
+          {features.map((f) => {
+            const Icon = f.icon;
+            return (
+              <motion.div
+                key={f.title}
+                variants={fadeUp}
+                whileHover={{ y: -5, borderColor: '#3E3E44' }}
+                transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+                className="rounded-2xl border border-[#262629] bg-[#121214] p-6 shadow-sm"
+              >
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-[#262629] bg-[#1A1A1C]">
+                  <Icon className={`h-5 w-5 ${f.iconColor}`} />
+                </div>
+                <h3 className="mb-2 text-base font-semibold text-[#F1F1F1]">{f.title}</h3>
+                <p className="text-xs leading-relaxed text-[#888]">{f.description}</p>
+              </motion.div>
+            );
+          })}
+        </motion.div>
 
         {/* Privacy & Threat Model Banner */}
-        <div className="rounded-2xl border border-[#262629] bg-[#121214] p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <motion.div
+          variants={fadeUp}
+          className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-[#262629] bg-[#121214] p-6 sm:flex-row"
+        >
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1A1A1C] border border-[#262629] text-[#A0A0A5]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#262629] bg-[#1A1A1C] text-[#A0A0A5]">
               <Lock className="h-4 w-4" />
             </div>
             <div>
               <h4 className="text-sm font-semibold text-[#F1F1F1]">Zero Insecure Defaults</h4>
               <p className="text-xs text-[#888]">
-                Built to OWASP Top 10 standards with the 5 Threat Zones modeled and verified.
+                Built to OWASP Top 10 standards with the 8 Threat Zones modeled and verified.
               </p>
             </div>
           </div>
           <button
             onClick={onOpenThreatModel}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 hover:underline whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-amber-400 transition-colors hover:text-amber-300 hover:underline"
+            aria-label="Review the threat model"
           >
             <span>Review Threat Model</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import Markdown from 'react-markdown';
 import {
   Sparkles,
@@ -23,6 +24,9 @@ import { saveUserInteraction } from '../services/firestore';
 import { reflect as callReflect } from '../services/ai';
 import { toast } from '../services/toast';
 import { LocationPicker } from './LocationPicker';
+import { fadeUpSmall, stagger } from '../lib/animations';
+
+const MAX_CHARS = 12000;
 
 interface JournalEditorProps {
   userId: string;
@@ -56,7 +60,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
   // Model actually used by the server fallback ladder (accurate, not the
   // hardcoded promo name).
-  const activeModel = interaction?.modelUsed || 'gemini-3.6-flash';
+  const activeModel = interaction?.modelUsed || 'gemini-3.7-flash';
 
   // Debounced autosave for in-place title edits on existing entries. Skips when
   // unchanged so opening an entry never needs a write.
@@ -113,6 +117,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [interaction?.id, interaction?.messages?.length, isGenerating]);
+
+  // Auto-grow the composer textarea with content while capping its height.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight + 2, 220)}px`;
+  }, [inputBuffer]);
 
   // Quick prompt suggestions
   const promptSuggestions = [
@@ -251,7 +263,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         messages: updatedMessages,
         summary: data.summary || interaction?.summary,
         tags: data.tags || interaction?.tags || ['Reflection'],
-        modelUsed: data.modelUsed || 'gemini-3.6-flash',
+        modelUsed: data.modelUsed || 'gemini-3.7-flash',
         location: location || interaction?.location || undefined,
         createdAt: interaction?.createdAt || nowIso,
         updatedAt: nowIso,
@@ -307,7 +319,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             {saveStatus === 'saved' && (
               <span
                 id="firestore-saved-indicator"
-                className="flex items-center gap-1 text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded-md font-medium"
+                className="flex animate-pop-in items-center gap-1 rounded-md border border-emerald-800/40 bg-emerald-950/40 px-2 py-0.5 font-medium text-emerald-400"
                 title={`Saved to Firestore: /users/${userId}/interactions/${interaction?.id || ''}`}
               >
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
@@ -355,14 +367,24 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 key={tab.id}
                 id={`mode-tab-${tab.id}`}
                 onClick={() => setMode(tab.id as ReflectionMode)}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-medium transition-all whitespace-nowrap ${
+                aria-pressed={isActive}
+                className={`relative whitespace-nowrap rounded-lg border px-3 py-1.5 font-medium transition-colors ${
                   isActive
-                    ? 'bg-[#24242A] border border-[#3E3E44] text-[#F1F1F1] shadow-sm'
-                    : 'bg-[#161619] border border-[#262629] text-[#888] hover:text-[#E0E0E0] hover:bg-[#1C1C20]'
+                    ? 'text-[#F1F1F1]'
+                    : 'border-[#262629] bg-[#161619] text-[#888] hover:bg-[#1C1C20] hover:text-[#E0E0E0]'
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
-                <span>{tab.label}</span>
+                {isActive && (
+                  <motion.span
+                    layoutId="prompt-mode-pill"
+                    className="absolute inset-0 rounded-lg border border-[#3E3E44] bg-[#24242A] shadow-sm"
+                    transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-1.5">
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{tab.label}</span>
+                </span>
               </button>
             );
           })}
@@ -384,9 +406,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6 bg-[#0A0A0B]">
         {/* Error Escalation Banner */}
         {errorMessage && (
-          <div className="rounded-xl border border-red-900/50 bg-red-950/30 p-4 text-xs text-red-300 flex items-start justify-between gap-3 shadow-sm">
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            role="alert"
+            className="flex items-start justify-between gap-3 rounded-xl border border-red-900/50 bg-red-950/30 p-4 text-xs text-red-300 shadow-sm"
+          >
             <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
               <div>
                 <p className="font-semibold text-red-200">Transaction Notice</p>
                 <p className="mt-0.5 text-red-300/90">{errorMessage}</p>
@@ -394,65 +421,84 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             </div>
             <button
               onClick={() => handleSendReflection()}
-              className="flex items-center gap-1 rounded-md bg-red-900/80 px-2.5 py-1 text-white font-medium hover:bg-red-800 transition-colors shrink-0"
+              className="flex shrink-0 items-center gap-1 rounded-md bg-red-900/80 px-2.5 py-1 font-medium text-white transition-colors hover:bg-red-800"
             >
               <RotateCcw className="h-3 w-3" />
               <span>Retry Save</span>
             </button>
-          </div>
+          </motion.div>
         )}
 
         {/* Empty state / Welcome prompt */}
         {currentMessages.length === 0 && (
-          <div className="mx-auto max-w-2xl text-center py-12 px-4 space-y-6">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1A1A1C] border border-[#262629] text-amber-400 shadow-sm">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            className="mx-auto max-w-2xl space-y-6 px-4 py-12 text-center"
+          >
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#262629] bg-[#1A1A1C] text-amber-400 shadow-sm">
               <Sparkles className="h-6 w-6" />
             </div>
             <div className="space-y-2">
               <h3 className="font-serif text-2xl font-bold text-[#F1F1F1]">
                 What is on your mind today?
               </h3>
-              <p className="text-sm text-[#888] max-w-md mx-auto">
-                Write down your thoughts, reflections, or challenges. Gemini 3.6 Flash will assist with constructive perspectives, summarization, and creative brainstorming.
+              <p className="mx-auto max-w-md text-sm text-[#888]">
+                Write down your thoughts, reflections, or challenges. Gemini 3.x Flash will assist with constructive perspectives, summarization, and creative brainstorming.
               </p>
             </div>
 
             {/* Quick Inspiration Prompts */}
-            <div className="pt-2 text-left">
-              <p className="text-xs font-semibold text-[#666] uppercase tracking-wider mb-2 text-center">
+            <motion.div
+              initial="hidden"
+              animate="show"
+              variants={stagger(0.07, 0.1)}
+              className="pt-2 text-left"
+            >
+              <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wider text-[#666]">
                 Inspiration Prompts
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {promptSuggestions.map((item, idx) => (
-                  <button
+                  <motion.button
                     key={idx}
+                    variants={fadeUpSmall}
+                    whileHover={{ y: -2 }}
                     onClick={() => {
                       setInputBuffer(item.text);
                       textareaRef.current?.focus();
                     }}
-                    className="flex flex-col items-start p-3 rounded-xl border border-[#262629] bg-[#121214] hover:border-[#3E3E44] hover:bg-[#161619] text-left transition-all group"
+                    className="group flex flex-col items-start rounded-xl border border-[#262629] bg-[#121214] p-3 text-left transition-colors hover:border-[#3E3E44] hover:bg-[#161619]"
                   >
                     <span className="text-xs font-semibold text-[#F1F1F1] group-hover:text-amber-400">
                       {item.label}
                     </span>
-                    <span className="text-[11px] text-[#888] mt-1 line-clamp-2">
+                    <span className="mt-1 line-clamp-2 text-[11px] text-[#888]">
                       {item.text}
                     </span>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
 
         {/* Multi-turn Messages Timeline */}
-        {currentMessages.map((msg) => {
-          const isUser = msg.role === 'user';
-          return (
-            <div
-              key={msg.id}
-              className={`flex flex-col max-w-3xl ${isUser ? 'ml-auto items-end' : 'mr-auto items-start'}`}
-            >
+        <AnimatePresence initial={false}>
+          {currentMessages.map((msg) => {
+            const isUser = msg.role === 'user';
+            return (
+              <motion.div
+                key={msg.id}
+                layout
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className={`flex flex-col max-w-3xl ${isUser ? 'ml-auto items-end' : 'mr-auto items-start'}`}
+              >
               {/* Sender label and timestamp */}
               <div className="flex items-center gap-2 mb-1 px-1 text-[11px] text-[#666]">
                 <span className="font-medium text-[#888]">
@@ -510,13 +556,19 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           );
         })}
+        </AnimatePresence>
 
         {/* Executive Summary Card (if interaction has a summary) */}
         {interaction?.summary && currentMessages.length > 0 && (
-          <div className="max-w-3xl mx-auto rounded-2xl border border-amber-900/40 bg-[#161410] p-4 shadow-xs">
+          <motion.div
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="max-w-3xl mx-auto rounded-2xl border border-amber-900/40 bg-[#161410] p-4 shadow-xs"
+          >
             <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-1">
               <Brain className="h-3.5 w-3.5 text-amber-400" />
               Executive Reflection Summary
@@ -547,24 +599,33 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 ))}
               </div>
             )}
-          </div>
+          </motion.div>
         )}
 
         {/* Loading Bubble */}
         {isGenerating && (
-          <div className="flex flex-col max-w-3xl mr-auto items-start">
-            <div className="flex items-center gap-2 mb-1 px-1 text-[11px] text-[#666]">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex max-w-3xl flex-col items-start mr-auto"
+            aria-live="polite"
+          >
+            <div className="mb-1 flex items-center gap-2 px-1 text-[11px] text-[#666]">
               <span className="font-medium text-[#888]">{activeModel}</span>
               <span>•</span>
               <span>Reflecting...</span>
             </div>
-            <div className="rounded-2xl rounded-bl-xs border border-[#262629] bg-[#121214] p-4 shadow-sm flex items-center gap-3">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-              <p className="text-xs text-[#A0A0A5] font-medium">
+            <div className="flex items-center gap-3 rounded-2xl rounded-bl-xs border border-[#262629] bg-[#121214] p-4 shadow-sm">
+              <div className="flex items-center gap-1" aria-hidden="true">
+                <span className="typing-dot h-2 w-2 rounded-full bg-amber-400" />
+                <span className="typing-dot h-2 w-2 rounded-full bg-amber-400" />
+                <span className="typing-dot h-2 w-2 rounded-full bg-amber-400" />
+              </div>
+              <p className="text-xs font-medium text-[#A0A0A5]">
                 Analyzing reflection and generating constructive insights...
               </p>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Visual prompt divider if thread has messages */}
@@ -649,27 +710,51 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               ref={textareaRef}
               id="reflection-input"
               data-testid="follow-up-input"
-              rows={3}
+              rows={1}
               placeholder={
                 currentMessages.length === 0
                   ? 'Write your journal entry or reflection here... (Shift + Enter for new line)'
                   : 'Type a follow-up thought, question, or next step for Gemini... (e.g. How can we avoid burnout while keeping this pace?)'
               }
               value={inputBuffer}
-              onChange={(e) => setInputBuffer(e.target.value)}
+              onChange={(e) => setInputBuffer(e.target.value.slice(0, MAX_CHARS))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
                   handleSendReflection();
                 }
               }}
-              className="w-full resize-none bg-transparent p-3.5 pr-28 text-sm text-[#F1F1F1] placeholder:text-[#666] focus:outline-none"
+              aria-label={currentMessages.length === 0 ? 'Write your journal entry or reflection' : 'Write a follow-up message'}
+              className="w-full min-h-[76px] resize-none bg-transparent p-3.5 pr-28 text-sm text-[#F1F1F1] placeholder:text-[#666] focus:outline-none"
             />
 
+            {/* Character usage progress */}
+            {inputBuffer.length > 0 && (
+              <div
+                className="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-2xl bg-[#262629]"
+                aria-hidden="true"
+              >
+                <div
+                  className={`animate-progress-fill h-full rounded-b-2xl ${
+                    inputBuffer.length > MAX_CHARS * 0.9
+                      ? 'bg-red-500'
+                      : inputBuffer.length > MAX_CHARS * 0.7
+                        ? 'bg-amber-500'
+                        : 'bg-amber-500/60'
+                  }`}
+                  style={{ width: `${Math.min(100, (inputBuffer.length / MAX_CHARS) * 100)}%` }}
+                />
+              </div>
+            )}
+
             {/* Bottom Action Controls inside textarea */}
-            <div className="absolute right-2.5 bottom-2.5 flex items-center gap-2">
-              <span className="text-[10px] text-[#666] font-mono hidden sm:inline-block">
-                {inputBuffer.length} chars
+            <div className="absolute bottom-2.5 right-2.5 flex items-center gap-2">
+              <span
+                className={`hidden font-mono text-[10px] sm:inline-block ${
+                  inputBuffer.length > MAX_CHARS * 0.9 ? 'text-red-400' : 'text-[#666]'
+                }`}
+              >
+                {inputBuffer.length.toLocaleString()} / {MAX_CHARS.toLocaleString()}
               </span>
               <button
                 id="submit-reflection-btn"

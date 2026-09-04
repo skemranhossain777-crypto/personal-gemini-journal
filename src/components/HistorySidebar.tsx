@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   Search,
   Plus,
@@ -13,6 +14,7 @@ import {
   PenLine,
 } from 'lucide-react';
 import type { JournalInteraction, ReflectionMode } from '../types';
+import { fadeUp, stagger } from '../lib/animations';
 
 interface HistorySidebarProps {
   interactions: JournalInteraction[];
@@ -197,20 +199,24 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="flex flex-col gap-2 rounded-xl border border-[#262629] bg-[#141416] p-3 animate-pulse"
+                className="flex flex-col gap-2 rounded-xl border border-[#262629] bg-[#141416] p-3"
               >
-                <div className="h-3 w-2/3 rounded bg-[#262629]" />
-                <div className="h-2.5 w-full rounded bg-[#1E1E24]" />
-                <div className="h-2.5 w-1/2 rounded bg-[#1E1E24]" />
+                <div className="animate-shimmer h-3 w-2/3 rounded" />
+                <div className="animate-shimmer h-2.5 w-full rounded" />
+                <div className="animate-shimmer h-2.5 w-1/2 rounded" />
                 <div className="mt-1 flex items-center justify-between">
-                  <div className="h-4 w-16 rounded bg-[#262629]" />
-                  <div className="h-3 w-12 rounded bg-[#1E1E24]" />
+                  <div className="animate-shimmer h-4 w-16 rounded" />
+                  <div className="animate-shimmer h-3 w-12 rounded" />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredInteractions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-8 text-center text-[#888] space-y-3">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center space-y-3 p-8 text-center text-[#888]"
+          >
             <div className="h-10 w-10 rounded-full bg-[#161619] border border-[#262629] flex items-center justify-center text-[#666]">
               <Sparkles className="h-5 w-5" />
             </div>
@@ -220,19 +226,37 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                 {searchQuery ? 'Try a different search term' : 'Start your first reflection with Gemini'}
               </p>
             </div>
-          </div>
+          </motion.div>
         ) : (
-          filteredInteractions.map((item) => {
+          <AnimatePresence initial={false}>
+            <motion.div
+              initial="hidden"
+              animate="show"
+              exit="hidden"
+              variants={stagger(0.04)}
+              className="space-y-2"
+            >
+          {filteredInteractions.map((item) => {
             const isSelected = item.id === selectedId;
             const badge = getModeBadge(item.mode);
             const turnCount = item.messages ? item.messages.length : 0;
 
             return (
-              <div
+              <motion.div
                 key={item.id}
+                layout
+                variants={fadeUp}
                 id={`history-item-${item.id}`}
                 onClick={() => onSelect(item)}
-                className={`group relative flex flex-col rounded-xl border p-3 cursor-pointer transition-all ${
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelect(item);
+                  }
+                }}
+                className={`group relative flex cursor-pointer flex-col rounded-xl border p-3 transition-all ${
                   isSelected
                     ? 'border-[#44444C] bg-[#1A1A1C] shadow-sm'
                     : 'border-[#262629] bg-[#141416] hover:border-[#36363C] hover:bg-[#18181B]'
@@ -246,7 +270,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                   <button
                     id={`delete-entry-${item.id}`}
                     onClick={(e) => onDelete(item.id, e)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-[#666] hover:text-red-400 hover:bg-red-950/40 rounded transition-all shrink-0"
+                    className="rounded p-1 text-[#666] opacity-0 transition-all group-hover:opacity-100 focus-visible:opacity-100 hover:bg-red-950/40 hover:text-red-400 shrink-0"
                     title="Delete reflection"
                     aria-label="Delete entry"
                   >
@@ -294,9 +318,11 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                     </div>
                   </div>
                 )}
-              </div>
+              </motion.div>
             );
-          })
+          })}
+            </motion.div>
+          </AnimatePresence>
         )}
       </div>
 

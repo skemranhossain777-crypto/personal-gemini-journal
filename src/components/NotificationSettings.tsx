@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Bell,
-  X,
   Check,
   Loader2,
   Send,
@@ -12,6 +11,7 @@ import {
   FileText,
 } from 'lucide-react';
 import type { NotificationSettings, ReflectionMode } from '../types';
+import { Modal } from './Modal';
 
 interface NotificationSettingsProps {
   isOpen: boolean;
@@ -134,184 +134,172 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsProps> = ({
     { id: 'chat', label: 'Chat', icon: MessageSquare },
   ];
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-[#0E0E10] border border-[#262629] text-[#E0E0E0] shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#262629] px-6 py-4 bg-[#121214]">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-950/60 border border-blue-800/40 text-blue-400">
-              <Bell className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-[#F1F1F1]">Notification Settings</h2>
-              <p className="text-xs text-[#888]">Get notified when journal entries are saved</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-[#888] hover:bg-[#1A1A1C] hover:text-[#F1F1F1] transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-[#888] text-xs gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading settings...
-            </div>
-          ) : (
-            <>
-              {/* Enable Toggle */}
-              <div className="flex items-center justify-between rounded-xl border border-[#262629] bg-[#121214] p-4">
-                <div>
-                  <p className="text-sm font-medium text-[#F1F1F1]">Enable Notifications</p>
-                  <p className="text-xs text-[#888] mt-0.5">Receive alerts when entries are saved</p>
-                </div>
-                <button
-                  onClick={() => setSettings((p) => ({ ...p, enabled: !p.enabled }))}
-                  className={`relative h-6 w-11 rounded-full transition-colors ${
-                    settings.enabled ? 'bg-emerald-600' : 'bg-[#262629]'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                      settings.enabled ? 'left-[22px]' : 'left-0.5'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Webhook URLs */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-[#888] uppercase tracking-wider flex items-center gap-2">
-                  <Webhook className="h-3.5 w-3.5" />
-                  Webhook URLs
-                </h3>
-
-                {/* Slack */}
-                <div className="space-y-1.5">
-                  <label className="text-xs text-[#A0A0A5] font-medium">Slack Webhook URL</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      placeholder="https://hooks.slack.com/services/..."
-                      value={settings.slackWebhookUrl || ''}
-                      onChange={(e) => setSettings((p) => ({ ...p, slackWebhookUrl: e.target.value }))}
-                      className="flex-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#F1F1F1] placeholder:text-[#555] focus:border-[#444] focus:outline-none"
-                    />
-                    <button
-                      onClick={() => testNotification('slack')}
-                      disabled={isTesting === 'slack' || !settings.slackWebhookUrl}
-                      className="flex items-center gap-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#888] hover:bg-[#1E1E22] hover:text-[#F1F1F1] disabled:opacity-40 transition-colors"
-                    >
-                      {isTesting === 'slack' ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Send className="h-3 w-3" />
-                      )}
-                      <span>Test</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Discord */}
-                <div className="space-y-1.5">
-                  <label className="text-xs text-[#A0A0A5] font-medium">Discord Webhook URL</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      placeholder="https://discord.com/api/webhooks/..."
-                      value={settings.discordWebhookUrl || ''}
-                      onChange={(e) => setSettings((p) => ({ ...p, discordWebhookUrl: e.target.value }))}
-                      className="flex-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#F1F1F1] placeholder:text-[#555] focus:border-[#444] focus:outline-none"
-                    />
-                    <button
-                      onClick={() => testNotification('discord')}
-                      disabled={isTesting === 'discord' || !settings.discordWebhookUrl}
-                      className="flex items-center gap-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#888] hover:bg-[#1E1E22] hover:text-[#F1F1F1] disabled:opacity-40 transition-colors"
-                    >
-                      {isTesting === 'discord' ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Send className="h-3 w-3" />
-                      )}
-                      <span>Test</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Entry Type Filters */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-semibold text-[#888] uppercase tracking-wider">
-                  Notify On
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {modeOptions.map((opt) => {
-                    const Icon = opt.icon;
-                    const isActive = settings.notifyOn.includes(opt.id);
-                    return (
-                      <button
-                        key={opt.id}
-                        onClick={() => toggleNotifyOn(opt.id)}
-                        className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                          isActive
-                            ? 'bg-[#24242A] border border-[#3E3E44] text-[#F1F1F1]'
-                            : 'bg-[#161619] border border-[#262629] text-[#888] hover:text-[#E0E0E0]'
-                        }`}
-                      >
-                        {isActive && <Check className="h-3 w-3 text-emerald-400" />}
-                        <Icon className="h-3.5 w-3.5" />
-                        <span>{opt.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Status message */}
-              {message && (
-                <div
-                  className={`rounded-xl border p-3 text-xs ${
-                    message.type === 'success'
-                      ? 'border-emerald-800/40 bg-emerald-950/30 text-emerald-300'
-                      : 'border-red-900/50 bg-red-950/30 text-red-300'
-                  }`}
-                >
-                  {message.text}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-[#262629] bg-[#121214] px-6 py-3">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Notification Settings"
+      description="Get notified when journal entries are saved"
+      icon={<Bell className="h-5 w-5" />}
+      iconClassName="bg-blue-950/60 border border-blue-800/40 text-blue-400"
+      footer={
+        <div className="flex w-full items-center justify-between gap-4">
           <p className="text-[10px] text-[#666]">Webhooks fire server-side after each saved entry</p>
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="rounded-xl bg-[#1A1A1C] border border-[#333338] px-4 py-2 text-xs font-medium text-[#888] hover:text-[#F1F1F1] hover:bg-[#242428] transition-colors"
+              className="rounded-xl border border-[#333338] bg-[#1A1A1C] px-4 py-2 text-xs font-medium text-[#888] transition-colors hover:bg-[#242428] hover:text-[#F1F1F1]"
             >
               Cancel
             </button>
             <button
               onClick={saveSettings}
               disabled={isSaving}
-              className="flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-500 disabled:opacity-60 transition-colors"
+              className="flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-amber-500 disabled:opacity-60"
             >
               {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
               <span>Save Settings</span>
             </button>
           </div>
         </div>
+      }
+    >
+      <div className="space-y-6 p-6">
+        {isLoading ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-xs text-[#888]">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading settings...
+          </div>
+        ) : (
+          <>
+            {/* Enable Toggle */}
+            <div className="flex items-center justify-between rounded-xl border border-[#262629] bg-[#121214] p-4">
+              <div>
+                <p className="text-sm font-medium text-[#F1F1F1]">Enable Notifications</p>
+                <p className="mt-0.5 text-xs text-[#888]">Receive alerts when entries are saved</p>
+              </div>
+              <button
+                onClick={() => setSettings((p) => ({ ...p, enabled: !p.enabled }))}
+                role="switch"
+                aria-checked={settings.enabled}
+                aria-label="Enable notifications"
+                className={`relative h-6 w-11 rounded-full transition-colors ${
+                  settings.enabled ? 'bg-emerald-600' : 'bg-[#262629]'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    settings.enabled ? 'left-[22px]' : 'left-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Webhook URLs */}
+            <div className="space-y-3">
+              <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#888]">
+                <Webhook className="h-3.5 w-3.5" />
+                Webhook URLs
+              </h3>
+
+              {/* Slack */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-[#A0A0A5]">Slack Webhook URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="https://hooks.slack.com/services/..."
+                    value={settings.slackWebhookUrl || ''}
+                    onChange={(e) => setSettings((p) => ({ ...p, slackWebhookUrl: e.target.value }))}
+                    className="flex-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#F1F1F1] placeholder:text-[#555] focus:border-[#444] focus:outline-none"
+                  />
+                  <button
+                    onClick={() => testNotification('slack')}
+                    disabled={isTesting === 'slack' || !settings.slackWebhookUrl}
+                    className="flex items-center gap-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#888] transition-colors hover:bg-[#1E1E22] hover:text-[#F1F1F1] disabled:opacity-40"
+                  >
+                    {isTesting === 'slack' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Send className="h-3 w-3" />
+                    )}
+                    <span>Test</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Discord */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-[#A0A0A5]">Discord Webhook URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    placeholder="https://discord.com/api/webhooks/..."
+                    value={settings.discordWebhookUrl || ''}
+                    onChange={(e) => setSettings((p) => ({ ...p, discordWebhookUrl: e.target.value }))}
+                    className="flex-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#F1F1F1] placeholder:text-[#555] focus:border-[#444] focus:outline-none"
+                  />
+                  <button
+                    onClick={() => testNotification('discord')}
+                    disabled={isTesting === 'discord' || !settings.discordWebhookUrl}
+                    className="flex items-center gap-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#888] transition-colors hover:bg-[#1E1E22] hover:text-[#F1F1F1] disabled:opacity-40"
+                  >
+                    {isTesting === 'discord' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Send className="h-3 w-3" />
+                    )}
+                    <span>Test</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Entry Type Filters */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#888]">
+                Notify On
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {modeOptions.map((opt) => {
+                  const Icon = opt.icon;
+                  const isActive = settings.notifyOn.includes(opt.id);
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => toggleNotifyOn(opt.id)}
+                      aria-pressed={isActive}
+                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                        isActive
+                          ? 'border border-[#3E3E44] bg-[#24242A] text-[#F1F1F1]'
+                          : 'border border-[#262629] bg-[#161619] text-[#888] hover:text-[#E0E0E0]'
+                      }`}
+                    >
+                      {isActive && <Check className="h-3 w-3 text-emerald-400" />}
+                      <Icon className="h-3.5 w-3.5" />
+                      <span>{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Status message */}
+            {message && (
+              <div
+                role={message.type === 'error' ? 'alert' : 'status'}
+                className={`rounded-xl border p-3 text-xs ${
+                  message.type === 'success'
+                    ? 'border-emerald-800/40 bg-emerald-950/30 text-emerald-300'
+                    : 'border-red-900/50 bg-red-950/30 text-red-300'
+                }`}
+              >
+                {message.text}
+              </div>
+            )}
+          </>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 };

@@ -10,6 +10,7 @@
     min-height: 100%;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
   }
 
   /* Sophisticated Dark custom scrollbars */
@@ -26,5 +27,151 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background: #3A3A40;
+  }
+
+  ::selection {
+    background: rgba(245, 158, 11, 0.28);
+    color: #FFF8E7;
+  }
+
+  /* Only reveal outline when navigating with the keyboard */
+  :focus {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 2px solid rgba(245, 158, 11, 0.9);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .skip-link {
+    position: fixed;
+    top: -100px;
+    left: 16px;
+    z-index: 9999;
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: #F59E0B;
+    color: #1A1204;
+    font-weight: 600;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    transition: top 0.2s ease;
+  }
+  .skip-link:focus {
+    top: 16px;
+  }
+
+  /* --- Keyframe animations (disabled under prefers-reduced-motion) --- */
+
+  /* Slowly drifting aurora blobs for the landing page */
+  @keyframes aurora {
+    0% { transform: translate(0, 0) scale(1); opacity: 0.35; }
+    50% { transform: translate(18px, -14px) scale(1.12); opacity: 0.55; }
+    100% { transform: translate(0, 0) scale(1); opacity: 0.35; }
+  }
+  .animate-aurora {
+    animation: aurora 9s ease-in-out infinite;
+  }
+  .animate-aurora-slow {
+    animation: aurora 14s ease-in-out infinite reverse;
+  }
+
+  /* Gentle float for hero ornament */
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* Shimmer for skeleton placeholders */
+  @keyframes shimmer {
+    0% { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      #121214 0%,
+      #1E1E22 40%,
+      #22222A 50%,
+      #1E1E22 60%,
+      #121214 100%
+    );
+    background-size: 400px 100%;
+    background-repeat: no-repeat;
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  /* Typing indicator dots */
+  @keyframes typing-dot {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-5px); opacity: 1; }
+  }
+  .typing-dot {
+    animation: typing-dot 1.2s ease-in-out infinite;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+  /* Progress bar always draws right → fill toward the target color */
+  @keyframes progress-fill {
+    0% { width: 0; }
+  }
+  .animate-progress-fill {
+    animation: progress-fill 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Slide-down entrance for the offline banner */
+  @keyframes slide-down-in {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .animate-slide-down-in {
+    animation: slide-down-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Status dot pulse */
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  .animate-pulse-soft {
+    animation: pulse-soft 2.2s ease-in-out infinite;
+  }
+
+  /* Slight scale pop for freshly saved titles / badges */
+  @keyframes pop-in {
+    0% { transform: scale(0.82); opacity: 0; }
+    60% { transform: scale(1.04); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .animate-pop-in {
+    animation: pop-in 0.28s ease-out both;
+  }
+
+  /* Rotating conic glow on the "powered by Gemini" diamond */
+  @keyframes spin-slow {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .animate-spin-slow {
+    animation: spin-slow 14s linear infinite;
+  }
+}
+
+/* Honor users who prefer reduced motion (WCAG 2.3.3 A11Y) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
