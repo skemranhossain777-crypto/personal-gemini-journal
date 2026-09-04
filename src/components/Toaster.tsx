@@ -1,6 +1,6 @@
 import React from 'react';
-import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
-import { useToasts } from '../services/toast';
+import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { useToasts, toast } from '../services/toast';
 
 const ICONS = {
   success: CheckCircle2,
@@ -28,7 +28,14 @@ export const Toaster: React.FC = () => {
             role="status"
           >
             <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-            <p className="leading-snug">{t.message}</p>
+            <p className="leading-snug flex-1">{t.message}</p>
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="rounded p-0.5 opacity-60 hover:opacity-100 transition-opacity"
+              aria-label="Dismiss notification"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
         );
       })}

@@ -18,7 +18,8 @@ import { JournalEditor } from './components/JournalEditor';
 import { ThreatModelModal } from './components/ThreatModelModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import { NotificationSettingsModal } from './components/NotificationSettings';
-import { BookOpen, Sparkles } from 'lucide-react';
+import { ConfirmDialog } from './components/ConfirmDialog';
+import { Sparkles, WifiOff } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
@@ -32,6 +33,21 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [authToken, setAuthToken] = useState<string>('');
   const [mobileTab, setMobileTab] = useState<'editor' | 'history'>('editor');
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Track connectivity so unsaved work is never hidden behind silent failures.
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    setIsOnline(navigator.onLine);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
 
   // Monitor Firebase Auth state (observable pub/sub, skill Phase 3)
   useEffect(() => {
@@ -115,16 +131,23 @@ export default function App() {
     setIsAuthLoading(true);
     try {
       try {
-        await authService.signInWithGoogle('redirect');
+        // Popup shows the Google authorization window directly (provider is now
+        // enabled). Falls back to redirect on popup-blocked, handled below.
+        await authService.signInWithGoogle('popup');
       } catch (e: any) {
-        // REDIRECT_IN_PROGRESS is the expected result of a redirect sign-in
-        // (the page reloads right after to complete the handshake).
-        if (e?.message !== 'REDIRECT_IN_PROGRESS') {
-          throw e;
+        if (e?.code === 'auth/popup-blocked' || e?.code === 'auth/cancelled-popup-request') {
+          // Fall back to full-page redirect which is immune to popup blockers.
+          try {
+            await authService.signInWithGoogle('redirect');
+          } catch (re: any) {
+            if (re?.message !== 'REDIRECT_IN_PROGRESS') throw re;
+          }
+          if (authService.firebaseUser) {
+            await authService.completeRedirectSignIn();
+          }
+          return;
         }
-      }
-      if (authService.firebaseUser) {
-        await authService.completeRedirectSignIn();
+        throw e;
       }
     } finally {
       setIsAuthLoading(false);
@@ -158,9 +181,14 @@ export default function App() {
   const handleDeleteInteraction = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!currentUser) return;
-    const confirmed = window.confirm('Are you sure you want to delete this reflection?');
-    if (!confirmed) return;
+    const target = interactions.find((item) => item.id === id);
+    setPendingDelete({ id, title: target?.title || 'this reflection' });
+  };
 
+  const confirmDeleteInteraction = async () => {
+    if (!currentUser || !pendingDelete) return;
+    const { id } = pendingDelete;
+    setPendingDelete(null);
     try {
       await deleteUserInteraction(currentUser.uid, id);
       if (selectedInteractionId === id) {
@@ -202,6 +230,7 @@ export default function App() {
           onNewEntry={() => {}}
           onOpenThreatModel={() => setIsThreatModalOpen(true)}
         />
+        {!isOnline && <OfflineBanner />}
         <main className="flex-1">
           <AuthLanding
             onSignIn={handleSignIn}
@@ -233,6 +262,8 @@ export default function App() {
         onSignInGoogle={handleSignIn}
         isAdmin={isAdmin}
       />
+
+      {!isOnline && <OfflineBanner />}
 
       {/* Mobile Tab Switcher */}
       <div className="flex md:hidden border-b border-[#262629] bg-[#121214] px-4 py-2 gap-2 text-xs">
@@ -317,7 +348,32 @@ export default function App() {
         />
       )}
 
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={pendingDelete !== null}
+        title="Delete Reflection?"
+        message={`This will permanently delete "${pendingDelete?.title || ''}" and all of its conversation history from your isolated Firestore partition. This action cannot be undone.`}
+        confirmLabel="Delete Reflection"
+        cancelLabel="Cancel"
+        onConfirm={confirmDeleteInteraction}
+        onCancel={() => setPendingDelete(null)}
+      />
+
       <Toaster />
+    </div>
+  );
+}
+
+function OfflineBanner() {
+  return (
+    <div
+      className="flex items-center justify-center gap-2 border-b border-amber-900/40 bg-amber-950/40 px-4 py-1.5 text-[11px] font-medium text-amber-300"
+      role="status"
+    >
+      <WifiOff className="h-3.5 w-3.5 shrink-0" />
+      <span>
+        You are offline. Your prompt and drafts are preserved locally and will be saved once you reconnect.
+      </span>
     </div>
   );
 }

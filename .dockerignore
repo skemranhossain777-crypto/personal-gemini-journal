@@ -7,5 +7,4 @@ dist
 *.log
 .gitignore
 README.md
-firebase-applet-config.json
 .DS_Store

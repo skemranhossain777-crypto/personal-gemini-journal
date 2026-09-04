@@ -16,6 +16,62 @@ const PORT = 3000;
 
 app.use(express.json({ limit: '2mb' }));
 
+// ─── Security Headers (applied to every response) ─────────────────────────────
+// Hardening against clickjacking, MIME-sniffing, and cross-origin information
+// leakage. CSP is intentionally omitted — the SPA relies on inline styles and
+// the AI Studio Vite runtime — so other protections carry the load instead.
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+  );
+  next();
+});
+
+// ─── Lightweight In-Memory Rate Limiter (abuse / quota protection) ────────────
+// The Gemini endpoint is expensive and gems are stolen remotely, so throttle
+// per-IP. Not a full compromise of the tool-execution threat zone (real
+// production behind a CDN/Cloud Run uses upstream rate limiting too), but it
+// closes trivial quota-theft loops from the public internet.
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 30;
+const ipHits = new Map<string, { count: number; resetAt: number }>();
+
+function getClientIp(req: Request): string {
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
+  return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
+function rateLimiter(req: Request, res: Response, next: NextFunction): void {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  const hit = ipHits.get(ip);
+  if (!hit || now >= hit.resetAt) {
+    ipHits.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    next();
+    return;
+  }
+  if (hit.count >= RATE_LIMIT_MAX) {
+    res.status(429).json({ success: false, error: 'Too many requests. Please wait a moment and try again.' });
+    return;
+  }
+  hit.count += 1;
+  next();
+}
+
+// Opportunistic cleanup so the map never grows without bound. `.unref()` lets
+// the process exit naturally in serverless/test environments.
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, hit] of ipHits) {
+    if (now >= hit.resetAt) ipHits.delete(ip);
+  }
+}, 5 * 60_000).unref?.();
+
 // Lazy GoogleGenAI client accessor
 let aiClient: GoogleGenAI | null = null;
 function getGenAI(): GoogleGenAI {
@@ -237,7 +293,27 @@ function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFuncti
 // ─── Notification Service (Slack & Discord Webhooks) ─────────────────────────
 
 class NotificationService {
+  /**
+   * Restricts outbound webhook dispatch to known provider hosts plus loopback
+   * (the e2e harness targets 127.0.0.1). This blocks SSRF-style misuse where a
+   * token holder points the server at arbitrary intranet/internet URLs.
+   */
+  static isAllowedWebhookUrl(url: string): boolean {
+    try {
+      const u = new URL(url);
+      if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+      const host = u.hostname.toLowerCase();
+      const loopback = host === '127.0.0.1' || host === 'localhost' || host === '0.0.0.0' || host === '::1';
+      const slack = host === 'hooks.slack.com' || host.endsWith('.slack.com');
+      const discord = host === 'discord.com' || host === 'discordapp.com' || host.endsWith('.discord.com') || host.endsWith('.discordapp.com');
+      return loopback || slack || discord;
+    } catch {
+      return false;
+    }
+  }
+
   static async sendSlack(webhookUrl: string, title: string, summary: string, mode: string): Promise<boolean> {
+    if (!this.isAllowedWebhookUrl(webhookUrl)) return false;
     try {
       const resp = await fetch(webhookUrl, {
         method: 'POST',
@@ -263,6 +339,7 @@ class NotificationService {
   }
 
   static async sendDiscord(webhookUrl: string, title: string, summary: string, mode: string): Promise<boolean> {
+    if (!this.isAllowedWebhookUrl(webhookUrl)) return false;
     try {
       const resp = await fetch(webhookUrl, {
         method: 'POST',
@@ -319,7 +396,7 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 // ─── Gemini Reflection Endpoint ──────────────────────────────────────────────
 
-app.post('/api/gemini/reflect', async (req: Request, res: Response): Promise<void> => {
+app.post('/api/gemini/reflect', rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const body = (req.body && typeof req.body === 'object') ? req.body : {};
     const {
@@ -334,8 +411,15 @@ app.post('/api/gemini/reflect', async (req: Request, res: Response): Promise<voi
       res.status(400).json({ success: false, error: 'A non-empty prompt is required.' });
       return;
     }
+    if (prompt.trim().length > 12000) {
+      res.status(400).json({ success: false, error: 'Prompt exceeds the 12,000 character limit.' });
+      return;
+    }
 
     const safeMode = ['reflect', 'summarize', 'brainstorm', 'chat'].includes(mode) ? mode : 'reflect';
+    const safeTitle = typeof title === 'string' && title.trim().length > 0
+      ? title.trim().slice(0, 200)
+      : 'Journal Reflection';
 
     let modeInstruction = '';
     switch (safeMode) {
@@ -384,7 +468,7 @@ Do not include any text after ---END_METADATA---.
     const locationTag = location?.placeName ? ` [Location: ${location.placeName}]` : '';
     contents.push({
       role: 'user',
-      parts: [{ text: `Entry Title: ${String(title || 'Untitled')}${locationTag}\n\nUser Input:\n${prompt}` }],
+      parts: [{ text: `Entry Title: ${safeTitle}${locationTag}\n\nUser Input:\n${prompt}` }],
     });
 
     const { text, modelUsed } = await generateContentWithFallback(contents, systemInstruction, 0.7);

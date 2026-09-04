@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import Markdown from 'react-markdown';
 import {
   Sparkles,
@@ -15,10 +15,13 @@ import {
   Copy,
   Check,
   MapPin,
+  Download,
+  Save,
 } from 'lucide-react';
 import type { JournalInteraction, JournalMessage, ReflectionMode, JournalLocation } from '../types';
 import { saveUserInteraction } from '../services/firestore';
 import { reflect as callReflect } from '../services/ai';
+import { toast } from '../services/toast';
 import { LocationPicker } from './LocationPicker';
 
 interface JournalEditorProps {
@@ -43,9 +46,45 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [location, setLocation] = useState<JournalLocation | null>(interaction?.location || null);
+  const [isTitleSaving, setIsTitleSaving] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const titleSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const currentMessages: JournalMessage[] = interaction?.messages || [];
+
+  // Model actually used by the server fallback ladder (accurate, not the
+  // hardcoded promo name).
+  const activeModel = interaction?.modelUsed || 'gemini-3.6-flash';
+
+  // Debounced autosave for in-place title edits on existing entries. Skips when
+  // unchanged so opening an entry never needs a write.
+  useEffect(() => {
+    if (!interaction) return;
+    if (title === interaction.title) return;
+
+    if (titleSaveTimerRef.current) clearTimeout(titleSaveTimerRef.current);
+    setIsTitleSaving(true);
+    titleSaveTimerRef.current = setTimeout(async () => {
+      try {
+        await saveUserInteraction(userId, {
+          ...interaction,
+          title: title.trim() || interaction.title,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error('Title autosave failed:', err);
+        toast.error('Could not save the updated title.');
+      } finally {
+        setIsTitleSaving(false);
+      }
+    }, 900);
+
+    return () => {
+      if (titleSaveTimerRef.current) clearTimeout(titleSaveTimerRef.current);
+    };
+  }, [title, interaction, userId]);
 
   // Synchronize when selected interaction changes
   useEffect(() => {
@@ -62,6 +101,11 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setInputBuffer('');
       setSaveStatus('idle');
       setErrorMessage(null);
+    }
+    setIsTitleSaving(false);
+    if (titleSaveTimerRef.current) {
+      clearTimeout(titleSaveTimerRef.current);
+      titleSaveTimerRef.current = null;
     }
   }, [interaction?.id]);
 
@@ -83,6 +127,69 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
+
+  const handleExportMarkdown = () => {
+    const source = interaction;
+    if (!source) return;
+
+    const lines: string[] = [];
+    lines.push(`# ${source.title || 'Untitled Reflection'}`);
+    lines.push('');
+    lines.push(`- **Mode:** ${source.mode}`);
+    lines.push(`- **Created:** ${new Date(source.createdAt).toLocaleString()}`);
+    lines.push(`- **Updated:** ${new Date(source.updatedAt).toLocaleString()}`);
+    if (source.modelUsed) lines.push(`- **Model:** ${source.modelUsed}`);
+    if (source.location) {
+      lines.push(`- **Location:** ${source.location.placeName}${source.location.address ? ` (${source.location.address})` : ''}`);
+    }
+    lines.push('');
+
+    source.messages.forEach((msg, idx) => {
+      lines.push(`## ${msg.role === 'user' ? 'Journal Entry' : 'Gemini Reflection'} — ${new Date(msg.timestamp).toLocaleString()}`);
+      lines.push('');
+      lines.push(msg.role === 'user' ? msg.content : msg.content);
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+    });
+
+    if (source.summary) {
+      lines.push('## Executive Summary');
+      lines.push('');
+      lines.push(`> ${source.summary}`);
+      lines.push('');
+    }
+
+    if (source.tags && source.tags.length > 0) {
+      lines.push('## Tags');
+      lines.push('');
+      lines.push(source.tags.map((t) => `#${t}`).join(' '));
+      lines.push('');
+    }
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(source.title || 'reflection').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'reflection'}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Exported as Markdown.');
+  };
+
+  const messageStats = useMemo(() => {
+    let words = 0;
+    let chars = 0;
+    for (const msg of currentMessages) {
+      const trimmed = msg.content.trim();
+      chars += trimmed.length;
+      words += trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
+    }
+    const readMinutes = Math.max(1, Math.round(words / 200));
+    return { words, chars, readMinutes };
+  }, [currentMessages]);
 
   /**
    * Guaranteed Transaction Verification & Resilience
@@ -168,8 +275,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     }
   };
 
-  const currentMessages = interaction?.messages || [];
-
   return (
     <div className="flex flex-col h-full bg-[#0A0A0B] text-[#E0E0E0] overflow-hidden">
       {/* Workspace Header */}
@@ -187,6 +292,12 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
           {/* Status badge */}
           <div className="flex items-center gap-2 shrink-0 text-xs">
+            {isTitleSaving && (
+              <span className="flex items-center gap-1 text-[#666] font-medium">
+                <Save className="h-3.5 w-3.5 animate-pulse" />
+                <span>Saving title...</span>
+              </span>
+            )}
             {saveStatus === 'saving' && (
               <span className="flex items-center gap-1 text-amber-400 font-medium">
                 <Clock className="h-3.5 w-3.5 animate-spin" />
@@ -215,6 +326,17 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 {interaction.modelUsed}
               </span>
             )}
+
+            {/* Export current entry as Markdown */}
+            <button
+              onClick={handleExportMarkdown}
+              disabled={currentMessages.length === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-[#262629] bg-[#161619] px-2.5 py-1 text-xs font-medium text-[#A0A0A5] hover:bg-[#1E1E22] hover:text-[#F1F1F1] hover:border-[#3A3A40] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Download this reflection as a Markdown file"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Export</span>
+            </button>
           </div>
         </div>
 
@@ -365,7 +487,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                     <div className="pt-2 flex items-center justify-between border-t border-[#262629] text-xs text-[#666]">
                       <div className="flex items-center gap-1.5">
                         <Sparkles className="h-3 w-3 text-amber-400" />
-                        <span className="text-[11px] font-medium text-[#888]">Gemini 3.6 Flash</span>
+                        <span className="text-[11px] font-medium text-[#888]">{activeModel}</span>
                       </div>
                       <button
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
@@ -432,7 +554,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         {isGenerating && (
           <div className="flex flex-col max-w-3xl mr-auto items-start">
             <div className="flex items-center gap-2 mb-1 px-1 text-[11px] text-[#666]">
-              <span className="font-medium text-[#888]">Gemini 3.6 Flash</span>
+              <span className="font-medium text-[#888]">{activeModel}</span>
               <span>•</span>
               <span>Reflecting...</span>
             </div>
@@ -574,8 +696,15 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             <span>
               Press <kbd className="rounded bg-[#161619] border border-[#262629] px-1 py-0.5 font-mono text-[10px] text-[#888]">Enter</kbd> to {currentMessages.length > 0 ? 'send follow-up' : 'reflect'}, <kbd className="rounded bg-[#161619] border border-[#262629] px-1 py-0.5 font-mono text-[10px] text-[#888]">Shift+Enter</kbd> for new line
             </span>
-            <span className="text-emerald-400 font-medium">
-              Firestore Protected Partition
+            <span className="flex items-center gap-3">
+              {currentMessages.length > 0 ? (
+                <span className="font-mono">
+                  {messageStats.words.toLocaleString()} words · ~{messageStats.readMinutes} min read
+                </span>
+              ) : null}
+              <span className="text-emerald-400 font-medium">
+                Firestore Protected Partition
+              </span>
             </span>
           </div>
         </div>

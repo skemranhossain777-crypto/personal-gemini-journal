@@ -1,6 +1,8 @@
 # Gemini Journal & Reflections Studio
 
-A secure, user-authenticated journaling and thought-partner web application powered by **Gemini 3.6 Flash** and **Google Cloud Firestore**, secured by **Firebase Authentication** with strict per-user document isolation and zero hardcoded credentials.
+A secure, user-authenticated journaling and thought-partner web application powered by **Google Gemini 3.x Flash** (5-model fallback ladder) and **Google Cloud Firestore**, secured by **Firebase Authentication** with strict per-user document isolation and zero hardcoded credentials.
+
+Docs: [**feature.md**](feature.md) catalogues the full feature set · [**CHEATSHEET.md**](CHEATSHEET.md) is the developer/ops quick reference.
 
 ---
 
@@ -10,21 +12,24 @@ A secure, user-authenticated journaling and thought-partner web application powe
 | :--- | :--- | :--- |
 | **User Identity** | Firebase Authentication | Secure login via Google Sign-In with federated authentication (no stored passwords). |
 | **Backend Database** | Cloud Firestore | User-isolated document storage under `/users/{userId}/interactions/{interactionId}`. |
-| **AI Processing Engine** | Gemini 3.6 Flash API | Generates replies, executive summaries, and proactive brainstorming suggestions. |
+| **AI Processing Engine** | Gemini 3.x Flash API (5-model fallback ladder) | Generates replies, executive summaries, and proactive brainstorming suggestions. |
 | **Secret Management** | Secret Manager / Env Vars | Securely stores `GEMINI_API_KEY` and Firebase credentials without exposing secrets. |
 | **Server & Frontend** | Express + React + Vite | Unified full-stack server proxying AI requests and serving the SPA. |
 
 ---
 
-## Agentic Threat Modeling (5 Threat Zones)
+## Agentic Threat Modeling (8 Threat Zones)
 
 | Threat Zone | Identified Risk | Implemented Countermeasure | Verification Status |
 | :--- | :--- | :--- | :--- |
-| **1. Input Surfaces** | Malicious payloads, prompt injection, buffer exhaustion. | Express strict JSON limit (2MB), defensive payload null-guards, prompt sanitization. | Enforced in Express backend (`server.ts`) |
-| **2. Planning & Reasoning** | Prompt injection tricking Gemini into executing unauthorized commands. | User inputs treated strictly as passive data; dedicated system instructions isolate reflection text. | Enforced in Gemini helper |
-| **3. Tool Execution** | Model outages, rate limits (429), or 503 service downtime. | Automated 4-tier Fallback Ladder (`gemini-3.6-flash` &rarr; `gemini-3.1-flash-lite` &rarr; `gemini-flash-latest` &rarr; `gemini-3.7-flash`). | Active and verified |
-| **4. Memory & State** | Cross-user data leakage or unauthorized access to journal entries. | Owner-bound Firestore Security Rules (`request.auth.uid == userId`) + recursive undefined stripping. | Deployed to Firestore |
-| **5. Inter-System Comm** | Exposing Gemini API key to client browsers or committing secrets. | Zero client-side secrets; Gemini calls run exclusively server-side via environment variables / Secret Manager. | Strict server proxy |
+| **1. Input Surfaces** | Malicious payloads, prompt injection, overlong buffers crashing servers. | Express strict JSON limit (2MB), defensive payload null-guards, prompt sanitization + **12k-char prompt cap**. | Enforced in Express backend (`server.ts`) |
+| **2. Planning & Reasoning** | Indirect prompt injection tricking Gemini into executing unauthorized commands. | User inputs treated strictly as passive data; dedicated system instructions isolate reflection text. | Enforced in Gemini helper |
+| **3. Tool Execution** | Model outages, 429 quota exhaustion, or 503 service downtime breaking app state. | Automated **5-model Fallback Ladder** (`gemini-3.7-flash` → `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-flash-latest` → `gemini-3.1-flash-lite`) + transient-503 retry + **per-IP rate limiter** (30 req/min). | Tested & active |
+| **4. Memory & State** | Cross-user data leakage or unauthorized read/write of journal entries. | Owner-bound Firestore Security Rules (`request.auth.uid == userId`) + `isValidInteraction` shape validation + recursive undefined stripping. | Deployed to Firestore |
+| **5. Inter-System Comm** | Exposing Gemini API key to client browsers or committing secrets to git. | Zero client-side secrets; Gemini calls run exclusively server-side via environment variables / Secret Manager; security headers on every response. | Strict server proxy |
+| **6. Maps API Exposure** | Google Maps/Places API keys exposed client-side, enabling quota theft or abuse. | Places Autocomplete/Details proxied server-side with restricted `GOOGLE_MAPS_API_KEY`; client uses a separate Maps JS key with HTTP-referrer restrictions. | Dual-Key Isolation |
+| **7. RBAC Privilege Escalation** | Regular users elevating to admin or accessing admin endpoints / other users' data. | `ADMIN_EMAILS` env allow-list; server verifies Firebase ID token + email on every admin request; `/roles` client writes are denied in rules; role writes only via Admin SDK. | Server-Side RBAC |
+| **8. Webhook Credential Leakage** | Slack/Discord webhook URLs leaked or used to inject spam / SSRF requests. | Webhooks stored under user-isolated settings path; dispatched **server-side only** with host allow-listing (`*.slack.com`, `*.discord.com`, loopback) to block SSRF. | Server-Only Dispatch |
 
 ---
 
@@ -36,20 +41,45 @@ To ensure strict user data isolation, the application enforces owner-bound acces
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Interaction shape + type/size validation (see firestore.rules for full version)
+    function isValidInteraction(data) {
+      return data is map
+        && ('id' in data && data.id is string && data.id.size() <= 128)
+        && ('userId' in data && data.userId is string && data.userId == request.auth.uid)
+        && ('title' in data && data.title is string && data.title.size() <= 200)
+        && ('mode' in data && data.mode is string && data.mode.size() <= 24)
+        && ('messages' in data && data.messages is list
+            && data.messages.size() <= 200 && data.messages.all(m is map));
+    }
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, create, update, delete: if isOwner(userId);
 
       match /interactions/{interactionId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidInteraction(request.resource.data);
+        allow delete: if isOwner(userId);
       }
 
-      match /{document=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+      match /settings/{settingId} {
+        allow read, write: if isOwner(userId);
       }
+    }
+
+    match /roles/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update, delete: if false; // Admin SDK only — blocks self-assignment
     }
   }
 }
 ```
+
+The `/roles` collection deliberately denies all client writes; role assignment is a privileged,
+server-only operation performed via the Firebase Admin SDK. Exact deployed rules live in [`firestore.rules`](firestore.rules).
 
 To deploy rules from the CLI:
 ```bash
@@ -120,7 +150,7 @@ Every user interaction has a corresponding verification scenario:
 - **Step 1.1**: Open the root URL (`/`).
 - **Expected Result**: The landing page appears with high-contrast typography, presenting the value proposition, security highlights, and the "Sign In with Google" button. No private journal records are visible.
 - **Step 1.2**: Click the "Security Posture" button in the navbar.
-- **Expected Result**: The Threat Model modal opens, displaying the 5 Threat Zones table and the deployed `firestore.rules` snippet.
+- **Expected Result**: The Threat Model modal opens, displaying the 8 Threat Zones table and the deployed `firestore.rules` snippet.
 
 ### Test Case 2: Federated Google Authentication
 - **Step 2.1**: Click "Sign In with Google" on the landing page.
@@ -134,10 +164,14 @@ Every user interaction has a corresponding verification scenario:
 - **Step 3.4**: Click the "Reflect" button or press `Enter`.
 - **Expected Result**:
   - Processing indicator appears.
-  - Gemini 3.6 Flash analyzes the input and responds with an empathetic, constructive reflection rendered in clean markdown.
+  - Gemini 3.x Flash (first model of the 5-model fallback ladder) analyzes the input and responds with an empathetic, constructive reflection rendered in clean markdown.
   - An executive summary card and tags (e.g. `#Planning`, `#Productivity`) appear below the turn.
   - The Firestore status pill displays "Saved to Firestore" with a green checkmark.
   - The left sidebar updates in real-time, displaying the new entry under the user's history.
+- **Step 3.5**: Click the download icon in the editor header.
+- **Expected Result**: The entry downloads as a standalone `.md` file (mode, timestamps, thread, summary, tags).
+- **Step 3.6**: Edit the entry title; stop typing and wait ~1 second.
+- **Expected Result**: A "Saving title…" indicator appears, then the title persists to Firestore automatically (debounced autosave).
 
 ### Test Case 4: Multi-Turn Continuous Dialogue
 - **Step 4.1**: In the same active reflection, click the follow-up chip: *"Give me 3 concrete action steps for tomorrow based on this."*
@@ -161,13 +195,28 @@ Every user interaction has a corresponding verification scenario:
 ### Test Case 7: Transaction Integrity & Error Recovery
 - **Step 7.1**: Simulate a network disconnection or rate limit.
 - **Expected Result**: The user's input is NOT deleted or cleared. A red transaction warning banner displays a "Retry Save" button allowing one-click retry.
-- **Step 7.2**: The server's 4-tier model ladder automatically fails over across models (`gemini-3.6-flash` &rarr; `gemini-3.1-flash-lite` &rarr; `gemini-flash-latest` &rarr; `gemini-3.7-flash`) before reporting any unrecoverable error.
+- **Step 7.2**: The server's 5-model fallback ladder automatically fails over across models (`gemini-3.7-flash` &rarr; `gemini-3.6-flash` &rarr; `gemini-3.5-flash` &rarr; `gemini-flash-latest` &rarr; `gemini-3.1-flash-lite`) before reporting any unrecoverable error.
 
 ### Test Case 8: Secure Deletion
 - **Step 8.1**: Hover over an entry in the history sidebar and click the trash can icon.
-- **Step 8.2**: Confirm the deletion prompt.
+- **Step 8.2**: Confirm the deletion in the confirmation dialog (a styled modal replaces the browser-native confirm prompt).
 - **Expected Result**: The entry is deleted from the user's isolated Firestore collection (`/users/{uid}/interactions/{id}`) and immediately disappears from the history list.
 
 ### Test Case 9: Sign Out & State Teardown
 - **Step 9.1**: Click the Sign Out button in the navigation bar.
 - **Expected Result**: The session is destroyed, local state is reset, and the user is returned to the unauthenticated landing screen.
+
+---
+
+## 5. Local Development
+
+```bash
+npm install       # install dependencies
+npm run dev       # Express + Vite dev server on http://localhost:3000
+npm run lint      # TypeScript type-check
+npm run build     # production build → dist/ (frontend + server bundle)
+npm start         # run the production server
+npm run e2e       # 22-test synthetic E2E suite (admin RBAC + notifications)
+```
+
+Copy `.env.example` to `.env.local` and fill in `GEMINI_API_KEY` plus the `VITE_FIREBASE_*` values. Full variable reference, API endpoint table, deploy commands, and troubleshooting are in [**CHEATSHEET.md**](CHEATSHEET.md).

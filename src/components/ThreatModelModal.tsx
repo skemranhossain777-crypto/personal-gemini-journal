@@ -51,7 +51,7 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
             </p>
           </div>
 
-          {/* Threat Summary Table (The 5 Threat Zones) */}
+          {/* Threat Summary Table (8 Threat Zones) */}
           <div className="space-y-3">
             <h3 className="text-xs font-semibold text-[#888] uppercase tracking-wider">
               Threat Summary Table (8 Threat Zones)
@@ -104,7 +104,7 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
                       Model outages, 429 quota exhaustion, or 503 service downtime breaking app state.
                     </td>
                     <td className="p-3 text-[#A0A0A5]">
-                      Automated 4-tier Fallback Ladder (gemini-3.6-flash &rarr; 3.1-flash-lite &rarr; flash-latest &rarr; 3.7-flash).
+                      Automated 5-model Fallback Ladder (gemini-3.7-flash &rarr; 3.6-flash &rarr; 3.5-flash &rarr; flash-latest &rarr; 3.1-flash-lite).
                     </td>
                     <td className="p-3 text-emerald-400 font-medium">Tested & active</td>
                   </tr>

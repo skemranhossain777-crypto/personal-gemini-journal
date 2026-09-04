@@ -35,6 +35,10 @@ export const toast = {
   success: (m: string) => push('success', m),
   error: (m: string) => push('error', m),
   info: (m: string) => push('info', m),
+  dismiss: (id: string) => {
+    toasts = toasts.filter((t) => t.id !== id);
+    emit();
+  },
 };
 
 export function useToasts(): Toast[] {

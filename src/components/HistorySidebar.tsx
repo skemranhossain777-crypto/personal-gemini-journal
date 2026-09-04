@@ -8,6 +8,9 @@ import {
   MessageSquare,
   Tag,
   Filter,
+  Flame,
+  FileText,
+  PenLine,
 } from 'lucide-react';
 import type { JournalInteraction, ReflectionMode } from '../types';
 
@@ -47,21 +50,6 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
     });
   }, [interactions, searchQuery, selectedFilter]);
 
-  const formatDate = (isoStr: string) => {
-    try {
-      const d = new Date(isoStr);
-      if (isNaN(d.getTime())) return 'Recently';
-      return d.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return 'Recently';
-    }
-  };
-
   const getModeBadge = (mode: ReflectionMode) => {
     switch (mode) {
       case 'summarize':
@@ -73,6 +61,72 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
       case 'reflect':
       default:
         return { label: 'Reflect', color: 'bg-purple-950/40 text-purple-400 border-purple-800/40' };
+    }
+  };
+
+  // Journaling stats: total entries, total words written, and current streak.
+  const stats = useMemo(() => {
+    let totalWords = 0;
+    let totalMessages = 0;
+    const days = new Set<string>();
+    interactions.forEach((item) => {
+      totalMessages += item.messages?.length || 0;
+      (item.messages || []).forEach((m) => {
+        const trimmed = m.content.trim();
+        totalWords += trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
+      });
+      const d = new Date(item.createdAt || item.updatedAt);
+      if (!isNaN(d.getTime())) days.add(d.toISOString().slice(0, 10));
+    });
+
+    let streak = 0;
+    const cursor = new Date();
+    const todayKey = cursor.toISOString().slice(0, 10);
+    if (!days.has(todayKey)) cursor.setDate(cursor.getDate() - 1);
+    while (days.has(cursor.toISOString().slice(0, 10))) {
+      streak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    return { totalWords, totalMessages, streak };
+  }, [interactions]);
+
+  const formatRelativeTime = (isoStr: string) => {
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return 'Recently';
+      const diffMs = Date.now() - d.getTime();
+      const minutes = Math.floor(diffMs / 60_000);
+      if (minutes < 1) return 'Just now';
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      if (days < 7) return `${days}d ago`;
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setHours(0, 0, 0, 0);
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 6);
+      if (d >= oneWeekAgo) {
+        return d.toLocaleDateString(undefined, { weekday: 'short' });
+      }
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } catch {
+      return 'Recently';
+    }
+  };
+
+  const fullDateLabel = (isoStr: string) => {
+    try {
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return '';
     }
   };
 
@@ -139,9 +193,21 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
       {/* Interactions List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {isLoading && interactions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-8 text-center text-[#888] space-y-2">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#262629] border-t-amber-500" />
-            <p className="text-xs">Loading reflections from Firestore...</p>
+          <div className="space-y-2" aria-label="Loading reflections">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="flex flex-col gap-2 rounded-xl border border-[#262629] bg-[#141416] p-3 animate-pulse"
+              >
+                <div className="h-3 w-2/3 rounded bg-[#262629]" />
+                <div className="h-2.5 w-full rounded bg-[#1E1E24]" />
+                <div className="h-2.5 w-1/2 rounded bg-[#1E1E24]" />
+                <div className="mt-1 flex items-center justify-between">
+                  <div className="h-4 w-16 rounded bg-[#262629]" />
+                  <div className="h-3 w-12 rounded bg-[#1E1E24]" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredInteractions.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center text-[#888] space-y-3">
@@ -209,9 +275,9 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                       {turnCount}
                     </span>
                   </div>
-                  <span className="flex items-center gap-1 shrink-0 text-[#666] font-mono">
+                  <span className="flex items-center gap-1 shrink-0 text-[#666] font-mono" title={fullDateLabel(item.updatedAt || item.createdAt)}>
                     <Calendar className="h-2.5 w-2.5" />
-                    {formatDate(item.updatedAt || item.createdAt)}
+                    {formatRelativeTime(item.updatedAt || item.createdAt)}
                   </span>
                 </div>
 
@@ -232,6 +298,39 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             );
           })
         )}
+      </div>
+
+      {/* Journaling Stats Footer */}
+      <div className="shrink-0 border-t border-[#262629] bg-[#121214] px-4 py-3">
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-lg border border-[#262629] bg-[#141416] px-2.5 py-2">
+            <div className="flex items-center gap-1 text-[10px] text-[#888]">
+              <FileText className="h-3 w-3 text-amber-400" />
+              <span>Entries</span>
+            </div>
+            <p className="mt-0.5 text-base font-bold text-[#F1F1F1] leading-none">
+              {interactions.length}
+            </p>
+          </div>
+          <div className="rounded-lg border border-[#262629] bg-[#141416] px-2.5 py-2">
+            <div className="flex items-center gap-1 text-[10px] text-[#888]">
+              <PenLine className="h-3 w-3 text-emerald-400" />
+              <span>Words</span>
+            </div>
+            <p className="mt-0.5 text-base font-bold text-[#F1F1F1] leading-none">
+              {stats.totalWords.toLocaleString()}
+            </p>
+          </div>
+          <div className="rounded-lg border border-[#262629] bg-[#141416] px-2.5 py-2">
+            <div className="flex items-center gap-1 text-[10px] text-[#888]">
+              <Flame className="h-3 w-3 text-orange-400" />
+              <span>Streak</span>
+            </div>
+            <p className="mt-0.5 text-base font-bold text-[#F1F1F1] leading-none">
+              {stats.streak} {stats.streak === 1 ? 'day' : 'days'}
+            </p>
+          </div>
+        </div>
       </div>
     </aside>
   );
