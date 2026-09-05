@@ -43,12 +43,12 @@ export const Navbar: React.FC<NavbarProps> = ({
       initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="sticky top-0 z-40 border-b border-[#262629] bg-[#121214]/95 backdrop-blur-md"
+      className="sticky top-0 z-40 border-b border-[#223056] bg-[#0E1730]/95 backdrop-blur-md"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Brand identity */}
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-600 to-amber-500 text-white shadow-sm shadow-amber-500/20">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-sky-600 to-sky-500 text-white shadow-sm shadow-sky-500/20">
             <motion.span
               animate={{ rotate: [0, 8, -8, 0] }}
               transition={{ duration: 6, repeat: Infinity, repeatDelay: 2 }}
@@ -59,17 +59,17 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-serif text-lg font-bold tracking-tight text-[#F1F1F1]">
+              <span className="font-serif text-lg font-bold tracking-tight text-[#EEF4FF]">
                 Gemini Reflections
               </span>
               <span
-                className="hidden items-center rounded-md border border-[#262629] bg-[#1A1A1C] px-2 py-0.5 text-[10px] font-medium text-amber-400 sm:inline-flex"
+                className="hidden items-center rounded-md border border-[#223056] bg-[#17254F] px-2 py-0.5 text-[10px] font-medium text-sky-400 sm:inline-flex"
                 title="5-model Gemini Flash fallback ladder"
               >
                 Gemini 3.x Flash
               </span>
               {isDemo && (
-                <span className="inline-flex items-center rounded-md border border-amber-800/60 bg-amber-950/50 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                <span className="inline-flex items-center rounded-md border border-blue-800/60 bg-blue-950/50 px-2 py-0.5 text-[10px] font-medium text-sky-300">
                   Demo Workspace
                 </span>
               )}
@@ -87,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {isDemo && onSignInGoogle && (
             <button
               onClick={onSignInGoogle}
-              className="flex items-center gap-1.5 rounded-lg border border-amber-800/70 bg-amber-950/40 px-2.5 py-1.5 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-900/50"
+              className="flex items-center gap-1.5 rounded-lg border border-blue-800/70 bg-blue-950/40 px-2.5 py-1.5 text-xs font-medium text-sky-300 transition-colors hover:bg-blue-900/50"
               title="Authenticate with Google to enable Firestore cloud sync"
             >
               <UserIcon className="h-3.5 w-3.5" />
@@ -100,13 +100,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               id="command-palette-btn"
               onClick={onOpenCommandPalette}
-              className="flex items-center gap-2 rounded-lg border border-[#262629] bg-[#161619] px-3 py-1.5 text-xs font-medium text-[#888] transition-colors hover:border-[#3A3A40] hover:bg-[#1E1E22] hover:text-[#F1F1F1]"
+              className="flex items-center gap-2 rounded-lg border border-[#223056] bg-[#121E40] px-3 py-1.5 text-xs font-medium text-[#888] transition-colors hover:border-[#3B518E] hover:bg-[#1C2C5E] hover:text-[#EEF4FF]"
               title="Quick access (Ctrl+K)"
               aria-label="Open command palette (Ctrl+K)"
             >
               <Search className="h-3.5 w-3.5" />
               <span className="hidden lg:inline">Search...</span>
-              <kbd className="hidden rounded border border-[#333338] bg-[#121214] px-1 py-0.5 text-[9px] text-[#666] lg:inline">
+              <kbd className="hidden rounded border border-[#31447F] bg-[#0E1730] px-1 py-0.5 text-[9px] text-[#666] lg:inline">
                 ⌘K
               </kbd>
             </button>
@@ -116,7 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             id="threat-model-btn"
             onClick={onOpenThreatModel}
-            className="flex items-center gap-1.5 rounded-lg border border-[#262629] bg-[#161619] px-3 py-1.5 text-xs font-medium text-[#E0E0E0] transition-colors hover:border-[#3A3A40] hover:bg-[#1E1E22] hover:text-[#F1F1F1]"
+            className="flex items-center gap-1.5 rounded-lg border border-[#223056] bg-[#121E40] px-3 py-1.5 text-xs font-medium text-[#D9E2F5] transition-colors hover:border-[#3B518E] hover:bg-[#1C2C5E] hover:text-[#EEF4FF]"
             title="Inspect 8 Threat Zones & Firestore Isolation"
           >
             <Shield className="h-3.5 w-3.5 text-emerald-400" />
@@ -128,7 +128,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               id="notification-settings-btn"
               onClick={onOpenNotifications}
-              className="flex items-center gap-1.5 rounded-lg border border-[#262629] bg-[#161619] px-3 py-1.5 text-xs font-medium text-[#E0E0E0] transition-colors hover:border-[#3A3A40] hover:bg-[#1E1E22] hover:text-[#F1F1F1]"
+              className="flex items-center gap-1.5 rounded-lg border border-[#223056] bg-[#121E40] px-3 py-1.5 text-xs font-medium text-[#D9E2F5] transition-colors hover:border-[#3B518E] hover:bg-[#1C2C5E] hover:text-[#EEF4FF]"
               title="Configure Slack & Discord notifications"
             >
               <Bell className="h-3.5 w-3.5 text-blue-400" />
@@ -141,7 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               id="admin-dashboard-btn"
               onClick={onOpenAdminDashboard}
-              className="flex items-center gap-1.5 rounded-lg border border-amber-900/50 bg-amber-950/30 px-3 py-1.5 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-900/50"
+              className="flex items-center gap-1.5 rounded-lg border border-blue-900/50 bg-blue-950/30 px-3 py-1.5 text-xs font-medium text-sky-300 transition-colors hover:bg-blue-900/50"
               title="Open Admin Dashboard"
             >
               <LayoutDashboard className="h-3.5 w-3.5" />
@@ -155,27 +155,27 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 id="new-entry-btn"
                 onClick={onNewEntry}
-                className="flex items-center gap-1.5 rounded-lg border border-[#333338] bg-[#1A1A1C] px-3 py-1.5 text-xs font-medium text-[#F1F1F1] shadow-sm transition-all hover:border-[#44444C] hover:bg-[#242428] active:scale-95"
+                className="flex items-center gap-1.5 rounded-lg border border-[#31447F] bg-[#17254F] px-3 py-1.5 text-xs font-medium text-[#EEF4FF] shadow-sm transition-all hover:border-[#4A63A3] hover:bg-[#26376B] active:scale-95"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>New Reflection</span>
               </button>
 
               {/* User Profile Pill */}
-              <div className="flex items-center gap-2 rounded-lg border border-[#262629] bg-[#161619] px-2 py-1">
+              <div className="flex items-center gap-2 rounded-lg border border-[#223056] bg-[#121E40] px-2 py-1">
                 {user.photoURL ? (
                   <img
                     src={user.photoURL}
                     alt={user.displayName || 'User'}
-                    className="h-6 w-6 rounded-full border border-[#262629] object-cover"
+                    className="h-6 w-6 rounded-full border border-[#223056] object-cover"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#262629] text-xs font-semibold text-[#E0E0E0]">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#223056] text-xs font-semibold text-[#D9E2F5]">
                     <UserIcon className="h-3.5 w-3.5" />
                   </div>
                 )}
-                <span className="hidden max-w-[120px] truncate text-xs font-medium text-[#E0E0E0] lg:inline-block">
+                <span className="hidden max-w-[120px] truncate text-xs font-medium text-[#D9E2F5] lg:inline-block">
                   {user.displayName || user.email?.split('@')[0]}
                 </span>
               </div>
@@ -184,7 +184,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 id="sign-out-btn"
                 onClick={onSignOut}
-                className="flex items-center gap-1 rounded-lg border border-[#262629] bg-[#161619] p-2 text-[#888] transition-colors hover:border-red-900/50 hover:bg-red-950/30 hover:text-red-400"
+                className="flex items-center gap-1 rounded-lg border border-[#223056] bg-[#121E40] p-2 text-[#888] transition-colors hover:border-red-900/50 hover:bg-red-950/30 hover:text-red-400"
                 title="Sign Out"
                 aria-label="Sign Out"
               >

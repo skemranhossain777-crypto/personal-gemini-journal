@@ -288,9 +288,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0A0A0B] text-[#E0E0E0] overflow-hidden">
+    <div className="flex flex-col h-full bg-[#070B16] text-[#D9E2F5] overflow-hidden">
       {/* Workspace Header */}
-      <div className="shrink-0 border-b border-[#262629] bg-[#121214] px-6 py-4 space-y-3">
+      <div className="shrink-0 border-b border-[#223056] bg-[#0E1730] px-6 py-4 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Title Editor */}
           <input
@@ -299,7 +299,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             placeholder="Untitled Reflection..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="font-serif text-xl sm:text-2xl font-bold text-[#F1F1F1] bg-transparent placeholder:text-[#555] focus:outline-none focus:ring-0 w-full"
+            className="font-serif text-xl sm:text-2xl font-bold text-[#EEF4FF] bg-transparent placeholder:text-[#555] focus:outline-none focus:ring-0 w-full"
           />
 
           {/* Status badge */}
@@ -311,7 +311,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               </span>
             )}
             {saveStatus === 'saving' && (
-              <span className="flex items-center gap-1 text-amber-400 font-medium">
+              <span className="flex items-center gap-1 text-sky-400 font-medium">
                 <Clock className="h-3.5 w-3.5 animate-spin" />
                 <span>Processing & Saving...</span>
               </span>
@@ -334,7 +334,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             )}
 
             {interaction?.modelUsed && (
-              <span className="hidden md:inline-flex items-center rounded-md bg-[#1A1A1C] px-2 py-0.5 text-[11px] font-mono text-[#888] border border-[#262629]">
+              <span className="hidden md:inline-flex items-center rounded-md bg-[#17254F] px-2 py-0.5 text-[11px] font-mono text-[#888] border border-[#223056]">
                 {interaction.modelUsed}
               </span>
             )}
@@ -343,7 +343,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             <button
               onClick={handleExportMarkdown}
               disabled={currentMessages.length === 0}
-              className="flex items-center gap-1.5 rounded-lg border border-[#262629] bg-[#161619] px-2.5 py-1 text-xs font-medium text-[#A0A0A5] hover:bg-[#1E1E22] hover:text-[#F1F1F1] hover:border-[#3A3A40] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-lg border border-[#223056] bg-[#121E40] px-2.5 py-1 text-xs font-medium text-[#9FB0D4] hover:bg-[#1C2C5E] hover:text-[#EEF4FF] hover:border-[#3B518E] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               title="Download this reflection as a Markdown file"
             >
               <Download className="h-3.5 w-3.5" />
@@ -370,14 +370,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 aria-pressed={isActive}
                 className={`relative whitespace-nowrap rounded-lg border px-3 py-1.5 font-medium transition-colors ${
                   isActive
-                    ? 'text-[#F1F1F1]'
-                    : 'border-[#262629] bg-[#161619] text-[#888] hover:bg-[#1C1C20] hover:text-[#E0E0E0]'
+                    ? 'text-[#EEF4FF]'
+                    : 'border-[#223056] bg-[#121E40] text-[#888] hover:bg-[#1A2957] hover:text-[#D9E2F5]'
                 }`}
               >
                 {isActive && (
                   <motion.span
                     layoutId="prompt-mode-pill"
-                    className="absolute inset-0 rounded-lg border border-[#3E3E44] bg-[#24242A] shadow-sm"
+                    className="absolute inset-0 rounded-lg border border-[#41599A] bg-[#26376B] shadow-sm"
                     transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                   />
                 )}
@@ -403,7 +403,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       </div>
 
       {/* Main Conversation / Reflection Canvas */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6 bg-[#0A0A0B]">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-6 bg-[#070B16]">
         {/* Error Escalation Banner */}
         {errorMessage && (
           <motion.div
@@ -438,11 +438,11 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
             className="mx-auto max-w-2xl space-y-6 px-4 py-12 text-center"
           >
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#262629] bg-[#1A1A1C] text-amber-400 shadow-sm">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-[#223056] bg-[#17254F] text-sky-400 shadow-sm">
               <Sparkles className="h-6 w-6" />
             </div>
             <div className="space-y-2">
-              <h3 className="font-serif text-2xl font-bold text-[#F1F1F1]">
+              <h3 className="font-serif text-2xl font-bold text-[#EEF4FF]">
                 What is on your mind today?
               </h3>
               <p className="mx-auto max-w-md text-sm text-[#888]">
@@ -470,9 +470,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       setInputBuffer(item.text);
                       textareaRef.current?.focus();
                     }}
-                    className="group flex flex-col items-start rounded-xl border border-[#262629] bg-[#121214] p-3 text-left transition-colors hover:border-[#3E3E44] hover:bg-[#161619]"
+                    className="group flex flex-col items-start rounded-xl border border-[#223056] bg-[#0E1730] p-3 text-left transition-colors hover:border-[#41599A] hover:bg-[#121E40]"
                   >
-                    <span className="text-xs font-semibold text-[#F1F1F1] group-hover:text-amber-400">
+                    <span className="text-xs font-semibold text-[#EEF4FF] group-hover:text-sky-400">
                       {item.label}
                     </span>
                     <span className="mt-1 line-clamp-2 text-[11px] text-[#888]">
@@ -517,27 +517,27 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               <div
                 className={`relative group rounded-2xl p-4 sm:p-5 text-sm leading-relaxed transition-all shadow-sm ${
                   isUser
-                    ? 'bg-[#1A1A1C] border border-[#2E2E34] text-[#F1F1F1] rounded-br-xs whitespace-pre-wrap'
-                    : 'bg-[#121214] border border-[#262629] text-[#E0E0E0] rounded-bl-xs w-full'
+                    ? 'bg-[#17254F] border border-[#2B3E74] text-[#EEF4FF] rounded-br-xs whitespace-pre-wrap'
+                    : 'bg-[#0E1730] border border-[#223056] text-[#D9E2F5] rounded-bl-xs w-full'
                 }`}
               >
                 {isUser ? (
                   <div>{msg.content}</div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="prose prose-invert max-w-none text-[#E0E0E0] text-sm leading-relaxed">
+                    <div className="prose prose-invert max-w-none text-[#D9E2F5] text-sm leading-relaxed">
                       <Markdown>{msg.content}</Markdown>
                     </div>
 
                     {/* Copy action button */}
-                    <div className="pt-2 flex items-center justify-between border-t border-[#262629] text-xs text-[#666]">
+                    <div className="pt-2 flex items-center justify-between border-t border-[#223056] text-xs text-[#666]">
                       <div className="flex items-center gap-1.5">
-                        <Sparkles className="h-3 w-3 text-amber-400" />
+                        <Sparkles className="h-3 w-3 text-sky-400" />
                         <span className="text-[11px] font-medium text-[#888]">{activeModel}</span>
                       </div>
                       <button
                         onClick={() => handleCopyMessage(msg.id, msg.content)}
-                        className="flex items-center gap-1 rounded p-1 text-[#666] hover:text-[#E0E0E0] hover:bg-[#1A1A1C] transition-colors"
+                        className="flex items-center gap-1 rounded p-1 text-[#666] hover:text-[#D9E2F5] hover:bg-[#17254F] transition-colors"
                         title="Copy reflection"
                       >
                         {copiedId === msg.id ? (
@@ -567,13 +567,13 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="max-w-3xl mx-auto rounded-2xl border border-amber-900/40 bg-[#161410] p-4 shadow-xs"
+            className="max-w-3xl mx-auto rounded-2xl border border-blue-900/40 bg-[#0E1832] p-4 shadow-xs"
           >
-            <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-1">
-              <Brain className="h-3.5 w-3.5 text-amber-400" />
+            <div className="flex items-center gap-2 text-sky-400 text-xs font-semibold uppercase tracking-wider mb-1">
+              <Brain className="h-3.5 w-3.5 text-sky-400" />
               Executive Reflection Summary
             </div>
-            <p className="text-xs text-[#D5D5DB] leading-relaxed italic">
+            <p className="text-xs text-[#CFDAF0] leading-relaxed italic">
               "{interaction.summary}"
             </p>
             {/* Location tag in summary */}
@@ -588,11 +588,11 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             )}
             {interaction.tags && interaction.tags.length > 0 && (
               <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                <Tag className="h-3 w-3 text-amber-400" />
+                <Tag className="h-3 w-3 text-sky-400" />
                 {interaction.tags.map((tag, i) => (
                   <span
                     key={i}
-                    className="rounded-md bg-[#1A1A1C] border border-amber-900/40 px-2 py-0.5 text-[10px] font-medium text-amber-300"
+                    className="rounded-md bg-[#17254F] border border-blue-900/40 px-2 py-0.5 text-[10px] font-medium text-sky-300"
                   >
                     #{tag}
                   </span>
@@ -615,13 +615,13 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               <span>•</span>
               <span>Reflecting...</span>
             </div>
-            <div className="flex items-center gap-3 rounded-2xl rounded-bl-xs border border-[#262629] bg-[#121214] p-4 shadow-sm">
+            <div className="flex items-center gap-3 rounded-2xl rounded-bl-xs border border-[#223056] bg-[#0E1730] p-4 shadow-sm">
               <div className="flex items-center gap-1" aria-hidden="true">
-                <span className="typing-dot h-2 w-2 rounded-full bg-amber-400" />
-                <span className="typing-dot h-2 w-2 rounded-full bg-amber-400" />
-                <span className="typing-dot h-2 w-2 rounded-full bg-amber-400" />
+                <span className="typing-dot h-2 w-2 rounded-full bg-sky-400" />
+                <span className="typing-dot h-2 w-2 rounded-full bg-sky-400" />
+                <span className="typing-dot h-2 w-2 rounded-full bg-sky-400" />
               </div>
-              <p className="text-xs font-medium text-[#A0A0A5]">
+              <p className="text-xs font-medium text-[#9FB0D4]">
                 Analyzing reflection and generating constructive insights...
               </p>
             </div>
@@ -631,12 +631,12 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         {/* Visual prompt divider if thread has messages */}
         {currentMessages.length > 0 && (
           <div className="max-w-3xl mx-auto flex items-center justify-center gap-3 py-2">
-            <div className="h-px bg-[#262629] flex-1" />
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#161619] border border-amber-900/40 text-[11px] font-medium text-amber-300 shadow-xs">
-              <MessageSquare className="h-3 w-3 text-amber-400" />
+            <div className="h-px bg-[#223056] flex-1" />
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#121E40] border border-blue-900/40 text-[11px] font-medium text-sky-300 shadow-xs">
+              <MessageSquare className="h-3 w-3 text-sky-400" />
               Follow-up & continue reflection below
             </span>
-            <div className="h-px bg-[#262629] flex-1" />
+            <div className="h-px bg-[#223056] flex-1" />
           </div>
         )}
 
@@ -644,13 +644,13 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       </div>
 
       {/* Bottom Composer Box (Permanently Docked) */}
-      <div className="shrink-0 border-t border-[#262629] bg-[#121214] p-4 sm:p-5">
+      <div className="shrink-0 border-t border-[#223056] bg-[#0E1730] p-4 sm:p-5">
         <div className="max-w-3xl mx-auto space-y-2.5">
           {/* Header identifying the Follow-up Input Box */}
           {currentMessages.length > 0 ? (
             <div className="flex items-center justify-between pb-0.5">
-              <div className="flex items-center gap-2 text-xs font-semibold text-amber-400">
-                <MessageSquare className="h-3.5 w-3.5 text-amber-400" />
+              <div className="flex items-center gap-2 text-xs font-semibold text-sky-400">
+                <MessageSquare className="h-3.5 w-3.5 text-sky-400" />
                 <span>Follow-Up Input Box</span>
               </div>
               <span className="text-[11px] text-[#888] font-mono">
@@ -660,7 +660,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           ) : (
             <div className="flex items-center justify-between pb-0.5">
               <div className="flex items-center gap-2 text-xs font-medium text-[#888]">
-                <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                <Sparkles className="h-3.5 w-3.5 text-sky-400" />
                 <span>Write Your Reflection</span>
               </div>
               <span className="text-[11px] text-[#666]">New Journal Entry</span>
@@ -673,25 +673,25 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               <span className="font-medium text-[#666] shrink-0">Quick prompts:</span>
               <button
                 onClick={() => handleSendReflection('How can we avoid burnout while keeping this pace?')}
-                className="rounded-full bg-[#161619] border border-amber-900/40 hover:border-amber-500/50 hover:bg-[#202024] px-2.5 py-0.5 text-amber-300 hover:text-amber-200 whitespace-nowrap transition-colors"
+                className="rounded-full bg-[#121E40] border border-blue-900/40 hover:border-sky-500/50 hover:bg-[#203066] px-2.5 py-0.5 text-sky-300 hover:text-sky-200 whitespace-nowrap transition-colors"
               >
                 Avoid burnout?
               </button>
               <button
                 onClick={() => handleSendReflection('Give me 3 concrete action steps for tomorrow based on this.')}
-                className="rounded-full bg-[#161619] border border-[#262629] hover:bg-[#202024] hover:border-[#3A3A40] px-2.5 py-0.5 text-[#A0A0A5] hover:text-[#F1F1F1] whitespace-nowrap transition-colors"
+                className="rounded-full bg-[#121E40] border border-[#223056] hover:bg-[#203066] hover:border-[#3B518E] px-2.5 py-0.5 text-[#9FB0D4] hover:text-[#EEF4FF] whitespace-nowrap transition-colors"
               >
                 3 action steps
               </button>
               <button
                 onClick={() => handleSendReflection('How can I reframe this challenge into a learning opportunity?')}
-                className="rounded-full bg-[#161619] border border-[#262629] hover:bg-[#202024] hover:border-[#3A3A40] px-2.5 py-0.5 text-[#A0A0A5] hover:text-[#F1F1F1] whitespace-nowrap transition-colors"
+                className="rounded-full bg-[#121E40] border border-[#223056] hover:bg-[#203066] hover:border-[#3B518E] px-2.5 py-0.5 text-[#9FB0D4] hover:text-[#EEF4FF] whitespace-nowrap transition-colors"
               >
                 Reframe as opportunity
               </button>
               <button
                 onClick={() => handleSendReflection('Summarize the emotional core of this reflection.')}
-                className="rounded-full bg-[#161619] border border-[#262629] hover:bg-[#202024] hover:border-[#3A3A40] px-2.5 py-0.5 text-[#A0A0A5] hover:text-[#F1F1F1] whitespace-nowrap transition-colors"
+                className="rounded-full bg-[#121E40] border border-[#223056] hover:bg-[#203066] hover:border-[#3B518E] px-2.5 py-0.5 text-[#9FB0D4] hover:text-[#EEF4FF] whitespace-nowrap transition-colors"
               >
                 Emotional core
               </button>
@@ -700,10 +700,10 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
           {/* Text Area */}
           <div
-            className={`relative rounded-2xl border bg-[#161619] focus-within:bg-[#18181C] transition-all shadow-xs ${
+            className={`relative rounded-2xl border bg-[#121E40] focus-within:bg-[#15224A] transition-all shadow-xs ${
               currentMessages.length > 0
-                ? 'border-amber-900/40 focus-within:border-amber-500/50'
-                : 'border-[#262629] focus-within:border-[#444]'
+                ? 'border-blue-900/40 focus-within:border-sky-500/50'
+                : 'border-[#223056] focus-within:border-[#444]'
             }`}
           >
             <textarea
@@ -725,13 +725,13 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 }
               }}
               aria-label={currentMessages.length === 0 ? 'Write your journal entry or reflection' : 'Write a follow-up message'}
-              className="w-full min-h-[76px] resize-none bg-transparent p-3.5 pr-28 text-sm text-[#F1F1F1] placeholder:text-[#666] focus:outline-none"
+              className="w-full min-h-[76px] resize-none bg-transparent p-3.5 pr-28 text-sm text-[#EEF4FF] placeholder:text-[#666] focus:outline-none"
             />
 
             {/* Character usage progress */}
             {inputBuffer.length > 0 && (
               <div
-                className="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-2xl bg-[#262629]"
+                className="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-2xl bg-[#223056]"
                 aria-hidden="true"
               >
                 <div
@@ -739,8 +739,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                     inputBuffer.length > MAX_CHARS * 0.9
                       ? 'bg-red-500'
                       : inputBuffer.length > MAX_CHARS * 0.7
-                        ? 'bg-amber-500'
-                        : 'bg-amber-500/60'
+                        ? 'bg-sky-500'
+                        : 'bg-sky-500/60'
                   }`}
                   style={{ width: `${Math.min(100, (inputBuffer.length / MAX_CHARS) * 100)}%` }}
                 />
@@ -762,13 +762,13 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 disabled={!inputBuffer.trim() || isGenerating}
                 className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold shadow-sm active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all ${
                   currentMessages.length > 0
-                    ? 'bg-amber-500/15 border border-amber-500/40 text-amber-200 hover:bg-amber-500/25 hover:border-amber-400/60'
-                    : 'bg-[#1A1A1C] border border-[#333338] text-[#F1F1F1] hover:bg-[#242428] hover:border-[#44444C]'
+                    ? 'bg-sky-500/15 border border-sky-500/40 text-sky-200 hover:bg-sky-500/25 hover:border-sky-400/60'
+                    : 'bg-[#17254F] border border-[#31447F] text-[#EEF4FF] hover:bg-[#26376B] hover:border-[#4A63A3]'
                 }`}
                 title="Send to Gemini & Save to Firestore"
               >
                 {isGenerating ? (
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-sky-400 border-t-transparent" />
                 ) : (
                   <Send className="h-3.5 w-3.5" />
                 )}
@@ -779,7 +779,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
           <div className="flex items-center justify-between text-[11px] text-[#666] px-1">
             <span>
-              Press <kbd className="rounded bg-[#161619] border border-[#262629] px-1 py-0.5 font-mono text-[10px] text-[#888]">Enter</kbd> to {currentMessages.length > 0 ? 'send follow-up' : 'reflect'}, <kbd className="rounded bg-[#161619] border border-[#262629] px-1 py-0.5 font-mono text-[10px] text-[#888]">Shift+Enter</kbd> for new line
+              Press <kbd className="rounded bg-[#121E40] border border-[#223056] px-1 py-0.5 font-mono text-[10px] text-[#888]">Enter</kbd> to {currentMessages.length > 0 ? 'send follow-up' : 'reflect'}, <kbd className="rounded bg-[#121E40] border border-[#223056] px-1 py-0.5 font-mono text-[10px] text-[#888]">Shift+Enter</kbd> for new line
             </span>
             <span className="flex items-center gap-3">
               {currentMessages.length > 0 ? (

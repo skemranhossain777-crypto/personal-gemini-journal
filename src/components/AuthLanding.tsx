@@ -13,7 +13,7 @@ interface AuthLandingProps {
 const features = [
   {
     icon: Brain,
-    iconColor: 'text-amber-400',
+    iconColor: 'text-sky-400',
     title: 'Gemini 3.x Flash Intelligence',
     description:
       'Provides empathetic reflections, creative brainstorming angles, and executive summaries with a 5-model automatic fallback ladder.',
@@ -71,10 +71,10 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
   };
 
   return (
-    <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center overflow-hidden bg-[#0A0A0B] px-4 py-12 text-[#E0E0E0]">
+    <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center overflow-hidden bg-[#070B16] px-4 py-12 text-[#D9E2F5]">
       {/* Aurora background blobs */}
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="animate-aurora absolute -left-32 top-16 h-[420px] w-[420px] rounded-full bg-amber-500/10 blur-[120px]" />
+        <div className="animate-aurora absolute -left-32 top-16 h-[420px] w-[420px] rounded-full bg-sky-500/10 blur-[120px]" />
         <div className="animate-aurora-slow absolute -right-24 top-40 h-[380px] w-[380px] rounded-full bg-indigo-500/10 blur-[120px]" />
         <div className="animate-aurora absolute bottom-0 left-1/3 h-[300px] w-[480px] rounded-full bg-emerald-500/[0.07] blur-[120px]" />
       </div>
@@ -89,20 +89,20 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
         <motion.div variants={fadeUp} className="mx-auto max-w-2xl space-y-4 text-center">
           <motion.div
             variants={fadeUp}
-            className="inline-flex items-center gap-2 rounded-full border border-[#262629] bg-[#161619] px-3.5 py-1 text-xs font-medium text-amber-400 shadow-sm"
+            className="inline-flex items-center gap-2 rounded-full border border-[#223056] bg-[#121E40] px-3.5 py-1 text-xs font-medium text-sky-400 shadow-sm"
           >
-            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+            <Sparkles className="h-3.5 w-3.5 text-sky-400" />
             <span>AI-Guided Reflection & Thought Partner</span>
           </motion.div>
 
           <motion.h1
             variants={fadeUp}
-            className="font-serif text-3xl font-bold leading-tight tracking-tight text-[#F1F1F1] sm:text-4xl lg:text-5xl"
+            className="font-serif text-3xl font-bold leading-tight tracking-tight text-[#EEF4FF] sm:text-4xl lg:text-5xl"
           >
             Reflect deeper, brainstorm ideas, and understand your journey.
           </motion.h1>
 
-          <motion.p variants={fadeUp} className="text-base leading-relaxed text-[#A0A0A5] sm:text-lg">
+          <motion.p variants={fadeUp} className="text-base leading-relaxed text-[#9FB0D4] sm:text-lg">
             A private journaling sanctuary paired with Gemini 3.x Flash. Write multi-turn reflections, receive thoughtful summaries, and keep your entries strictly isolated to your account.
           </motion.p>
 
@@ -113,7 +113,7 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
                 id="google-signin-btn"
                 onClick={handleSignInClick}
                 disabled={isLoading}
-                className="flex items-center justify-center gap-3 rounded-xl border border-[#333338] bg-[#1A1A1C] px-6 py-3 text-sm font-medium text-[#F1F1F1] shadow-lg shadow-black/40 transition-all hover:border-[#44444C] hover:bg-[#242428] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex items-center justify-center gap-3 rounded-xl border border-[#31447F] bg-[#17254F] px-6 py-3 text-sm font-medium text-[#EEF4FF] shadow-lg shadow-black/40 transition-all hover:border-[#4A63A3] hover:bg-[#26376B] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isLoading ? (
                   <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -144,10 +144,10 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
                 <button
                   id="instant-demo-btn"
                   onClick={onDemoSignIn}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-[#262629] bg-[#161619] px-5 py-3 text-sm font-medium text-[#A0A0A5] transition-all hover:border-[#3E3E44] hover:bg-[#1E1E22] hover:text-[#F1F1F1] active:scale-[0.98]"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-[#223056] bg-[#121E40] px-5 py-3 text-sm font-medium text-[#9FB0D4] transition-all hover:border-[#41599A] hover:bg-[#1C2C5E] hover:text-[#EEF4FF] active:scale-[0.98]"
                   title="Explore all reflection features instantly in demo workspace"
                 >
-                  <Sparkles className="h-4 w-4 text-amber-400" />
+                  <Sparkles className="h-4 w-4 text-sky-400" />
                   <span>Instant Demo Mode</span>
                 </button>
               )}
@@ -158,22 +158,22 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 role="alert"
-                className="max-w-md space-y-2 rounded-xl border border-amber-900/60 bg-amber-950/40 p-3 text-left text-xs text-amber-300"
+                className="max-w-md space-y-2 rounded-xl border border-blue-900/60 bg-blue-950/40 p-3 text-left text-xs text-sky-300"
               >
-                <p className="font-medium text-amber-200">{authError}</p>
+                <p className="font-medium text-sky-200">{authError}</p>
                 <div className="flex items-center gap-3 pt-1">
                   <a
                     href={window.location.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-semibold text-amber-400 underline hover:text-amber-300"
+                    className="inline-flex items-center gap-1 font-semibold text-sky-400 underline hover:text-sky-300"
                   >
                     Open in New Tab &rarr;
                   </a>
                   {onDemoSignIn && (
                     <button
                       onClick={onDemoSignIn}
-                      className="inline-flex items-center gap-1 rounded border border-amber-700/50 bg-amber-900/40 px-2 py-0.5 text-[11px] text-amber-200 hover:bg-amber-800/50"
+                      className="inline-flex items-center gap-1 rounded border border-blue-700/50 bg-blue-900/40 px-2 py-0.5 text-[11px] text-sky-200 hover:bg-blue-800/50"
                     >
                       Continue in Demo Mode
                     </button>
@@ -199,14 +199,14 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
               <motion.div
                 key={f.title}
                 variants={fadeUp}
-                whileHover={{ y: -5, borderColor: '#3E3E44' }}
+                whileHover={{ y: -5, borderColor: '#41599A' }}
                 transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-                className="rounded-2xl border border-[#262629] bg-[#121214] p-6 shadow-sm"
+                className="rounded-2xl border border-[#223056] bg-[#0E1730] p-6 shadow-sm"
               >
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-[#262629] bg-[#1A1A1C]">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-[#223056] bg-[#17254F]">
                   <Icon className={`h-5 w-5 ${f.iconColor}`} />
                 </div>
-                <h3 className="mb-2 text-base font-semibold text-[#F1F1F1]">{f.title}</h3>
+                <h3 className="mb-2 text-base font-semibold text-[#EEF4FF]">{f.title}</h3>
                 <p className="text-xs leading-relaxed text-[#888]">{f.description}</p>
               </motion.div>
             );
@@ -216,14 +216,14 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
         {/* Privacy & Threat Model Banner */}
         <motion.div
           variants={fadeUp}
-          className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-[#262629] bg-[#121214] p-6 sm:flex-row"
+          className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-[#223056] bg-[#0E1730] p-6 sm:flex-row"
         >
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#262629] bg-[#1A1A1C] text-[#A0A0A5]">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#223056] bg-[#17254F] text-[#9FB0D4]">
               <Lock className="h-4 w-4" />
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-[#F1F1F1]">Zero Insecure Defaults</h4>
+              <h4 className="text-sm font-semibold text-[#EEF4FF]">Zero Insecure Defaults</h4>
               <p className="text-xs text-[#888]">
                 Built to OWASP Top 10 standards with the 8 Threat Zones modeled and verified.
               </p>
@@ -231,7 +231,7 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
           </div>
           <button
             onClick={onOpenThreatModel}
-            className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-amber-400 transition-colors hover:text-amber-300 hover:underline"
+            className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-sky-400 transition-colors hover:text-sky-300 hover:underline"
             aria-label="Review the threat model"
           >
             <span>Review Threat Model</span>

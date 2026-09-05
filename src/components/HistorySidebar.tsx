@@ -57,7 +57,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
       case 'summarize':
         return { label: 'Summary', color: 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40' };
       case 'brainstorm':
-        return { label: 'Brainstorm', color: 'bg-amber-950/40 text-amber-400 border-amber-800/40' };
+        return { label: 'Brainstorm', color: 'bg-blue-950/40 text-sky-400 border-blue-800/40' };
       case 'chat':
         return { label: 'Dialogue', color: 'bg-blue-950/40 text-blue-400 border-blue-800/40' };
       case 'reflect':
@@ -133,9 +133,9 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   };
 
   return (
-    <aside className="flex flex-col h-full border-r border-[#262629] bg-[#121214] text-[#E0E0E0]">
+    <aside className="flex flex-col h-full border-r border-[#223056] bg-[#0E1730] text-[#D9E2F5]">
       {/* Sidebar Header & New Button */}
-      <div className="p-4 border-b border-[#262629] space-y-3">
+      <div className="p-4 border-b border-[#223056] space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-[#888]">
             Past Reflections
@@ -148,7 +148,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
         <button
           id="history-new-btn"
           onClick={onNew}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1A1A1C] border border-[#333338] py-2.5 px-3 text-xs font-medium text-[#F1F1F1] shadow-sm hover:bg-[#242428] hover:border-[#44444C] active:scale-98 transition-all"
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#17254F] border border-[#31447F] py-2.5 px-3 text-xs font-medium text-[#EEF4FF] shadow-sm hover:bg-[#26376B] hover:border-[#4A63A3] active:scale-98 transition-all"
         >
           <Plus className="h-4 w-4" />
           <span>New Journal Entry</span>
@@ -163,7 +163,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             placeholder="Search entries, keywords, tags..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-[#262629] bg-[#161619] pl-8 pr-3 py-1.5 text-xs text-[#F1F1F1] placeholder:text-[#666] focus:border-[#444] focus:bg-[#1A1A1C] focus:outline-none transition-colors"
+            className="w-full rounded-lg border border-[#223056] bg-[#121E40] pl-8 pr-3 py-1.5 text-xs text-[#EEF4FF] placeholder:text-[#666] focus:border-[#444] focus:bg-[#17254F] focus:outline-none transition-colors"
           />
         </div>
 
@@ -182,8 +182,8 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
               onClick={() => setSelectedFilter(tab.id)}
               className={`rounded-md px-2 py-0.5 whitespace-nowrap transition-colors ${
                 selectedFilter === tab.id
-                  ? 'bg-[#24242A] text-[#F1F1F1] font-medium border border-[#3E3E44]'
-                  : 'bg-[#161619] text-[#888] border border-transparent hover:text-[#E0E0E0] hover:bg-[#1C1C20]'
+                  ? 'bg-[#26376B] text-[#EEF4FF] font-medium border border-[#41599A]'
+                  : 'bg-[#121E40] text-[#888] border border-transparent hover:text-[#D9E2F5] hover:bg-[#1A2957]'
               }`}
             >
               {tab.label}
@@ -199,7 +199,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="flex flex-col gap-2 rounded-xl border border-[#262629] bg-[#141416] p-3"
+                className="flex flex-col gap-2 rounded-xl border border-[#223056] bg-[#101A38] p-3"
               >
                 <div className="animate-shimmer h-3 w-2/3 rounded" />
                 <div className="animate-shimmer h-2.5 w-full rounded" />
@@ -217,11 +217,11 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
             animate={{ opacity: 1 }}
             className="flex flex-col items-center justify-center space-y-3 p-8 text-center text-[#888]"
           >
-            <div className="h-10 w-10 rounded-full bg-[#161619] border border-[#262629] flex items-center justify-center text-[#666]">
+            <div className="h-10 w-10 rounded-full bg-[#121E40] border border-[#223056] flex items-center justify-center text-[#666]">
               <Sparkles className="h-5 w-5" />
             </div>
             <div className="space-y-1">
-              <p className="text-xs font-medium text-[#E0E0E0]">No reflections found</p>
+              <p className="text-xs font-medium text-[#D9E2F5]">No reflections found</p>
               <p className="text-[11px] text-[#666]">
                 {searchQuery ? 'Try a different search term' : 'Start your first reflection with Gemini'}
               </p>
@@ -258,13 +258,13 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                 }}
                 className={`group relative flex cursor-pointer flex-col rounded-xl border p-3 transition-all ${
                   isSelected
-                    ? 'border-[#44444C] bg-[#1A1A1C] shadow-sm'
-                    : 'border-[#262629] bg-[#141416] hover:border-[#36363C] hover:bg-[#18181B]'
+                    ? 'border-[#4A63A3] bg-[#17254F] shadow-sm'
+                    : 'border-[#223056] bg-[#101A38] hover:border-[#364A85] hover:bg-[#15224A]'
                 }`}
               >
                 {/* Top row: Title and delete button */}
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold text-xs text-[#F1F1F1] line-clamp-1">
+                  <h3 className="font-semibold text-xs text-[#EEF4FF] line-clamp-1">
                     {item.title || 'Untitled Reflection'}
                   </h3>
                   <button
@@ -311,7 +311,7 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                     <Tag className="h-2.5 w-2.5 text-[#666] shrink-0" />
                     <div className="flex items-center gap-1 truncate text-[10px] text-[#888]">
                       {item.tags.slice(0, 3).map((t, idx) => (
-                        <span key={idx} className="bg-[#1A1A1C] border border-[#262629] rounded px-1.5 py-0.5">
+                        <span key={idx} className="bg-[#17254F] border border-[#223056] rounded px-1.5 py-0.5">
                           #{t}
                         </span>
                       ))}
@@ -327,32 +327,32 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
       </div>
 
       {/* Journaling Stats Footer */}
-      <div className="shrink-0 border-t border-[#262629] bg-[#121214] px-4 py-3">
+      <div className="shrink-0 border-t border-[#223056] bg-[#0E1730] px-4 py-3">
         <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-lg border border-[#262629] bg-[#141416] px-2.5 py-2">
+          <div className="rounded-lg border border-[#223056] bg-[#101A38] px-2.5 py-2">
             <div className="flex items-center gap-1 text-[10px] text-[#888]">
-              <FileText className="h-3 w-3 text-amber-400" />
+              <FileText className="h-3 w-3 text-sky-400" />
               <span>Entries</span>
             </div>
-            <p className="mt-0.5 text-base font-bold text-[#F1F1F1] leading-none">
+            <p className="mt-0.5 text-base font-bold text-[#EEF4FF] leading-none">
               {interactions.length}
             </p>
           </div>
-          <div className="rounded-lg border border-[#262629] bg-[#141416] px-2.5 py-2">
+          <div className="rounded-lg border border-[#223056] bg-[#101A38] px-2.5 py-2">
             <div className="flex items-center gap-1 text-[10px] text-[#888]">
               <PenLine className="h-3 w-3 text-emerald-400" />
               <span>Words</span>
             </div>
-            <p className="mt-0.5 text-base font-bold text-[#F1F1F1] leading-none">
+            <p className="mt-0.5 text-base font-bold text-[#EEF4FF] leading-none">
               {stats.totalWords.toLocaleString()}
             </p>
           </div>
-          <div className="rounded-lg border border-[#262629] bg-[#141416] px-2.5 py-2">
+          <div className="rounded-lg border border-[#223056] bg-[#101A38] px-2.5 py-2">
             <div className="flex items-center gap-1 text-[10px] text-[#888]">
               <Flame className="h-3 w-3 text-orange-400" />
               <span>Streak</span>
             </div>
-            <p className="mt-0.5 text-base font-bold text-[#F1F1F1] leading-none">
+            <p className="mt-0.5 text-base font-bold text-[#EEF4FF] leading-none">
               {stats.streak} {stats.streak === 1 ? 'day' : 'days'}
             </p>
           </div>

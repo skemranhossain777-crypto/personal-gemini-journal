@@ -148,14 +148,14 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsProps> = ({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="rounded-xl border border-[#333338] bg-[#1A1A1C] px-4 py-2 text-xs font-medium text-[#888] transition-colors hover:bg-[#242428] hover:text-[#F1F1F1]"
+              className="rounded-xl border border-[#31447F] bg-[#17254F] px-4 py-2 text-xs font-medium text-[#888] transition-colors hover:bg-[#26376B] hover:text-[#EEF4FF]"
             >
               Cancel
             </button>
             <button
               onClick={saveSettings}
               disabled={isSaving}
-              className="flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-amber-500 disabled:opacity-60"
+              className="flex items-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-60"
             >
               {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
               <span>Save Settings</span>
@@ -173,9 +173,9 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsProps> = ({
         ) : (
           <>
             {/* Enable Toggle */}
-            <div className="flex items-center justify-between rounded-xl border border-[#262629] bg-[#121214] p-4">
+            <div className="flex items-center justify-between rounded-xl border border-[#223056] bg-[#0E1730] p-4">
               <div>
-                <p className="text-sm font-medium text-[#F1F1F1]">Enable Notifications</p>
+                <p className="text-sm font-medium text-[#EEF4FF]">Enable Notifications</p>
                 <p className="mt-0.5 text-xs text-[#888]">Receive alerts when entries are saved</p>
               </div>
               <button
@@ -184,7 +184,7 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsProps> = ({
                 aria-checked={settings.enabled}
                 aria-label="Enable notifications"
                 className={`relative h-6 w-11 rounded-full transition-colors ${
-                  settings.enabled ? 'bg-emerald-600' : 'bg-[#262629]'
+                  settings.enabled ? 'bg-emerald-600' : 'bg-[#223056]'
                 }`}
               >
                 <span
@@ -204,19 +204,19 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsProps> = ({
 
               {/* Slack */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#A0A0A5]">Slack Webhook URL</label>
+                <label className="text-xs font-medium text-[#9FB0D4]">Slack Webhook URL</label>
                 <div className="flex gap-2">
                   <input
                     type="url"
                     placeholder="https://hooks.slack.com/services/..."
                     value={settings.slackWebhookUrl || ''}
                     onChange={(e) => setSettings((p) => ({ ...p, slackWebhookUrl: e.target.value }))}
-                    className="flex-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#F1F1F1] placeholder:text-[#555] focus:border-[#444] focus:outline-none"
+                    className="flex-1 rounded-lg border border-[#223056] bg-[#121E40] px-3 py-2 text-xs text-[#EEF4FF] placeholder:text-[#555] focus:border-[#444] focus:outline-none"
                   />
                   <button
                     onClick={() => testNotification('slack')}
                     disabled={isTesting === 'slack' || !settings.slackWebhookUrl}
-                    className="flex items-center gap-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#888] transition-colors hover:bg-[#1E1E22] hover:text-[#F1F1F1] disabled:opacity-40"
+                    className="flex items-center gap-1 rounded-lg border border-[#223056] bg-[#121E40] px-3 py-2 text-xs text-[#888] transition-colors hover:bg-[#1C2C5E] hover:text-[#EEF4FF] disabled:opacity-40"
                   >
                     {isTesting === 'slack' ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -230,19 +230,19 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsProps> = ({
 
               {/* Discord */}
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[#A0A0A5]">Discord Webhook URL</label>
+                <label className="text-xs font-medium text-[#9FB0D4]">Discord Webhook URL</label>
                 <div className="flex gap-2">
                   <input
                     type="url"
                     placeholder="https://discord.com/api/webhooks/..."
                     value={settings.discordWebhookUrl || ''}
                     onChange={(e) => setSettings((p) => ({ ...p, discordWebhookUrl: e.target.value }))}
-                    className="flex-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#F1F1F1] placeholder:text-[#555] focus:border-[#444] focus:outline-none"
+                    className="flex-1 rounded-lg border border-[#223056] bg-[#121E40] px-3 py-2 text-xs text-[#EEF4FF] placeholder:text-[#555] focus:border-[#444] focus:outline-none"
                   />
                   <button
                     onClick={() => testNotification('discord')}
                     disabled={isTesting === 'discord' || !settings.discordWebhookUrl}
-                    className="flex items-center gap-1 rounded-lg border border-[#262629] bg-[#161619] px-3 py-2 text-xs text-[#888] transition-colors hover:bg-[#1E1E22] hover:text-[#F1F1F1] disabled:opacity-40"
+                    className="flex items-center gap-1 rounded-lg border border-[#223056] bg-[#121E40] px-3 py-2 text-xs text-[#888] transition-colors hover:bg-[#1C2C5E] hover:text-[#EEF4FF] disabled:opacity-40"
                   >
                     {isTesting === 'discord' ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -271,8 +271,8 @@ export const NotificationSettingsModal: React.FC<NotificationSettingsProps> = ({
                       aria-pressed={isActive}
                       className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                         isActive
-                          ? 'border border-[#3E3E44] bg-[#24242A] text-[#F1F1F1]'
-                          : 'border border-[#262629] bg-[#161619] text-[#888] hover:text-[#E0E0E0]'
+                          ? 'border border-[#41599A] bg-[#26376B] text-[#EEF4FF]'
+                          : 'border border-[#223056] bg-[#121E40] text-[#888] hover:text-[#D9E2F5]'
                       }`}
                     >
                       {isActive && <Check className="h-3 w-3 text-emerald-400" />}

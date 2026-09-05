@@ -34,7 +34,7 @@ const highlight = (text: string, query: string): React.ReactNode => {
   const parts = text.split(new RegExp(`(${q})`, 'gi'));
   return parts.map((part, i) =>
     part.toLowerCase() === query.toLowerCase() ? (
-      <span key={i} className="text-amber-300">
+      <span key={i} className="text-sky-300">
         {part}
       </span>
     ) : (
@@ -159,10 +159,10 @@ interface PaletteGroup {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
             transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-            className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-[#2A2A2E] bg-[#0E0E10] shadow-2xl"
+            className="relative w-full max-w-xl overflow-hidden rounded-2xl border border-[#27386B] bg-[#0B1226] shadow-2xl"
             onKeyDown={onKeyDown}
           >
-            <div className="flex items-center gap-3 border-b border-[#262629] px-4 py-3.5">
+            <div className="flex items-center gap-3 border-b border-[#223056] px-4 py-3.5">
               <Search className="h-4 w-4 shrink-0 text-[#666]" aria-hidden="true" />
               <input
                 ref={inputRef}
@@ -175,9 +175,9 @@ interface PaletteGroup {
                 placeholder="Search actions, entries, tags..."
                 value={query}
                 onChange={(e) => onQueryChange(e.target.value)}
-                className="w-full bg-transparent text-sm text-[#F1F1F1] placeholder:text-[#666] focus:outline-none"
+                className="w-full bg-transparent text-sm text-[#EEF4FF] placeholder:text-[#666] focus:outline-none"
               />
-              <kbd className="shrink-0 rounded border border-[#333338] bg-[#161619] px-1.5 py-0.5 text-[10px] text-[#888]">
+              <kbd className="shrink-0 rounded border border-[#31447F] bg-[#121E40] px-1.5 py-0.5 text-[10px] text-[#888]">
                 Esc
               </kbd>
             </div>
@@ -216,14 +216,14 @@ interface PaletteGroup {
                           onMouseEnter={() => setActiveIndex(globalIdx)}
                           onClick={() => selectAt(globalIdx)}
                           className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-                            isActive ? 'bg-[#1E1E22]' : ''
+                            isActive ? 'bg-[#1C2C5E]' : ''
                           }`}
                         >
                           <span
                             className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
                               isActive
-                                ? 'bg-amber-950/60 text-amber-400'
-                                : 'bg-[#1A1A1C] text-[#888]'
+                                ? 'bg-blue-950/60 text-sky-400'
+                                : 'bg-[#17254F] text-[#888]'
                             }`}
                           >
                             {(item.kind === 'action' && item.icon)
@@ -233,7 +233,7 @@ interface PaletteGroup {
                                   : <Sparkles className="h-3.5 w-3.5" />}
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm text-[#F1F1F1]">
+                            <span className="block truncate text-sm text-[#EEF4FF]">
                               {highlight(item.label, query.trim())}
                             </span>
                             {item.hint && (
@@ -244,7 +244,7 @@ interface PaletteGroup {
                             <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-[#666]" aria-hidden="true" />
                           )}
                           {item.kind === 'entry' && !isActive && (
-                            <span className="shrink-0 rounded bg-[#161619] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[#666]">
+                            <span className="shrink-0 rounded bg-[#121E40] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[#666]">
                               Jump
                             </span>
                           )}
@@ -256,14 +256,14 @@ interface PaletteGroup {
               ))}
             </div>
 
-            <div className="flex items-center gap-3 border-t border-[#262629] bg-[#121214] px-4 py-2.5 text-[10px] text-[#666]">
+            <div className="flex items-center gap-3 border-t border-[#223056] bg-[#0E1730] px-4 py-2.5 text-[10px] text-[#666]">
               <span className="flex items-center gap-1">
-                <kbd className="rounded border border-[#333338] bg-[#161619] px-1 py-0.5">↑</kbd>
-                <kbd className="rounded border border-[#333338] bg-[#161619] px-1 py-0.5">↓</kbd>
+                <kbd className="rounded border border-[#31447F] bg-[#121E40] px-1 py-0.5">↑</kbd>
+                <kbd className="rounded border border-[#31447F] bg-[#121E40] px-1 py-0.5">↓</kbd>
                 to navigate
               </span>
               <span className="flex items-center gap-1">
-                <kbd className="rounded border border-[#333338] bg-[#161619] px-1 py-0.5">↵</kbd>
+                <kbd className="rounded border border-[#31447F] bg-[#121E40] px-1 py-0.5">↵</kbd>
                 to select
               </span>
               <span className="ml-auto tracking-widest text-[#555]">⌘K / Ctrl+K to reopen</span>

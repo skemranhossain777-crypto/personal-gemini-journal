@@ -3,8 +3,8 @@
 @layer base {
   html,
   body {
-    background-color: #0A0A0B;
-    color: #E0E0E0;
+    background-color: #070B16;
+    color: #D9E2F5;
     margin: 0;
     padding: 0;
     min-height: 100%;
@@ -19,19 +19,19 @@
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: #0A0A0B;
+    background: #070B16;
   }
   ::-webkit-scrollbar-thumb {
-    background: #262629;
+    background: #223056;
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: #3A3A40;
+    background: #3B518E;
   }
 
   ::selection {
-    background: rgba(245, 158, 11, 0.28);
-    color: #FFF8E7;
+    background: rgba(56, 189, 248, 0.28);
+    color: #EEF6FF;
   }
 
   /* Only reveal outline when navigating with the keyboard */
@@ -39,7 +39,7 @@
     outline: none;
   }
   :focus-visible {
-    outline: 2px solid rgba(245, 158, 11, 0.9);
+    outline: 2px solid rgba(56, 189, 248, 0.9);
     outline-offset: 2px;
     border-radius: 4px;
   }
@@ -53,8 +53,8 @@
     z-index: 9999;
     padding: 10px 16px;
     border-radius: 10px;
-    background: #F59E0B;
-    color: #1A1204;
+    background: #38BDF8;
+    color: #0A1326;
     font-weight: 600;
     font-size: 13px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -96,11 +96,11 @@
   .animate-shimmer {
     background: linear-gradient(
       90deg,
-      #121214 0%,
-      #1E1E22 40%,
-      #22222A 50%,
-      #1E1E22 60%,
-      #121214 100%
+      #0E1730 0%,
+      #1C2C5E 40%,
+      #233366 50%,
+      #1C2C5E 60%,
+      #0E1730 100%
     );
     background-size: 400px 100%;
     background-repeat: no-repeat;

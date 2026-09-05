@@ -31,7 +31,7 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
       footer={
         <button
           onClick={onClose}
-          className="rounded-xl border border-[#333338] bg-[#1A1A1C] px-4 py-2 text-xs font-medium text-[#F1F1F1] transition-colors hover:border-[#44444C] hover:bg-[#242428]"
+          className="rounded-xl border border-[#31447F] bg-[#17254F] px-4 py-2 text-xs font-medium text-[#EEF4FF] transition-colors hover:border-[#4A63A3] hover:bg-[#26376B]"
         >
           Close Threat Model
         </button>
@@ -44,7 +44,7 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
             Active Database Isolation Path
           </div>
-          <p className="break-all font-mono text-xs text-[#D5D5DB]">
+          <p className="break-all font-mono text-xs text-[#CFDAF0]">
             {userUid
               ? `/users/${userUid}/interactions/{interactionId}`
               : 'Unauthenticated (Requires Google Sign-In to generate user partition)'}
@@ -59,9 +59,9 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
           <h3 className="text-xs font-semibold uppercase tracking-wider text-[#888]">
             Threat Summary Table (8 Threat Zones)
           </h3>
-          <div className="overflow-x-auto rounded-xl border border-[#262629]">
-            <table className="w-full text-left text-xs text-[#A0A0A5]">
-              <thead className="border-b border-[#262629] bg-[#161619] text-[#F1F1F1]">
+          <div className="overflow-x-auto rounded-xl border border-[#223056]">
+            <table className="w-full text-left text-xs text-[#9FB0D4]">
+              <thead className="border-b border-[#223056] bg-[#121E40] text-[#EEF4FF]">
                 <tr>
                   <th className="p-3 font-semibold">Threat Zone</th>
                   <th className="p-3 font-semibold">Identified Risk</th>
@@ -69,115 +69,115 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
                   <th className="p-3 font-semibold">Verification Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#262629]">
+              <tbody className="divide-y divide-[#223056]">
                 <tr>
-                  <td className="flex items-center gap-2 p-3 font-medium text-[#F1F1F1]">
-                    <Lock className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                  <td className="flex items-center gap-2 p-3 font-medium text-[#EEF4FF]">
+                    <Lock className="h-3.5 w-3.5 shrink-0 text-sky-400" />
                     1. Input Surfaces
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     Malicious payloads, prompt injection, overlong buffers crashing servers.
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     Express strict JSON limit (2MB), defensive payload null-guards, prompt sanitization.
                   </td>
                   <td className="p-3 font-medium text-emerald-400">Enforced in backend</td>
                 </tr>
 
                 <tr>
-                  <td className="flex items-center gap-2 p-3 font-medium text-[#F1F1F1]">
+                  <td className="flex items-center gap-2 p-3 font-medium text-[#EEF4FF]">
                     <Cpu className="h-3.5 w-3.5 shrink-0 text-blue-400" />
                     2. Planning & Reasoning
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     Indirect prompt injection tricking Gemini into executing unauthorized commands.
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     User inputs treated as passive plain data; robust system instructions isolate user reflection text.
                   </td>
                   <td className="p-3 font-medium text-emerald-400">Enforced in Gemini helper</td>
                 </tr>
 
                 <tr>
-                  <td className="flex items-center gap-2 p-3 font-medium text-[#F1F1F1]">
+                  <td className="flex items-center gap-2 p-3 font-medium text-[#EEF4FF]">
                     <Shield className="h-3.5 w-3.5 shrink-0 text-purple-400" />
                     3. Tool Execution
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     Model outages, 429 quota exhaustion, or 503 service downtime breaking app state.
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     Automated 5-model Fallback Ladder (gemini-3.7-flash &rarr; 3.6-flash &rarr; 3.5-flash &rarr; flash-latest &rarr; 3.1-flash-lite).
                   </td>
                   <td className="p-3 font-medium text-emerald-400">Tested & active</td>
                 </tr>
 
                 <tr>
-                  <td className="flex items-center gap-2 p-3 font-medium text-[#F1F1F1]">
+                  <td className="flex items-center gap-2 p-3 font-medium text-[#EEF4FF]">
                     <Database className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
                     4. Memory & State
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     Cross-user data leakage, unauthorized reads/writes in Firestore.
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
-                    Owner-bound Firestore Security Rules (<code className="font-mono text-amber-400">request.auth.uid == userId</code>) + recursive undefined stripping.
+                  <td className="p-3 text-[#9FB0D4]">
+                    Owner-bound Firestore Security Rules (<code className="font-mono text-sky-400">request.auth.uid == userId</code>) + recursive undefined stripping.
                   </td>
                   <td className="p-3 font-medium text-emerald-400">Deployed to Firebase</td>
                 </tr>
 
                 <tr>
-                  <td className="flex items-center gap-2 p-3 font-medium text-[#F1F1F1]">
+                  <td className="flex items-center gap-2 p-3 font-medium text-[#EEF4FF]">
                     <Network className="h-3.5 w-3.5 shrink-0 text-rose-400" />
                     5. Inter-System Comm
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     Exposing Gemini API key to client browsers or committing secrets to git.
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     Zero client-side secrets; Gemini calls run exclusively server-side via environment variables / Secret Manager.
                   </td>
                   <td className="p-3 font-medium text-emerald-400">Strict Server Proxy</td>
                 </tr>
 
                 <tr>
-                  <td className="flex items-center gap-2 p-3 font-medium text-[#F1F1F1]">
+                  <td className="flex items-center gap-2 p-3 font-medium text-[#EEF4FF]">
                     <MapPin className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
                     6. Maps API Exposure
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     Google Maps/Places API keys exposed to client-side JavaScript, enabling quota theft or abuse.
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
-                    Places Autocomplete proxied server-side with restricted <code className="font-mono text-amber-400">GOOGLE_MAPS_API_KEY</code>. Client uses separate Maps JS API key with HTTP referrer restrictions.
+                  <td className="p-3 text-[#9FB0D4]">
+                    Places Autocomplete proxied server-side with restricted <code className="font-mono text-sky-400">GOOGLE_MAPS_API_KEY</code>. Client uses separate Maps JS API key with HTTP referrer restrictions.
                   </td>
                   <td className="p-3 font-medium text-emerald-400">Dual-Key Isolation</td>
                 </tr>
 
                 <tr>
-                  <td className="flex items-center gap-2 p-3 font-medium text-[#F1F1F1]">
-                    <Crown className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                  <td className="flex items-center gap-2 p-3 font-medium text-[#EEF4FF]">
+                    <Crown className="h-3.5 w-3.5 shrink-0 text-sky-400" />
                     7. RBAC Privilege Escalation
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     Regular users elevating to admin role, accessing other users' data or admin endpoints.
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
-                    Admin role seeded via <code className="font-mono text-amber-400">ADMIN_EMAILS</code> env var. Server verifies Firebase ID token + email on every admin request. No client-side role toggling.
+                  <td className="p-3 text-[#9FB0D4]">
+                    Admin role seeded via <code className="font-mono text-sky-400">ADMIN_EMAILS</code> env var. Server verifies Firebase ID token + email on every admin request. No client-side role toggling.
                   </td>
                   <td className="p-3 font-medium text-emerald-400">Server-Side RBAC</td>
                 </tr>
 
                 <tr>
-                  <td className="flex items-center gap-2 p-3 font-medium text-[#F1F1F1]">
+                  <td className="flex items-center gap-2 p-3 font-medium text-[#EEF4FF]">
                     <Bell className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
                     8. Webhook Credential Leakage
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
+                  <td className="p-3 text-[#9FB0D4]">
                     Slack/Discord webhook URLs stored in client-accessible Firestore, allowing injection of spam notifications.
                   </td>
-                  <td className="p-3 text-[#A0A0A5]">
-                    Webhook URLs stored under user-isolated Firestore path (<code className="font-mono text-amber-400">{'/users/{userId}/settings/'}</code>). Notifications dispatched server-side only. Webhook URLs never returned to client after save.
+                  <td className="p-3 text-[#9FB0D4]">
+                    Webhook URLs stored under user-isolated Firestore path (<code className="font-mono text-sky-400">{'/users/{userId}/settings/'}</code>). Notifications dispatched server-side only. Webhook URLs never returned to client after save.
                   </td>
                   <td className="p-3 font-medium text-emerald-400">Server-Only Dispatch</td>
                 </tr>
@@ -191,7 +191,7 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
           <h4 className="text-xs font-semibold uppercase tracking-wider text-[#888]">
             Deployed firestore.rules
           </h4>
-          <pre className="overflow-x-auto rounded-xl border border-[#262629] bg-[#080809] p-4 font-mono text-xs leading-relaxed text-[#D5D5DB]">
+          <pre className="overflow-x-auto rounded-xl border border-[#223056] bg-[#050A18] p-4 font-mono text-xs leading-relaxed text-[#CFDAF0]">
 {`rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {

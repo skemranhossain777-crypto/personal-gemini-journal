@@ -32,7 +32,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         <>
           <button
             onClick={onCancel}
-            className="rounded-xl border border-[#333338] bg-[#1A1A1C] px-4 py-2 text-xs font-medium text-[#888] transition-colors hover:bg-[#242428] hover:text-[#F1F1F1]"
+            className="rounded-xl border border-[#31447F] bg-[#17254F] px-4 py-2 text-xs font-medium text-[#888] transition-colors hover:bg-[#26376B] hover:text-[#EEF4FF]"
           >
             {cancelLabel}
           </button>
@@ -46,7 +46,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </>
       }
     >
-      <p className="px-6 py-5 text-sm leading-relaxed text-[#A0A0A5]" id="confirm-message">
+      <p className="px-6 py-5 text-sm leading-relaxed text-[#9FB0D4]" id="confirm-message">
         {message}
       </p>
     </Modal>

@@ -74,12 +74,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       title="Admin Dashboard"
       description="Role-based access control & system overview"
       icon={<Shield className="h-5 w-5" />}
-      iconClassName="bg-amber-950/60 border border-amber-800/40 text-amber-400"
+      iconClassName="bg-blue-950/60 border border-blue-800/40 text-sky-400"
       maxWidthClass="max-w-5xl"
       headerExtra={
         <button
           onClick={fetchUsers}
-          className="flex items-center gap-1.5 rounded-lg border border-[#262629] bg-[#161619] px-3 py-1.5 text-xs font-medium text-[#E0E0E0] transition-colors hover:bg-[#1E1E22]"
+          className="flex items-center gap-1.5 rounded-lg border border-[#223056] bg-[#121E40] px-3 py-1.5 text-xs font-medium text-[#D9E2F5] transition-colors hover:bg-[#1C2C5E]"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           <span>Refresh</span>
@@ -88,7 +88,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       footer={
         <button
           onClick={onClose}
-          className="rounded-xl border border-[#333338] bg-[#1A1A1C] px-4 py-2 text-xs font-medium text-[#F1F1F1] transition-colors hover:border-[#44444C] hover:bg-[#242428]"
+          className="rounded-xl border border-[#31447F] bg-[#17254F] px-4 py-2 text-xs font-medium text-[#EEF4FF] transition-colors hover:border-[#4A63A3] hover:bg-[#26376B]"
         >
           Close Dashboard
         </button>
@@ -96,36 +96,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     >
       <div className="p-6">
         {/* Stats Bar */}
-        <div className="mb-6 grid grid-cols-3 gap-4 rounded-2xl border border-[#262629] bg-[#0E0E10] p-4">
+        <div className="mb-6 grid grid-cols-3 gap-4 rounded-2xl border border-[#223056] bg-[#0B1226] p-4">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.05 }}
-            className="rounded-xl border border-[#262629] bg-[#121214] p-4"
+            className="rounded-xl border border-[#223056] bg-[#0E1730] p-4"
           >
             <div className="mb-1 flex items-center gap-2 text-xs font-medium text-[#888]">
               <Users className="h-3.5 w-3.5" />
               Total Users
             </div>
-            <p className="text-2xl font-bold text-[#F1F1F1]">{stats.totalUsers}</p>
+            <p className="text-2xl font-bold text-[#EEF4FF]">{stats.totalUsers}</p>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.12 }}
-            className="rounded-xl border border-[#262629] bg-[#121214] p-4"
+            className="rounded-xl border border-[#223056] bg-[#0E1730] p-4"
           >
             <div className="mb-1 flex items-center gap-2 text-xs font-medium text-[#888]">
               <BarChart3 className="h-3.5 w-3.5" />
               Total Interactions
             </div>
-            <p className="text-2xl font-bold text-[#F1F1F1]">{stats.totalInteractions}</p>
+            <p className="text-2xl font-bold text-[#EEF4FF]">{stats.totalInteractions}</p>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.19 }}
-            className="rounded-xl border border-[#262629] bg-[#121214] p-4"
+            className="rounded-xl border border-[#223056] bg-[#0E1730] p-4"
           >
             <div className="mb-1 flex items-center gap-2 text-xs font-medium text-[#888]">
               <Activity className="h-3.5 w-3.5" />
@@ -144,7 +144,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {isLoading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-xs text-[#888]">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#262629] border-t-amber-500" />
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#223056] border-t-sky-500" />
             Loading users from Firestore...
           </div>
         ) : users.length === 0 ? (
@@ -153,9 +153,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <p>No user data available</p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[#262629]">
-            <table className="w-full text-left text-xs text-[#A0A0A5]">
-              <thead className="border-b border-[#262629] bg-[#161619] text-[#F1F1F1]">
+          <div className="overflow-x-auto rounded-xl border border-[#223056]">
+            <table className="w-full text-left text-xs text-[#9FB0D4]">
+              <thead className="border-b border-[#223056] bg-[#121E40] text-[#EEF4FF]">
                 <tr>
                   <th className="p-3 font-semibold">User</th>
                   <th className="p-3 font-semibold">Email</th>
@@ -164,15 +164,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <th className="p-3 font-semibold">Last Active</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#262629]">
+              <tbody className="divide-y divide-[#223056]">
                 {users.map((user) => (
-                  <tr key={user.uid} className="transition-colors hover:bg-[#121214]">
+                  <tr key={user.uid} className="transition-colors hover:bg-[#0E1730]">
                     <td className="p-3">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[#262629] bg-[#1A1A1C] text-[10px] font-semibold text-[#888]">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[#223056] bg-[#17254F] text-[10px] font-semibold text-[#888]">
                           {user.displayName?.[0] || user.email?.[0] || '?'}
                         </div>
-                        <span className="max-w-[150px] truncate font-medium text-[#F1F1F1]">
+                        <span className="max-w-[150px] truncate font-medium text-[#EEF4FF]">
                           {user.displayName || 'Anonymous'}
                         </span>
                       </div>
@@ -180,12 +180,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <td className="max-w-[200px] truncate p-3 text-[#888]">{user.email || '—'}</td>
                     <td className="p-3">
                       {user.role === 'admin' ? (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-amber-800/60 bg-amber-950/50 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                        <span className="inline-flex items-center gap-1 rounded-md border border-blue-800/60 bg-blue-950/50 px-2 py-0.5 text-[10px] font-medium text-sky-300">
                           <Crown className="h-2.5 w-2.5" />
                           Admin
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-[#262629] bg-[#1A1A1C] px-2 py-0.5 text-[10px] font-medium text-[#888]">
+                        <span className="inline-flex items-center gap-1 rounded-md border border-[#223056] bg-[#17254F] px-2 py-0.5 text-[10px] font-medium text-[#888]">
                           <UserCheck className="h-2.5 w-2.5" />
                           User
                         </span>
@@ -203,19 +203,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         )}
 
         {/* Admin Info */}
-        <div className="mt-6 rounded-xl border border-amber-900/40 bg-[#161410] p-4">
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-amber-400">
+        <div className="mt-6 rounded-xl border border-blue-900/40 bg-[#0E1832] p-4">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-sky-400">
             <Shield className="h-3.5 w-3.5" />
             RBAC Configuration
           </div>
-          <div className="space-y-1 text-xs text-[#D5D5DB]">
+          <div className="space-y-1 text-xs text-[#CFDAF0]">
             <p>
               Admin role is seeded via{' '}
-              <code className="rounded bg-[#0E0E10] px-1 font-mono text-amber-400">ADMIN_EMAILS</code>{' '}
+              <code className="rounded bg-[#0B1226] px-1 font-mono text-sky-400">ADMIN_EMAILS</code>{' '}
               environment variable.
             </p>
             <p>
-              Current admin: <span className="font-medium text-amber-300">{adminEmail}</span>
+              Current admin: <span className="font-medium text-sky-300">{adminEmail}</span>
             </p>
             <p className="mt-2 text-[#888]">
               Admins can view all users, manage roles, and access the admin dashboard. Additional

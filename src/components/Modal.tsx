@@ -28,7 +28,7 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   description,
   icon,
-  iconClassName = 'bg-amber-950/60 border border-amber-800/40 text-amber-400',
+  iconClassName = 'bg-blue-950/60 border border-blue-800/40 text-sky-400',
   headerExtra,
   footer,
   maxWidthClass = 'max-w-lg',
@@ -65,9 +65,9 @@ export const Modal: React.FC<ModalProps> = ({
             animate="show"
             exit="exit"
             tabIndex={-1}
-            className={`relative flex max-h-[90vh] w-full ${maxWidthClass} flex-col overflow-hidden rounded-2xl border border-[#262629] bg-[#0E0E10] text-[#E0E0E0] shadow-2xl`}
+            className={`relative flex max-h-[90vh] w-full ${maxWidthClass} flex-col overflow-hidden rounded-2xl border border-[#223056] bg-[#0B1226] text-[#D9E2F5] shadow-2xl`}
           >
-            <div className="flex items-center justify-between border-b border-[#262629] bg-[#121214] px-6 py-4">
+            <div className="flex items-center justify-between border-b border-[#223056] bg-[#0E1730] px-6 py-4">
               <div className="flex items-center gap-3">
                 {icon && (
                   <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconClassName}`}>
@@ -75,7 +75,7 @@ export const Modal: React.FC<ModalProps> = ({
                   </div>
                 )}
                 <div>
-                  <h2 id={labelledById} className="text-lg font-semibold text-[#F1F1F1]">
+                  <h2 id={labelledById} className="text-lg font-semibold text-[#EEF4FF]">
                     {title}
                   </h2>
                   {description && (
@@ -90,7 +90,7 @@ export const Modal: React.FC<ModalProps> = ({
                 <button
                   onClick={onClose}
                   aria-label="Close dialog"
-                  className="rounded-lg p-1.5 text-[#888] transition-colors hover:bg-[#1A1A1C] hover:text-[#F1F1F1]"
+                  className="rounded-lg p-1.5 text-[#888] transition-colors hover:bg-[#17254F] hover:text-[#EEF4FF]"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -100,7 +100,7 @@ export const Modal: React.FC<ModalProps> = ({
             <div className="flex-1 overflow-y-auto">{children}</div>
 
             {footer && (
-              <div className="flex items-center justify-end gap-2 border-t border-[#262629] bg-[#121214] px-6 py-4">
+              <div className="flex items-center justify-end gap-2 border-t border-[#223056] bg-[#0E1730] px-6 py-4">
                 {footer}
               </div>
             )}

@@ -314,13 +314,13 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="flex h-screen w-screen items-center justify-center bg-[#0A0A0B] text-[#E0E0E0]"
+            className="flex h-screen w-screen items-center justify-center bg-[#070B16] text-[#D9E2F5]"
           >
             <div className="flex flex-col items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-600 to-amber-500 text-white shadow-lg shadow-amber-500/20">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-sky-600 to-sky-500 text-white shadow-lg shadow-sky-500/20">
                 <Sparkles className="h-6 w-6 animate-pulse" />
               </div>
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#262629] border-t-amber-500" />
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#223056] border-t-sky-500" />
               <p className="text-xs font-medium text-[#888]">Initializing Gemini Reflection Studio...</p>
             </div>
           </motion.div>
@@ -332,7 +332,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.3 }}
-            className="flex min-h-screen flex-col bg-[#0A0A0B] text-[#E0E0E0]"
+            className="flex min-h-screen flex-col bg-[#070B16] text-[#D9E2F5]"
           >
             <Navbar
               user={null}
@@ -363,7 +363,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.3 }}
-            className="flex h-screen flex-col overflow-hidden bg-[#0A0A0B] text-[#E0E0E0]"
+            className="flex h-screen flex-col overflow-hidden bg-[#070B16] text-[#D9E2F5]"
           >
             {/* Top Navbar */}
             <Navbar
@@ -381,7 +381,7 @@ export default function App() {
             {!isOnline && <OfflineBanner />}
 
             {/* Mobile Tab Switcher */}
-            <div className="flex gap-2 border-b border-[#262629] bg-[#121214] px-4 py-2 text-xs md:hidden">
+            <div className="flex gap-2 border-b border-[#223056] bg-[#0E1730] px-4 py-2 text-xs md:hidden">
               {(
                 [
                   { id: 'editor', label: 'Active Reflection' },
@@ -394,14 +394,14 @@ export default function App() {
                   aria-pressed={mobileTab === tab.id}
                   className={`relative flex-1 rounded-lg py-1.5 text-center font-medium transition-colors ${
                     mobileTab === tab.id
-                      ? 'text-[#F1F1F1]'
-                      : 'bg-[#161619] text-[#888] hover:text-[#E0E0E0]'
+                      ? 'text-[#EEF4FF]'
+                      : 'bg-[#121E40] text-[#888] hover:text-[#D9E2F5]'
                   }`}
                 >
                   {mobileTab === tab.id && (
                     <motion.span
                       layoutId="mobile-tab-pill"
-                      className="absolute inset-0 rounded-lg border border-[#333338] bg-[#1A1A1C]"
+                      className="absolute inset-0 rounded-lg border border-[#31447F] bg-[#17254F]"
                       transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                     />
                   )}
@@ -502,7 +502,7 @@ export default function App() {
 function OfflineBanner() {
   return (
     <div
-      className="flex animate-slide-down-in items-center justify-center gap-2 border-b border-amber-900/40 bg-amber-950/40 px-4 py-1.5 text-[11px] font-medium text-amber-300"
+      className="flex animate-slide-down-in items-center justify-center gap-2 border-b border-blue-900/40 bg-blue-950/40 px-4 py-1.5 text-[11px] font-medium text-sky-300"
       role="status"
       aria-live="polite"
     >

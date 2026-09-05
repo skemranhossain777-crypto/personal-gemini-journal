@@ -75,11 +75,11 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ location, onLoca
         mapTypeControl: false,
         fullscreenControl: false,
         styles: [
-          { elementType: 'geometry', stylers: [{ color: '#1a1a1c' }] },
-          { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a1c' }] },
-          { elementType: 'labels.text.fill', stylers: [{ color: '#888888' }] },
-          { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#262629' }] },
-          { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a0a0b' }] },
+          { elementType: 'geometry', stylers: [{ color: '#17254F' }] },
+          { elementType: 'labels.text.stroke', stylers: [{ color: '#17254F' }] },
+          { elementType: 'labels.text.fill', stylers: [{ color: '#8FA2C9' }] },
+          { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#223056' }] },
+          { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#070B16' }] },
         ],
       });
     } else {
@@ -192,7 +192,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ location, onLoca
         </div>
       ) : (
         <div ref={dropdownRef} className="relative">
-          <div className="flex items-center gap-1.5 rounded-lg border border-[#262629] bg-[#161619] px-2.5 py-1.5 focus-within:border-[#444] transition-colors">
+          <div className="flex items-center gap-1.5 rounded-lg border border-[#223056] bg-[#121E40] px-2.5 py-1.5 focus-within:border-[#444] transition-colors">
             {isSearching ? (
               <Loader2 className="h-3.5 w-3.5 text-[#666] animate-spin shrink-0" />
             ) : (
@@ -204,22 +204,22 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ location, onLoca
               value={query}
               onChange={(e) => handleQueryChange(e.target.value)}
               onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
-              className="bg-transparent text-xs text-[#F1F1F1] placeholder:text-[#666] focus:outline-none w-[140px]"
+              className="bg-transparent text-xs text-[#EEF4FF] placeholder:text-[#666] focus:outline-none w-[140px]"
             />
           </div>
 
           {/* Suggestions Dropdown */}
           {showDropdown && suggestions.length > 0 && (
-            <div className="absolute top-full left-0 mt-1 w-72 rounded-xl border border-[#262629] bg-[#121214] shadow-xl z-50 overflow-hidden">
+            <div className="absolute top-full left-0 mt-1 w-72 rounded-xl border border-[#223056] bg-[#0E1730] shadow-xl z-50 overflow-hidden">
               {suggestions.map((s) => (
                 <button
                   key={s.placeId}
                   onClick={() => selectPlace(s)}
-                  className="w-full flex items-start gap-2 px-3 py-2.5 hover:bg-[#1A1A1C] text-left transition-colors border-b border-[#1a1a1c] last:border-0"
+                  className="w-full flex items-start gap-2 px-3 py-2.5 hover:bg-[#17254F] text-left transition-colors border-b border-[#17254F] last:border-0"
                 >
                   <MapPin className="h-3.5 w-3.5 text-[#666] shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <p className="text-xs text-[#F1F1F1] font-medium truncate">{s.mainText}</p>
+                    <p className="text-xs text-[#EEF4FF] font-medium truncate">{s.mainText}</p>
                     <p className="text-[10px] text-[#888] truncate">{s.secondaryText}</p>
                   </div>
                 </button>
@@ -231,7 +231,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ location, onLoca
 
       {/* Map Preview */}
       {location && mapLoaded && (
-        <div className="mt-2 rounded-lg overflow-hidden border border-[#262629]">
+        <div className="mt-2 rounded-lg overflow-hidden border border-[#223056]">
           <div ref={mapRef} className="w-full h-[140px]" />
         </div>
       )}
