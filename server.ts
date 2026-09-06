@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
-import { createServer as createViteServer } from 'vite';
 import jwt from 'jsonwebtoken';
 import admin from 'firebase-admin';
 import { GeminiService } from './server/gemini/service';
@@ -825,6 +824,7 @@ function logCloudFormat(severity: 'INFO' | 'WARNING' | 'ERROR', message: string,
 async function startServer() {
   const isProduction = Boolean(process.env.NODE_ENV && process.env.NODE_ENV.includes('production'));
   if (!isProduction) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true, allowedHosts: true },
       preview: { allowedHosts: true },

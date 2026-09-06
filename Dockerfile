@@ -38,12 +38,9 @@ FROM node:22-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Install curl for container HEALTHCHECK
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
-
 # Copy package files & install production dependencies only
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 # Copy built frontend assets and server bundle
 COPY --from=build /app/dist ./dist
@@ -52,9 +49,5 @@ COPY --from=build /app/dist ./dist
 USER node
 
 EXPOSE 3000 8080
-
-# Container Healthcheck for Docker engine / Cloud Run local simulation
-HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
 
 CMD ["node", "dist/server.cjs"]
