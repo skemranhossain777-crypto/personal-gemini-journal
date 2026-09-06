@@ -887,7 +887,8 @@ function logCloudFormat(severity: 'INFO' | 'WARNING' | 'ERROR', message: string,
 }
 
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  const isProduction = Boolean(process.env.NODE_ENV && process.env.NODE_ENV.includes('production'));
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true, allowedHosts: true },
       preview: { allowedHosts: true },
