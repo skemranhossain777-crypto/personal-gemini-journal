@@ -1,4 +1,15 @@
-export type ReflectionMode = 'reflect' | 'summarize' | 'brainstorm' | 'chat';
+export type ReflectionMode =
+  | 'reflect'
+  | 'challenge'
+  | 'coach'
+  | 'summarize'
+  | 'explore'
+  | 'remember'
+  | 'connect'
+  | 'reframe'
+  | 'celebrate'
+  | 'brainstorm'
+  | 'chat';
 
 export interface JournalLocation {
   lat: number;
@@ -12,6 +23,10 @@ export interface JournalMessage {
   role: 'user' | 'model';
   content: string;
   timestamp: string;
+  skill?: string;
+  observations?: string[];
+  suggestions?: string[];
+  inferences?: string[];
 }
 
 export interface JournalInteraction {

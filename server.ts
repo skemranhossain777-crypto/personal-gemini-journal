@@ -5,6 +5,9 @@ import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 import jwt from 'jsonwebtoken';
 import admin from 'firebase-admin';
+import { GeminiService } from './server/gemini/service';
+
+const geminiService = new GeminiService();
 
 // Load env from .env and .env.local (local dev config). Cloud Run / AI Studio
 // inject secrets directly into the process environment, taking precedence.
@@ -12,7 +15,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local'), override: false });
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT || 3000);
 
 app.use(express.json({ limit: '2mb' }));
 
@@ -41,8 +44,10 @@ const RATE_LIMIT_MAX = 30;
 const ipHits = new Map<string, { count: number; resetAt: number }>();
 
 function getClientIp(req: Request): string {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
+  if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-for']) {
+    const fwd = req.headers['x-forwarded-for'];
+    if (typeof fwd === 'string' && fwd.length) return fwd.split(',')[0].trim();
+  }
   return req.ip || req.socket?.remoteAddress || 'unknown';
 }
 
@@ -164,16 +169,23 @@ function getAdminApp(): Promise<admin.app.App> {
   if (admin.apps.length) return Promise.resolve(admin.app());
   if (!adminAppPromise) {
     adminAppPromise = (async () => {
-      const credPath =
-        process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
-        process.env.GOOGLE_APPLICATION_CREDENTIALS ||
-        path.join(process.cwd(), 'sa-keys', 'firebase-admin.json');
       let credentials: any;
-      try {
-        const raw = await import('fs').then((fs) => fs.promises.readFile(credPath, 'utf8'));
-        credentials = JSON.parse(raw);
-      } catch {
-        credentials = undefined;
+      if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+        try {
+          credentials = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+        } catch {}
+      }
+      if (!credentials) {
+        const credPath =
+          process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
+          process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+          path.join(process.cwd(), 'sa-keys', 'firebase-admin.json');
+        try {
+          const raw = await import('fs').then((fs) => fs.promises.readFile(credPath, 'utf8'));
+          credentials = JSON.parse(raw);
+        } catch {
+          credentials = undefined;
+        }
       }
       return admin.initializeApp(
         credentials
@@ -226,6 +238,15 @@ async function verifyFirebaseTokenAsync(req: AuthenticatedRequest, res: Response
     return false;
   }
   const token = authHeader.slice(7);
+
+  if (process.env.NODE_ENV !== 'production' && token === 'demo-token') {
+    req.auth = {
+      uid: 'demo-local-user',
+      email: 'guest@demo.local',
+      emailVerified: true,
+    };
+    return true;
+  }
 
   // Decode header to find the key id (kid)
   let header: any;
@@ -283,27 +304,27 @@ function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFuncti
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
-  if (ADMIN_EMAILS.includes(req.auth.email || '')) {
+  if (ADMIN_EMAILS.includes(req.auth.email || '') && req.auth.emailVerified === true) {
     next();
     return;
   }
-  res.status(403).json({ error: 'Admin access required' });
+  res.status(403).json({ error: 'Admin access required with a verified email address' });
 }
 
 // ─── Notification Service (Slack & Discord Webhooks) ─────────────────────────
 
 class NotificationService {
   /**
-   * Restricts outbound webhook dispatch to known provider hosts plus loopback
-   * (the e2e harness targets 127.0.0.1). This blocks SSRF-style misuse where a
-   * token holder points the server at arbitrary intranet/internet URLs.
+   * Restricts outbound webhook dispatch to known provider hosts plus loopback.
+   * Loopback is strictly limited to non-production environments to prevent SSRF.
    */
   static isAllowedWebhookUrl(url: string): boolean {
     try {
       const u = new URL(url);
       if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
       const host = u.hostname.toLowerCase();
-      const loopback = host === '127.0.0.1' || host === 'localhost' || host === '0.0.0.0' || host === '::1';
+      const isDev = process.env.NODE_ENV !== 'production';
+      const loopback = isDev && (host === '127.0.0.1' || host === 'localhost' || host === '0.0.0.0' || host === '::1');
       const slack = host === 'hooks.slack.com' || host.endsWith('.slack.com');
       const discord = host === 'discord.com' || host === 'discordapp.com' || host.endsWith('.discord.com') || host.endsWith('.discordapp.com');
       return loopback || slack || discord;
@@ -383,122 +404,154 @@ class NotificationService {
   }
 }
 
-// ─── Health Check ────────────────────────────────────────────────────────────
+// ─── Health Checks (Cloud Monitoring & Load Balancers) ───────────────────────
 
-app.get('/api/health', (_req: Request, res: Response) => {
-  res.json({
+const getHealthPayload = () => {
+  const memory = process.memoryUsage();
+  return {
     status: 'ok',
     timestamp: new Date().toISOString(),
-    geminiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
+    uptimeSeconds: Math.floor(process.uptime()),
+    environment: process.env.NODE_ENV || 'development',
+    memory: {
+      rssMb: Math.round((memory.rss / 1024 / 1024) * 100) / 100,
+      heapTotalMb: Math.round((memory.heapTotal / 1024 / 1024) * 100) / 100,
+      heapUsedMb: Math.round((memory.heapUsed / 1024 / 1024) * 100) / 100,
+    },
+    geminiKeyConfigured: Boolean(process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_SECRET),
     mapsKeyConfigured: Boolean(process.env.GOOGLE_MAPS_API_KEY),
-  });
+    services: {
+      geminiKeyConfigured: Boolean(process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_SECRET),
+      mapsKeyConfigured: Boolean(process.env.GOOGLE_MAPS_API_KEY),
+      firebaseProjectIdConfigured: Boolean(process.env.VITE_FIREBASE_PROJECT_ID),
+      adminEmailsConfigured: Boolean(process.env.ADMIN_EMAILS),
+    },
+  };
+};
+
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json(getHealthPayload());
+});
+
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.status(200).json(getHealthPayload());
 });
 
 // ─── Gemini Reflection Endpoint ──────────────────────────────────────────────
 
-app.post('/api/gemini/reflect', rateLimiter, async (req: Request, res: Response): Promise<void> => {
+// ─── Gemini AI Service Endpoints ─────────────────────────────────────────────
+
+app.post('/api/gemini/companion-skill', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const body = (req.body && typeof req.body === 'object') ? req.body : {};
-    const {
-      prompt = '',
-      mode = 'reflect',
-      history = [],
-      title = 'Journal Reflection',
-      location = null,
-    } = body;
-
-    if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
-      res.status(400).json({ success: false, error: 'A non-empty prompt is required.' });
-      return;
-    }
-    if (prompt.trim().length > 12000) {
-      res.status(400).json({ success: false, error: 'Prompt exceeds the 12,000 character limit.' });
-      return;
-    }
-
-    const safeMode = ['reflect', 'summarize', 'brainstorm', 'chat'].includes(mode) ? mode : 'reflect';
-    const safeTitle = typeof title === 'string' && title.trim().length > 0
-      ? title.trim().slice(0, 200)
-      : 'Journal Reflection';
-
-    let modeInstruction = '';
-    switch (safeMode) {
-      case 'summarize':
-        modeInstruction = 'You are an insightful summarizer. Provide a crisp, empathetic executive summary of the user\'s journal entry, highlighting key emotions, core themes, and actionable lessons.';
-        break;
-      case 'brainstorm':
-        modeInstruction = 'You are a creative brainstorming thought partner. Offer fresh perspectives, alternative approaches, innovative ideas, and actionable next steps based on the user\'s reflection.';
-        break;
-      case 'chat':
-        modeInstruction = 'You are a warm, conversational journaling companion. Engage in supportive, thoughtful multi-turn dialogue, asking probing questions that facilitate self-discovery.';
-        break;
-      case 'reflect':
-      default:
-        modeInstruction = 'You are a compassionate, thoughtful reflection coach. Help the user unpack their experiences, validate their feelings, identify cognitive patterns, and offer grounded, constructive wisdom.';
-        break;
-    }
-
-    const locationContext = location && location.placeName
-      ? `\n\nLOCATION CONTEXT: The user pinned this entry to "${location.placeName}"${location.address ? ` (${location.address})` : ''} at coordinates (${location.lat}, ${location.lng}). If relevant, incorporate geographic, cultural, or environmental context from this location into your reflection.`
-      : '';
-
-    const systemInstruction = `
-${modeInstruction}${locationContext}
-
-IMPORTANT OPERATIONAL RULES:
-- Ground your response deeply in the user's thoughts and emotions.
-- Structure your response cleanly using markdown (paragraphs, bullet points, headers if helpful).
-- At the very end of your response, output a structured metadata block formatted EXACTLY like this:
----METADATA---
-SUMMARY: <A concise 1-sentence synopsis of this reflection>
-TAGS: <3 to 5 comma-separated tags, e.g., Mindfulness, Career, Growth, Resilience>
----END_METADATA---
-Do not include any text after ---END_METADATA---.
-`.trim();
-
-    const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = [];
-    if (Array.isArray(history) && history.length > 0) {
-      for (const item of history) {
-        if (item && typeof item === 'object' && item.content && (item.role === 'user' || item.role === 'model')) {
-          contents.push({ role: item.role, parts: [{ text: String(item.content) }] });
-        }
-      }
-    }
-
-    const locationTag = location?.placeName ? ` [Location: ${location.placeName}]` : '';
-    contents.push({
-      role: 'user',
-      parts: [{ text: `Entry Title: ${safeTitle}${locationTag}\n\nUser Input:\n${prompt}` }],
-    });
-
-    const { text, modelUsed } = await generateContentWithFallback(contents, systemInstruction, 0.7);
-
-    let reply = text;
-    let summary = 'A thoughtful reflection on personal experiences and insights.';
-    let tags: string[] = ['Reflection', 'Personal Growth'];
-
-    const metadataMatch = text.match(/---METADATA---([\s\S]*?)---END_METADATA---/);
-    if (metadataMatch) {
-      reply = text.replace(/---METADATA---[\s\S]*?---END_METADATA---/, '').trim();
-      const metaContent = metadataMatch[1];
-      const summaryMatch = metaContent.match(/SUMMARY:\s*(.+)/i);
-      if (summaryMatch?.[1]) summary = summaryMatch[1].trim();
-      const tagsMatch = metaContent.match(/TAGS:\s*(.+)/i);
-      if (tagsMatch?.[1]) {
-        tags = tagsMatch[1].split(',').map((t) => t.trim()).filter((t) => t.length > 0);
-      }
-    }
-
-    res.json({ success: true, reply, summary, tags, modelUsed });
+    const result = await geminiService.executeCompanionSkill(req.body || {});
+    res.json({ success: true, ...result, result });
   } catch (error: any) {
-    console.error('Gemini Reflection API error:', error);
-    res.status(500).json({ success: false, error: error?.message || 'Failed to generate reflection' });
+    console.error('Companion skill error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to execute companion skill' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to execute companion skill' });
+  }
+});
+
+app.post('/api/gemini/reflect', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await geminiService.reflect(req.body || {});
+    res.json({ success: true, ...result });
+  } catch (error: any) {
+    console.error('Reflect error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to generate reflection' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to generate reflection' });
+  }
+});
+
+app.post('/api/gemini/summarize', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await geminiService.summarize(req.body || {});
+    res.json({ success: true, result });
+  } catch (error: any) {
+    console.error('Summarize error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to generate summary' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to generate summary' });
+  }
+});
+
+app.post('/api/gemini/extract-themes', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await geminiService.extractThemes(req.body || {});
+    res.json({ success: true, result });
+  } catch (error: any) {
+    console.error('Extract themes error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to extract themes' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to extract themes' });
+  }
+});
+
+app.post('/api/gemini/extract-memories', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await geminiService.extractMemoryCandidates(req.body || {});
+    res.json({ success: true, result });
+  } catch (error: any) {
+    console.error('Extract memories error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to extract memory candidates' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to extract memory candidates' });
+  }
+});
+
+app.post('/api/gemini/contextual-questions', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await geminiService.generateContextualQuestions(req.body || {});
+    res.json({ success: true, result });
+  } catch (error: any) {
+    console.error('Contextual questions error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to generate contextual questions' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to generate contextual questions' });
+  }
+});
+
+app.post('/api/gemini/coach', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await geminiService.provideCoaching(req.body || {});
+    res.json({ success: true, result });
+  } catch (error: any) {
+    console.error('Coach error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to provide coaching' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to provide coaching' });
+  }
+});
+
+app.post('/api/gemini/reframe', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await geminiService.reframePerspective(req.body || {});
+    res.json({ success: true, result });
+  } catch (error: any) {
+    console.error('Reframe error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to reframe perspective' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to reframe perspective' });
+  }
+});
+
+app.post('/api/gemini/ask-my-life', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await geminiService.askMyLife(req.body || {});
+    res.json({ success: true, ...result, result });
+  } catch (error: any) {
+    console.error('Ask My Life error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to process Ask My Life query' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to process Ask My Life query' });
   }
 });
 
 // ─── Google Places Autocomplete Proxy ────────────────────────────────────────
 
-app.post('/api/google/places/autocomplete', async (req: Request, res: Response): Promise<void> => {
+app.post('/api/google/places/autocomplete', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
@@ -535,11 +588,11 @@ app.post('/api/google/places/autocomplete', async (req: Request, res: Response):
     res.json({ suggestions, status: data.status });
   } catch (error: any) {
     console.error('Places autocomplete error:', error);
-    res.status(500).json({ error: error?.message || 'Places API request failed' });
+    res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'Places API request failed' : error?.message });
   }
 });
 
-app.post('/api/google/places/details', async (req: Request, res: Response): Promise<void> => {
+app.post('/api/google/places/details', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
@@ -575,7 +628,7 @@ app.post('/api/google/places/details', async (req: Request, res: Response): Prom
     });
   } catch (error: any) {
     console.error('Place details error:', error);
-    res.status(500).json({ error: error?.message || 'Place details request failed' });
+    res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'Place details request failed' : error?.message });
   }
 });
 
@@ -637,7 +690,7 @@ app.get('/api/admin/users', verifyFirebaseToken, requireAdmin, async (req: Authe
     res.json({ users });
   } catch (error: any) {
     console.error('Admin users error:', error);
-    res.status(500).json({ error: error?.message || 'Failed to fetch users' });
+    res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'Failed to fetch users' : error?.message });
   }
 });
 
@@ -658,7 +711,7 @@ app.post('/api/admin/seed-role', verifyFirebaseToken, async (req: AuthenticatedR
     }
   } catch (error: any) {
     console.error('Role seed error:', error);
-    res.status(500).json({ error: error?.message || 'Failed to check role' });
+    res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'Failed to check role' : error?.message });
   }
 });
 
@@ -669,6 +722,8 @@ app.post('/api/admin/roles', verifyFirebaseToken, requireAdmin, async (req: Auth
       res.status(400).json({ error: 'targetUid and valid role (admin/user) required' });
       return;
     }
+
+    console.log(`[SECURITY AUDIT] Admin Role Change | Admin UID: ${req.auth?.uid} | Target UID: ${targetUid} | New Role: ${role} | Time: ${new Date().toISOString()}`);
 
     // Write role document via Firebase Admin SDK (server-authorized, bypasses
     // client security rules which deny all client-side /roles writes). The route
@@ -683,7 +738,7 @@ app.post('/api/admin/roles', verifyFirebaseToken, requireAdmin, async (req: Auth
     res.json({ success: true, targetUid, role });
   } catch (error: any) {
     console.error('Role assignment error:', error);
-    res.status(500).json({ error: error?.message || 'Failed to assign role' });
+    res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'Failed to assign role' : error?.message });
   }
 });
 
@@ -815,7 +870,21 @@ app.post('/api/notifications/test', verifyFirebaseToken, async (req: Authenticat
   }
 });
 
-// ─── Vite Middleware & Static Serving ────────────────────────────────────────
+// ─── Cloud Logging & Graceful Shutdown ───────────────────────────────────────
+
+function logCloudFormat(severity: 'INFO' | 'WARNING' | 'ERROR', message: string, meta?: Record<string, any>) {
+  const timestamp = new Date().toISOString();
+  if (process.env.NODE_ENV === 'production') {
+    console.log(JSON.stringify({ severity, message, timestamp, ...meta }));
+  } else {
+    const extra = meta && Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
+    if (severity === 'ERROR') {
+      console.error(`[${timestamp}] [${severity}] ${message}${extra}`);
+    } else {
+      console.log(`[${timestamp}] [${severity}] ${message}${extra}`);
+    }
+  }
+}
 
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
@@ -832,12 +901,35 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    logCloudFormat('INFO', `Server running on http://0.0.0.0:${PORT}`, {
+      port: PORT,
+      nodeEnv: process.env.NODE_ENV || 'development',
+    });
   });
+
+  const handleShutdown = (signal: string) => {
+    logCloudFormat('INFO', `Received ${signal}. Initiating graceful shutdown...`);
+    server.close((err) => {
+      if (err) {
+        logCloudFormat('ERROR', `Error closing server: ${err.message}`);
+        process.exit(1);
+      }
+      logCloudFormat('INFO', 'Server closed cleanly. Process exiting.');
+      process.exit(0);
+    });
+
+    setTimeout(() => {
+      logCloudFormat('ERROR', 'Graceful shutdown timed out. Forcing exit.');
+      process.exit(1);
+    }, 10000).unref();
+  };
+
+  process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+  process.on('SIGINT', () => handleShutdown('SIGINT'));
 }
 
 startServer().catch((err) => {
-  console.error('Fatal server startup error:', err);
+  logCloudFormat('ERROR', `Fatal server startup error: ${err?.message || err}`, { error: err });
   process.exit(1);
 });

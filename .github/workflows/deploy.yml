@@ -1,0 +1,186 @@
+name: JOURNAL∞ Production CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, release/*]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
+jobs:
+  # ============================================================================
+  # STAGE 1: VALIDATION & TESTING (Steps 1-8)
+  # ============================================================================
+  validate-and-test:
+    name: 🧪 1-8. Validate, Test & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: 1. Install Dependencies
+        run: npm ci
+
+      - name: 2. Dependency Audit & Security Validation
+        run: npm audit --audit-level=high || echo "::warning ::Dependency vulnerabilities detected. Review npm audit report."
+
+      - name: 3. Lint Codebase
+        run: npm run lint
+
+      - name: 4. Typecheck Codebase
+        run: npm run typecheck
+
+      - name: 5. Execute Unit Tests
+        run: npx vitest run tests/journal-crud-offline.test.ts tests/autosave-recovery.test.ts
+
+      - name: 6. Execute Integration Tests
+        run: npx vitest run tests/automated-suite.test.ts tests/timeline-goals-habits.test.ts
+
+      - name: 7. Execute Security Tests
+        run: npx vitest run tests/security-matrix.test.ts tests/ai-security.test.ts
+
+      - name: 8. Execute Complete Production Build
+        run: npm run build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-build
+          path: dist/
+          retention-days: 7
+
+  # ============================================================================
+  # STAGE 2: CONTAINER BUILD & VULNERABILITY SCAN (Steps 9-10)
+  # ============================================================================
+  build-and-scan-container:
+    name: 🐳 9-10. Build Container & Scan Vulnerabilities
+    needs: validate-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 9. Build Production Container Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: gcr.io/journal-staging-app/journal-app:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 10. Container Vulnerability Scan (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: gcr.io/journal-staging-app/journal-app:${{ github.sha }}
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+  # ============================================================================
+  # STAGE 3: STAGING DEPLOYMENT & SMOKE TESTS (Steps 11-12)
+  # ============================================================================
+  deploy-staging:
+    name: 🚀 11-12. Deploy Staging & Smoke Test
+    needs: build-and-scan-container
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Staging)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_STAGING }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCP GCR
+        run: gcloud auth configure-docker --quiet
+
+      - name: Build & Push Container to Staging Registry
+        run: |
+          docker build -t gcr.io/${{ secrets.GCP_PROJECT_STAGING }}/journal-app:${{ github.sha }} .
+          docker push gcr.io/${{ secrets.GCP_PROJECT_STAGING }}/journal-app:${{ github.sha }}
+
+      - name: 11. Deploy Container to Cloud Run (Staging)
+        run: |
+          gcloud run deploy journal-app-staging \
+            --image="gcr.io/${{ secrets.GCP_PROJECT_STAGING }}/journal-app:${{ github.sha }}" \
+            --region="us-central1" \
+            --platform="managed" \
+            --service-account="journal-staging-sa@${{ secrets.GCP_PROJECT_STAGING }}.iam.gserviceaccount.com" \
+            --allow-unauthenticated \
+            --set-env-vars="NODE_ENV=production,APP_URL=${{ secrets.STAGING_APP_URL }}" \
+            --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:latest,GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,ADMIN_EMAILS=journal-admin-emails:latest,FIREBASE_SERVICE_ACCOUNT_JSON=journal-firebase-sa-json:latest"
+
+      - name: 12. Execute Automated Staging Smoke Tests
+        env:
+          SMOKE_TARGET_URL: ${{ secrets.STAGING_APP_URL }}
+        run: |
+          node scripts/smoke-test.mjs
+
+  # ============================================================================
+  # STAGE 4: PRODUCTION DEPLOYMENT WITH MANUAL APPROVAL (Step 13)
+  # ============================================================================
+  deploy-production:
+    name: 🛡️ 13. Production Deployment (Approval Required)
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production # Requires manual environment approval in GitHub UI
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Production)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_PROD }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCP GCR
+        run: gcloud auth configure-docker --quiet
+
+      - name: Tag & Push Container to Production Registry
+        run: |
+          docker build -t gcr.io/${{ secrets.GCP_PROJECT_PROD }}/journal-app:${{ github.sha }} -t gcr.io/${{ secrets.GCP_PROJECT_PROD }}/journal-app:latest .
+          docker push gcr.io/${{ secrets.GCP_PROJECT_PROD }}/journal-app:${{ github.sha }}
+          docker push gcr.io/${{ secrets.GCP_PROJECT_PROD }}/journal-app:latest
+
+      - name: 13. Deploy Container to Cloud Run (Production)
+        run: |
+          gcloud run deploy journal-app-production \
+            --image="gcr.io/${{ secrets.GCP_PROJECT_PROD }}/journal-app:${{ github.sha }}" \
+            --region="us-central1" \
+            --platform="managed" \
+            --service-account="journal-app-sa@${{ secrets.GCP_PROJECT_PROD }}.iam.gserviceaccount.com" \
+            --allow-unauthenticated \
+            --set-env-vars="NODE_ENV=production,APP_URL=${{ secrets.PROD_APP_URL }}" \
+            --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:latest,GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,ADMIN_EMAILS=journal-admin-emails:latest,FIREBASE_SERVICE_ACCOUNT_JSON=journal-firebase-sa-json:latest"
+
+      - name: Production Smoke Tests
+        env:
+          SMOKE_TARGET_URL: ${{ secrets.PROD_APP_URL }}
+        run: |
+          node scripts/smoke-test.mjs

@@ -11,9 +11,9 @@ const ICONS = {
 } as const;
 
 const STYLES = {
-  success: 'border-emerald-500/40 bg-emerald-950/80 text-emerald-100',
-  error: 'border-red-500/40 bg-red-950/80 text-red-100',
-  info: 'border-sky-500/40 bg-sky-950/80 text-sky-100',
+  success: 'border-success/40 bg-surface-3 text-emerald-100',
+  error: 'border-danger/40 bg-surface-3 text-red-100',
+  info: 'border-accent/40 bg-surface-3 text-sky-100',
 } as const;
 
 export const Toaster: React.FC = () => {

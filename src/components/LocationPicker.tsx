@@ -200,6 +200,7 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ location, onLoca
             )}
             <input
               type="text"
+              aria-label="Location"
               placeholder="Pin a location..."
               value={query}
               onChange={(e) => handleQueryChange(e.target.value)}

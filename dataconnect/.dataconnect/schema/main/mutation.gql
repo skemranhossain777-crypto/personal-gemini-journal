@@ -1,0 +1,348 @@
+extend type Mutation {
+  """
+  ✨ Insert a single `JournalEntry` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  journalEntry_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: JournalEntry_Data!
+  ): JournalEntry_KeyOutput! @fdc_generated(from: "JournalEntry", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Memory` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  memory_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Memory_Data!
+  ): Memory_KeyOutput! @fdc_generated(from: "Memory", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `User` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  user_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: User_Data!
+  ): User_KeyOutput! @fdc_generated(from: "User", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert `JournalEntry` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  journalEntry_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [JournalEntry_Data!]!
+  ): [JournalEntry_KeyOutput!]! @fdc_generated(from: "JournalEntry", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Memory` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  memory_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Memory_Data!]!
+  ): [Memory_KeyOutput!]! @fdc_generated(from: "Memory", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `User` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  user_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [User_Data!]!
+  ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert or update a single `JournalEntry` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `JournalEntry`.
+  """
+  journalEntry_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: JournalEntry_Data!
+  ): JournalEntry_KeyOutput! @fdc_generated(from: "JournalEntry", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Memory` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Memory`.
+  """
+  memory_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Memory_Data!
+  ): Memory_KeyOutput! @fdc_generated(from: "Memory", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `User` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `User`.
+  """
+  user_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: User_Data!
+  ): User_KeyOutput! @fdc_generated(from: "User", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update `JournalEntry` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `JournalEntry`.
+  """
+  journalEntry_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [JournalEntry_Data!]!
+  ): [JournalEntry_KeyOutput!]! @fdc_generated(from: "JournalEntry", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Memory` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Memory`.
+  """
+  memory_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Memory_Data!]!
+  ): [Memory_KeyOutput!]! @fdc_generated(from: "Memory", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `User` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `User`.
+  """
+  user_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [User_Data!]!
+  ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Update a single `JournalEntry` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `JournalEntry` or `null` if not found.
+  """
+  journalEntry_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: JournalEntry_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: JournalEntry_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: JournalEntry_Data!
+  ): JournalEntry_KeyOutput @fdc_generated(from: "JournalEntry", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Memory` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Memory` or `null` if not found.
+  """
+  memory_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Memory_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Memory_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Memory_Data!
+  ): Memory_KeyOutput @fdc_generated(from: "Memory", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `User` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `User` or `null` if not found.
+  """
+  user_update(
+    """
+    The unique ID of the object.
+    """
+    id: String
+
+    """
+    ✨ `_expr` server value variant of `id` (The unique ID of the object.)
+    """
+    id_expr: String_Expr
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: User_Data!
+  ): User_KeyOutput @fdc_generated(from: "User", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update `JournalEntry` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  journalEntry_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: JournalEntry_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: JournalEntry_Data!
+  ): Int! @fdc_generated(from: "JournalEntry", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Memory` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  memory_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Memory_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Memory_Data!
+  ): Int! @fdc_generated(from: "Memory", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `User` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  user_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: User_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: User_Data!
+  ): Int! @fdc_generated(from: "User", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Delete a single `JournalEntry` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  journalEntry_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: JournalEntry_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: JournalEntry_FirstRow
+  ): JournalEntry_KeyOutput @fdc_generated(from: "JournalEntry", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Memory` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  memory_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Memory_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Memory_FirstRow
+  ): Memory_KeyOutput @fdc_generated(from: "Memory", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `User` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  user_delete(
+    """
+    The unique ID of the object.
+    """
+    id: String
+
+    """
+    ✨ `_expr` server value variant of `id` (The unique ID of the object.)
+    """
+    id_expr: String_Expr
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+  ): User_KeyOutput @fdc_generated(from: "User", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete `JournalEntry` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  journalEntry_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: JournalEntry_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Memory` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  memory_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Memory_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Memory", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `User` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  user_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: User_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "User", purpose: DELETE_MULTIPLE)
+}

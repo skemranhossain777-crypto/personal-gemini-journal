@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import firebaseFallbackConfig from '../../firebase-applet-config.json';
 
 /**
@@ -26,6 +27,7 @@ const firebaseConfig = {
 let _app: FirebaseApp | null = null;
 let _auth: Auth | null = null;
 let _db: Firestore | null = null;
+let _storage: FirebaseStorage | null = null;
 let _appCheckInit = false;
 
 export function getFirebaseApp(): FirebaseApp {
@@ -51,6 +53,14 @@ export function getDbInstance(): Firestore {
       : getFirestore(app);
   }
   return _db;
+}
+
+/** Cloud Storage singleton for attachment uploads (lazy, on first use). */
+export function getStorageInstance(): FirebaseStorage {
+  if (!_storage) {
+    _storage = getStorage(getFirebaseApp());
+  }
+  return _storage;
 }
 
 /**

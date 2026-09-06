@@ -23,6 +23,12 @@ interface NavbarProps {
   onSignInGoogle?: () => void;
   onOpenCommandPalette?: () => void;
   isAdmin?: boolean;
+  /** Journal engine navigation (optional — renders the Journal/Companion switch). */
+  activeSection?: 'journal' | 'companion';
+  onOpenJournal?: () => void;
+  onOpenCompanion?: () => void;
+  /** Label for the primary "new" action (defaults to "New Reflection"). */
+  newEntryLabel?: string;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -35,6 +41,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSignInGoogle,
   onOpenCommandPalette,
   isAdmin = false,
+  activeSection,
+  onOpenJournal,
+  onOpenCompanion,
+  newEntryLabel = 'New Reflection',
 }) => {
   const isDemo = user?.uid?.startsWith('demo-');
 
@@ -83,6 +93,36 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Journal / Companion switch (journal engine navigation) */}
+          {user && activeSection && onOpenJournal && onOpenCompanion && (
+            <div
+              className="hidden items-center rounded-lg border border-[#223056] bg-[#121E40] p-0.5 text-xs font-medium sm:flex"
+              role="tablist"
+              aria-label="Workspace sections"
+            >
+              <button
+                role="tab"
+                aria-selected={activeSection === 'journal'}
+                onClick={onOpenJournal}
+                className={`rounded-md px-3 py-1.5 transition-colors ${
+                  activeSection === 'journal' ? 'bg-[#17254F] text-[#EEF4FF]' : 'text-[#888] hover:text-[#D9E2F5]'
+                }`}
+              >
+                Journal
+              </button>
+              <button
+                role="tab"
+                aria-selected={activeSection === 'companion'}
+                onClick={onOpenCompanion}
+                className={`rounded-md px-3 py-1.5 transition-colors ${
+                  activeSection === 'companion' ? 'bg-[#17254F] text-[#EEF4FF]' : 'text-[#888] hover:text-[#D9E2F5]'
+                }`}
+              >
+                Companion
+              </button>
+            </div>
+          )}
+
           {/* Connect Google button if in Demo mode */}
           {isDemo && onSignInGoogle && (
             <button
@@ -158,7 +198,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="flex items-center gap-1.5 rounded-lg border border-[#31447F] bg-[#17254F] px-3 py-1.5 text-xs font-medium text-[#EEF4FF] shadow-sm transition-all hover:border-[#4A63A3] hover:bg-[#26376B] active:scale-95"
               >
                 <Plus className="h-3.5 w-3.5" />
-                <span>New Reflection</span>
+                <span>{newEntryLabel}</span>
               </button>
 
               {/* User Profile Pill */}

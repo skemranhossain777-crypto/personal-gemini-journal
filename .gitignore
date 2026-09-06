@@ -11,5 +11,6 @@ coverage/
 .env.*
 !.env.example
 
-# Firebase service-account keys (never commit)
+# Local temp files
+0.26.0
 sa-keys/

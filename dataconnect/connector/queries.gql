@@ -1,0 +1,36 @@
+query ListMyEntries @auth(level: USER) {
+  journalEntries(
+    where: { userId: { eq_expr: "auth.uid" } }
+    orderBy: [{ createdAt: DESC }]
+  ) {
+    id
+    title
+    body
+    mode
+    mood
+    energy
+    tags
+    favorite
+    archived
+    createdAt
+    updatedAt
+  }
+}
+
+query ListMyMemories @auth(level: USER) {
+  memories(
+    where: { userId: { eq_expr: "auth.uid" } }
+    orderBy: [{ importance: DESC }, { createdAt: DESC }]
+  ) {
+    id
+    type
+    title
+    narrative
+    importance
+    confidence
+    saved
+    status
+    occurredAt
+    createdAt
+  }
+}

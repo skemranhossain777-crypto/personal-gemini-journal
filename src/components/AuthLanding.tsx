@@ -1,36 +1,44 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Sparkles, ShieldCheck, BookOpen, Brain, Lock, ArrowRight } from 'lucide-react';
+import { Sparkles, ShieldCheck, BookOpen, Brain, Lock, ArrowRight, Award, Compass, MessageSquareQuote } from 'lucide-react';
 import { fadeUp, stagger } from '../lib/animations';
+import { AuthErrorBanner } from '../auth';
+import type { AuthErrorInfo } from '../services/auth';
+import { JudgeTourModal } from './JudgeTourModal';
+import { seedDemoEnvironment } from '../services/demoEnvironment';
 
 interface AuthLandingProps {
   onSignIn: () => Promise<void>;
   onDemoSignIn?: () => void;
   isLoading: boolean;
   onOpenThreatModel: () => void;
+  /** Normalized auth error from the auth boundary (null when none). */
+  error?: AuthErrorInfo | null;
+  /** Clear the boundary error before a fresh attempt. */
+  onClearError?: () => void;
 }
 
-const features = [
+const signatureExperiences = [
   {
     icon: Brain,
     iconColor: 'text-sky-400',
-    title: 'Gemini 3.x Flash Intelligence',
+    title: '1. Personal Memory Engine',
     description:
-      'Provides empathetic reflections, creative brainstorming angles, and executive summaries with a 5-model automatic fallback ladder.',
+      'Scans reflections and proposes 11 memory types (decisions, milestones, habits). Returns un-saved proposals — AI never mutates your memory without your consent.',
   },
   {
-    icon: ShieldCheck,
-    iconColor: 'text-emerald-400',
-    title: 'Isolated Cloud Firestore',
+    icon: MessageSquareQuote,
+    iconColor: 'text-indigo-400',
+    title: '2. Ask My Life RAG',
     description:
-      'Every journal entry is stored under your UID. Firestore Security Rules prevent other users from accessing your records.',
+      'Query your past entries conversationally. Performs multi-document RAG context compression and returns evidence-backed answers citing exact journal dates.',
   },
   {
-    icon: BookOpen,
-    iconColor: 'text-blue-400',
-    title: 'Multi-Turn History',
+    icon: Sparkles,
+    iconColor: 'text-amber-400',
+    title: '3. AI Reflection Loop',
     description:
-      'Carry on deep, ongoing discussions or re-read past reflections at any time with full message history and tag categorization.',
+      'Real-time thought partner with 5-model Gemini fallback ladder, perspective reframing, theme extraction, and multimodal voice/image journaling.',
   },
 ];
 
@@ -39,35 +47,14 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
   onDemoSignIn,
   isLoading,
   onOpenThreatModel,
+  error,
+  onClearError,
 }) => {
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [isJudgeTourOpen, setIsJudgeTourOpen] = useState(false);
 
-  const handleSignInClick = async () => {
-    setAuthError(null);
-    try {
-      await onSignIn();
-    } catch (err: any) {
-      console.error('Sign-in failed:', err);
-      if (err?.code === 'auth/popup-closed-by-user') {
-        setAuthError('Sign-in window was closed. Please try again.');
-      } else if (err?.code === 'auth/cancelled-popup-request') {
-        // Ignored
-      } else if (err?.code === 'auth/popup-blocked') {
-        setAuthError(
-          `The sign-in popup was blocked by your browser or iframe security policy. Please open the app in a new tab or use Instant Demo Mode. [${err.code}]`
-        );
-      } else if (err?.code === 'auth/unauthorized-domain') {
-        setAuthError(
-          `This domain is pending authorization in Firebase Console. You can explore immediately using Instant Demo Mode or open in a new tab. [${err.code}]`
-        );
-      } else if (err?.code === 'auth/operation-not-allowed') {
-        setAuthError(`Google sign-in is currently unavailable for this Firebase project (provider not fully enabled). [${err.code}]`);
-      } else if (err?.code === 'auth/configuration-not-found') {
-        setAuthError(`Firebase Auth is not fully provisioned for this project (provider/API not enabled). [${err.code}]`);
-      } else {
-        setAuthError(`${err?.message || 'Authentication failed. Please try again or use Instant Demo Mode.'} ${err?.code ? `[${err.code}]` : ''}`);
-      }
-    }
+  const handleSignInClick = () => {
+    onClearError?.();
+    return onSignIn();
   };
 
   return (
@@ -80,30 +67,34 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
       </div>
 
       <motion.div
-        className="relative z-10 w-full max-w-4xl space-y-12"
+        className="relative z-10 w-full max-w-4xl space-y-10"
         initial="hidden"
         animate="show"
         variants={stagger(0.1, 0.05)}
       >
+        {/* Top Judge Banner Pill */}
+        <motion.div variants={fadeUp} className="flex justify-center">
+          <button
+            onClick={() => setIsJudgeTourOpen(true)}
+            className="group flex items-center gap-2 rounded-full border border-sky-500/30 bg-sky-500/10 px-4 py-1.5 text-xs font-semibold text-sky-300 shadow-md transition-all hover:border-sky-400 hover:bg-sky-500/20 active:scale-95"
+          >
+            <Award className="h-3.5 w-3.5 text-amber-400 animate-pulse" />
+            <span>Judge 5-Minute Tour & Architecture Overview</span>
+            <ArrowRight className="h-3.5 w-3.5 text-sky-400 transition-transform group-hover:translate-x-0.5" />
+          </button>
+        </motion.div>
+
         {/* Hero Section */}
         <motion.div variants={fadeUp} className="mx-auto max-w-2xl space-y-4 text-center">
-          <motion.div
-            variants={fadeUp}
-            className="inline-flex items-center gap-2 rounded-full border border-[#223056] bg-[#121E40] px-3.5 py-1 text-xs font-medium text-sky-400 shadow-sm"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-sky-400" />
-            <span>AI-Guided Reflection & Thought Partner</span>
-          </motion.div>
-
           <motion.h1
             variants={fadeUp}
             className="font-serif text-3xl font-bold leading-tight tracking-tight text-[#EEF4FF] sm:text-4xl lg:text-5xl"
           >
-            Reflect deeper, brainstorm ideas, and understand your journey.
+            Your lifelong personal wisdom engine powered by Gemini 2.5
           </motion.h1>
 
           <motion.p variants={fadeUp} className="text-base leading-relaxed text-[#9FB0D4] sm:text-lg">
-            A private journaling sanctuary paired with Gemini 3.x Flash. Write multi-turn reflections, receive thoughtful summaries, and keep your entries strictly isolated to your account.
+            Turn daily reflections into a structured personal knowledge graph. Extract structured memories, ask natural questions about your past, and reflect deeper with zero risk of prompt injection.
           </motion.p>
 
           {/* Authentication Action Box */}
@@ -143,8 +134,11 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
               {onDemoSignIn && (
                 <button
                   id="instant-demo-btn"
-                  onClick={onDemoSignIn}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-[#223056] bg-[#121E40] px-5 py-3 text-sm font-medium text-[#9FB0D4] transition-all hover:border-[#41599A] hover:bg-[#1C2C5E] hover:text-[#EEF4FF] active:scale-[0.98]"
+                  onClick={() => {
+                    seedDemoEnvironment('demo-local-user');
+                    onDemoSignIn();
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-sky-500/40 bg-sky-950/40 px-5 py-3 text-sm font-semibold text-sky-300 shadow-md transition-all hover:border-sky-400 hover:bg-sky-900/50 hover:text-[#EEF4FF] active:scale-[0.98]"
                   title="Explore all reflection features instantly in demo workspace"
                 >
                   <Sparkles className="h-4 w-4 text-sky-400" />
@@ -153,29 +147,32 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
               )}
             </div>
 
-            {authError && (
+            {error && (
               <motion.div
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                role="alert"
-                className="max-w-md space-y-2 rounded-xl border border-blue-900/60 bg-blue-950/40 p-3 text-left text-xs text-sky-300"
+                className="w-full max-w-md"
               >
-                <p className="font-medium text-sky-200">{authError}</p>
-                <div className="flex items-center gap-3 pt-1">
+                <AuthErrorBanner message={error.message} />
+                <div className="flex items-center gap-3 pt-2">
                   <a
                     href={window.location.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-semibold text-sky-400 underline hover:text-sky-300"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-400 underline hover:text-sky-300"
                   >
                     Open in New Tab &rarr;
                   </a>
                   {onDemoSignIn && (
                     <button
-                      onClick={onDemoSignIn}
-                      className="inline-flex items-center gap-1 rounded border border-blue-700/50 bg-blue-900/40 px-2 py-0.5 text-[11px] text-sky-200 hover:bg-blue-800/50"
+                      onClick={() => {
+                        seedDemoEnvironment('demo-local-user');
+                        onDemoSignIn();
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-950/60 px-3 py-1 text-[11px] font-semibold text-sky-300 hover:bg-sky-900/60 transition-all"
                     >
-                      Continue in Demo Mode
+                      <Sparkles className="h-3 w-3 text-sky-400" />
+                      <span>Explore in Instant Demo Mode &rarr;</span>
                     </button>
                   )}
                 </div>
@@ -188,12 +185,12 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
           </motion.div>
         </motion.div>
 
-        {/* Feature Grid */}
+        {/* Signature Experiences Showcase */}
         <motion.div
           variants={stagger(0.12, 0.1)}
-          className="grid grid-cols-1 gap-6 pt-4 md:grid-cols-3"
+          className="grid grid-cols-1 gap-6 pt-2 md:grid-cols-3"
         >
-          {features.map((f) => {
+          {signatureExperiences.map((f) => {
             const Icon = f.icon;
             return (
               <motion.div
@@ -201,13 +198,19 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
                 variants={fadeUp}
                 whileHover={{ y: -5, borderColor: '#41599A' }}
                 transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-                className="rounded-2xl border border-[#223056] bg-[#0E1730] p-6 shadow-sm"
+                className="rounded-2xl border border-[#223056] bg-[#0E1730] p-6 shadow-sm flex flex-col justify-between"
               >
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-[#223056] bg-[#17254F]">
-                  <Icon className={`h-5 w-5 ${f.iconColor}`} />
+                <div>
+                  <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-[#223056] bg-[#17254F]">
+                    <Icon className={`h-5 w-5 ${f.iconColor}`} />
+                  </div>
+                  <h3 className="mb-2 text-base font-bold text-[#EEF4FF]">{f.title}</h3>
+                  <p className="text-xs leading-relaxed text-[#888]">{f.description}</p>
                 </div>
-                <h3 className="mb-2 text-base font-semibold text-[#EEF4FF]">{f.title}</h3>
-                <p className="text-xs leading-relaxed text-[#888]">{f.description}</p>
+                <div className="pt-4 border-t border-[#1C2C5E] mt-4 flex items-center justify-between text-[11px] font-semibold text-sky-400">
+                  <span>Gemini 2.5 Powered</span>
+                  <Compass className="h-3.5 w-3.5" />
+                </div>
               </motion.div>
             );
           })}
@@ -220,25 +223,40 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
         >
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#223056] bg-[#17254F] text-[#9FB0D4]">
-              <Lock className="h-4 w-4" />
+              <Lock className="h-4 w-4 text-emerald-400" />
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-[#EEF4FF]">Zero Insecure Defaults</h4>
+              <h4 className="text-sm font-semibold text-[#EEF4FF]">OWASP OWASP-Compliant Data Security</h4>
               <p className="text-xs text-[#888]">
-                Built to OWASP Top 10 standards with the 8 Threat Zones modeled and verified.
+                Path-isolated Firestore rules (`/users/{'{uid}'}/*`), server token validation, and untrusted payload wrapping.
               </p>
             </div>
           </div>
-          <button
-            onClick={onOpenThreatModel}
-            className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-sky-400 transition-colors hover:text-sky-300 hover:underline"
-            aria-label="Review the threat model"
-          >
-            <span>Review Threat Model</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsJudgeTourOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-400 transition-colors hover:text-sky-300 hover:underline"
+            >
+              <span>5-Min Tour</span>
+            </button>
+            <button
+              onClick={onOpenThreatModel}
+              className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-[#9FB0D4] transition-colors hover:text-sky-300 hover:underline"
+              aria-label="Review the threat model"
+            >
+              <span>Threat Model</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </motion.div>
       </motion.div>
+
+      {/* Interactive Judge Tour Modal */}
+      <JudgeTourModal
+        isOpen={isJudgeTourOpen}
+        onClose={() => setIsJudgeTourOpen(false)}
+        onLaunchDemo={onDemoSignIn}
+      />
     </div>
   );
 };

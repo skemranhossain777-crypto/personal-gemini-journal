@@ -19,11 +19,13 @@ export default defineConfig(() => {
       // caches vendor code independently across deploys.
       rollupOptions: {
         output: {
-          manualChunks: {
-            react: ['react', 'react-dom', 'motion'],
-            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-            markdown: ['react-markdown'],
-            icons: ['lucide-react'],
+          manualChunks(id) {
+            if (id.includes('node_modules/firebase/auth')) return 'firebase-auth';
+            if (id.includes('node_modules/firebase/firestore')) return 'firebase-firestore';
+            if (id.includes('node_modules/firebase/app')) return 'firebase-app';
+            if (id.includes('node_modules/motion')) return 'vendor-motion';
+            if (id.includes('node_modules/lucide-react')) return 'vendor-icons';
+            if (id.includes('node_modules/react-markdown') || id.includes('node_modules/remark') || id.includes('node_modules/unified')) return 'vendor-markdown';
           },
         },
       },

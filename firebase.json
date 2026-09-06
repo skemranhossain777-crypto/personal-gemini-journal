@@ -1,4 +1,7 @@
 {
+  "dataconnect": {
+    "source": "dataconnect"
+  },
   "firestore": [
     {
       "database": "ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6",
@@ -6,6 +9,20 @@
       "indexes": "firestore.indexes.json"
     }
   ],
+  "emulators": {
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 8080
+    },
+    "auth": {
+      "host": "127.0.0.1",
+      "port": 9099
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  },
   "hosting": {
     "public": "dist",
     "ignore": [

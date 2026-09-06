@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { Modal } from './Modal';
+import { Dialog } from './ui/Dialog';
+import { Button } from './ui/Button';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
+/** Destructive-action confirmation built on the Dialog primitive. */
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
   title,
@@ -22,34 +24,25 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onCancel,
 }) => {
   return (
-    <Modal
+    <Dialog
       isOpen={isOpen}
       onClose={onCancel}
       title={title}
       icon={<AlertTriangle className="h-5 w-5" />}
-      iconClassName="bg-red-950/60 border border-red-800/40 text-red-400"
+      iconClassName="bg-red-950/60 border border-danger/40 text-danger"
       footer={
         <>
-          <button
-            onClick={onCancel}
-            className="rounded-xl border border-[#31447F] bg-[#17254F] px-4 py-2 text-xs font-medium text-[#888] transition-colors hover:bg-[#26376B] hover:text-[#EEF4FF]"
-          >
+          <Button variant="subtle" onClick={onCancel}>
             {cancelLabel}
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-red-500 active:scale-95"
-          >
-            <AlertTriangle className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="danger" icon={<AlertTriangle className="h-3.5 w-3.5" />} onClick={onConfirm}>
             {confirmLabel}
-          </button>
+          </Button>
         </>
       }
     >
-      <p className="px-6 py-5 text-sm leading-relaxed text-[#9FB0D4]" id="confirm-message">
-        {message}
-      </p>
-    </Modal>
+      <p className="px-6 py-5 text-sm leading-relaxed text-ink-low">{message}</p>
+    </Dialog>
   );
 };
 

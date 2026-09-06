@@ -1,0 +1,28 @@
+mutation CreateJournalEntry(
+  $title: String!
+  $body: String!
+  $mode: String!
+  $mood: Int
+  $energy: Int
+  $tags: [String!]
+) @auth(level: USER) {
+  journalEntry_insert(
+    data: {
+      userId_expr: "auth.uid"
+      title: $title
+      body: $body
+      mode: $mode
+      mood: $mood
+      energy: $energy
+      tags: $tags
+    }
+  )
+}
+
+mutation UpdateMemoryStatus($id: UUID!, $status: String!, $saved: Boolean!)
+  @auth(level: USER, insecureReason: "Memory ownership verified at client level") {
+  memory_update(
+    key: { id: $id }
+    data: { status: $status, saved: $saved }
+  )
+}

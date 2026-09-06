@@ -1,0 +1,420 @@
+extend type JournalEntry {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "JournalEntry", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table.
+  """
+  _count: Int! @fdc_generated(from: "JournalEntry.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `archived` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  archived_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.archived", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `body` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  body_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.body", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `createdAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  createdAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.createdAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `energy` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  energy_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.energy", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `favorite` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  favorite_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.favorite", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `mode` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  mode_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.mode", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `mood` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  mood_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.mood", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `title` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  title_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.title", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `updatedAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  updatedAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.updatedAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `JournalEntry` table where the `userId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  userId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "JournalEntry.userId", purpose: QUERY_COUNT)
+  """
+  ✨ Sum the `energy` field in the `JournalEntry` table.
+  """
+  energy_sum(
+    """
+    Set to true to sum the distinct values.
+    """
+    distinct: Boolean = false
+  ): Int @fdc_generated(from: "JournalEntry.energy", purpose: QUERY_SUM)
+  """
+  ✨ Sum the `mood` field in the `JournalEntry` table.
+  """
+  mood_sum(
+    """
+    Set to true to sum the distinct values.
+    """
+    distinct: Boolean = false
+  ): Int @fdc_generated(from: "JournalEntry.mood", purpose: QUERY_SUM)
+  """
+  ✨ Average the `energy` field in the `JournalEntry` table.
+  """
+  energy_avg(
+    """
+    Set to true to average the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "JournalEntry.energy", purpose: QUERY_AVG)
+  """
+  ✨ Average the `mood` field in the `JournalEntry` table.
+  """
+  mood_avg(
+    """
+    Set to true to average the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "JournalEntry.mood", purpose: QUERY_AVG)
+  """
+  ✨ Minimum of the `createdAt` field in the `JournalEntry` table.
+  """
+  createdAt_min: Date @fdc_generated(from: "JournalEntry.createdAt", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `energy` field in the `JournalEntry` table.
+  """
+  energy_min: Int @fdc_generated(from: "JournalEntry.energy", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `mood` field in the `JournalEntry` table.
+  """
+  mood_min: Int @fdc_generated(from: "JournalEntry.mood", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `updatedAt` field in the `JournalEntry` table.
+  """
+  updatedAt_min: Date @fdc_generated(from: "JournalEntry.updatedAt", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `createdAt` field in the `JournalEntry` table.
+  """
+  createdAt_max: Date @fdc_generated(from: "JournalEntry.createdAt", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `energy` field in the `JournalEntry` table.
+  """
+  energy_max: Int @fdc_generated(from: "JournalEntry.energy", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `mood` field in the `JournalEntry` table.
+  """
+  mood_max: Int @fdc_generated(from: "JournalEntry.mood", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `updatedAt` field in the `JournalEntry` table.
+  """
+  updatedAt_max: Date @fdc_generated(from: "JournalEntry.updatedAt", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "JournalEntry.id", purpose: ENTITY_ID)
+}
+extend type Memory {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "Memory", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `Memory` table.
+  """
+  _count: Int! @fdc_generated(from: "Memory.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Memory` table where the `confidence` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  confidence_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Memory.confidence", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Memory` table where the `createdAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  createdAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Memory.createdAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Memory` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Memory.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Memory` table where the `importance` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  importance_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Memory.importance", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Memory` table where the `narrative` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  narrative_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Memory.narrative", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Memory` table where the `occurredAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  occurredAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Memory.occurredAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Memory` table where the `saved` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  saved_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Memory.saved", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Memory` table where the `status` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  status_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Memory.status", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Memory` table where the `title` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  title_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Memory.title", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Memory` table where the `type` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  type_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Memory.type", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Memory` table where the `userId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  userId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Memory.userId", purpose: QUERY_COUNT)
+  """
+  ✨ Sum the `confidence` field in the `Memory` table.
+  """
+  confidence_sum(
+    """
+    Set to true to sum the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "Memory.confidence", purpose: QUERY_SUM)
+  """
+  ✨ Sum the `importance` field in the `Memory` table.
+  """
+  importance_sum(
+    """
+    Set to true to sum the distinct values.
+    """
+    distinct: Boolean = false
+  ): Int @fdc_generated(from: "Memory.importance", purpose: QUERY_SUM)
+  """
+  ✨ Average the `confidence` field in the `Memory` table.
+  """
+  confidence_avg(
+    """
+    Set to true to average the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "Memory.confidence", purpose: QUERY_AVG)
+  """
+  ✨ Average the `importance` field in the `Memory` table.
+  """
+  importance_avg(
+    """
+    Set to true to average the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "Memory.importance", purpose: QUERY_AVG)
+  """
+  ✨ Minimum of the `confidence` field in the `Memory` table.
+  """
+  confidence_min: Float @fdc_generated(from: "Memory.confidence", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `createdAt` field in the `Memory` table.
+  """
+  createdAt_min: Date @fdc_generated(from: "Memory.createdAt", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `importance` field in the `Memory` table.
+  """
+  importance_min: Int @fdc_generated(from: "Memory.importance", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `occurredAt` field in the `Memory` table.
+  """
+  occurredAt_min: Date @fdc_generated(from: "Memory.occurredAt", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `confidence` field in the `Memory` table.
+  """
+  confidence_max: Float @fdc_generated(from: "Memory.confidence", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `createdAt` field in the `Memory` table.
+  """
+  createdAt_max: Date @fdc_generated(from: "Memory.createdAt", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `importance` field in the `Memory` table.
+  """
+  importance_max: Int @fdc_generated(from: "Memory.importance", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `occurredAt` field in the `Memory` table.
+  """
+  occurredAt_max: Date @fdc_generated(from: "Memory.occurredAt", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "Memory.id", purpose: ENTITY_ID)
+}
+extend type User {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "User", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `User` table.
+  """
+  _count: Int! @fdc_generated(from: "User.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `createdAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  createdAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.createdAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `displayName` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  displayName_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.displayName", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `email` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  email_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.email", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.id", purpose: QUERY_COUNT)
+  """
+  ✨ Minimum of the `createdAt` field in the `User` table.
+  """
+  createdAt_min: Date @fdc_generated(from: "User.createdAt", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `createdAt` field in the `User` table.
+  """
+  createdAt_max: Date @fdc_generated(from: "User.createdAt", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "User.id", purpose: ENTITY_ID)
+}

@@ -149,7 +149,7 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
                     Google Maps/Places API keys exposed to client-side JavaScript, enabling quota theft or abuse.
                   </td>
                   <td className="p-3 text-[#9FB0D4]">
-                    Places Autocomplete proxied server-side with restricted <code className="font-mono text-sky-400">GOOGLE_MAPS_API_KEY</code>. Client uses separate Maps JS API key with HTTP referrer restrictions.
+                    Places Autocomplete proxied server-side with a restricted Maps API key. Client uses a separate Maps JS API key with HTTP referrer restrictions.
                   </td>
                   <td className="p-3 font-medium text-emerald-400">Dual-Key Isolation</td>
                 </tr>
@@ -163,7 +163,7 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
                     Regular users elevating to admin role, accessing other users' data or admin endpoints.
                   </td>
                   <td className="p-3 text-[#9FB0D4]">
-                    Admin role seeded via <code className="font-mono text-sky-400">ADMIN_EMAILS</code> env var. Server verifies Firebase ID token + email on every admin request. No client-side role toggling.
+                    Admin role granted from a server-side email allow-list. Server verifies the Firebase ID token and email on every admin request. No client-side role toggling.
                   </td>
                   <td className="p-3 font-medium text-emerald-400">Server-Side RBAC</td>
                 </tr>

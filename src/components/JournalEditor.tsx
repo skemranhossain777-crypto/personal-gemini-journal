@@ -18,12 +18,18 @@ import {
   MapPin,
   Download,
   Save,
+  HelpCircle,
+  Target,
+  Compass,
+  Award,
 } from 'lucide-react';
 import type { JournalInteraction, JournalMessage, ReflectionMode, JournalLocation } from '../types';
 import { saveUserInteraction } from '../services/firestore';
-import { reflect as callReflect } from '../services/ai';
+import { executeCompanionSkill, reflect as callReflect } from '../services/ai';
+import type { CompanionSkill, CompanionSkillOutput } from '../../server/gemini/types';
 import { toast } from '../services/toast';
 import { LocationPicker } from './LocationPicker';
+import { AiAttributionResponseCard } from './journal/AiAttributionResponseCard';
 import { fadeUpSmall, stagger } from '../lib/animations';
 
 const MAX_CHARS = 12000;
@@ -235,10 +241,16 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     const optimisticMessages = [...currentMessages, userMessage];
 
     try {
-      // 1. Call Gemini Server API (via the AI service, skill Phase 5)
-      const data = await callReflect({
+      // 1. Call Gemini Server API via executeCompanionSkill
+      const activeSkill: CompanionSkill = (
+        ['reflect', 'challenge', 'coach', 'summarize', 'explore', 'remember', 'connect', 'reframe', 'celebrate'].includes(mode)
+          ? mode
+          : 'reflect'
+      ) as CompanionSkill;
+
+      const data = await executeCompanionSkill({
+        skill: activeSkill,
         prompt: promptToSend,
-        mode,
         title: activeTitle,
         location,
         history: currentMessages.map((m) => ({ role: m.role, content: m.content })),
@@ -250,6 +262,10 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         role: 'model',
         content: data.reply,
         timestamp: new Date().toISOString(),
+        skill: data.skill,
+        observations: data.observations,
+        suggestions: data.suggestions,
+        inferences: data.inferences,
       };
 
       const updatedMessages = [...optimisticMessages, modelMessage];
@@ -352,13 +368,18 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           </div>
         </div>
 
-        {/* Mode Selector Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pt-1 text-xs">
+        {/* Companion Skill Tabs (All 9 Skills) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-1 text-xs no-scrollbar">
           {[
-            { id: 'reflect', label: 'Thoughtful Reflection', icon: Brain, desc: 'Empathetic guidance' },
-            { id: 'summarize', label: 'Executive Summary', icon: FileText, desc: 'Key takeaways' },
-            { id: 'brainstorm', label: 'Brainstorm Ideas', icon: Lightbulb, desc: 'Fresh angles' },
-            { id: 'chat', label: 'Continuous Dialogue', icon: MessageSquare, desc: 'Multi-turn conversation' },
+            { id: 'reflect', label: 'Reflect', icon: Brain },
+            { id: 'challenge', label: 'Challenge', icon: HelpCircle },
+            { id: 'coach', label: 'Coach', icon: Target },
+            { id: 'summarize', label: 'Summarize', icon: FileText },
+            { id: 'explore', label: 'Explore', icon: Compass },
+            { id: 'remember', label: 'Remember', icon: Clock },
+            { id: 'connect', label: 'Connect', icon: Sparkles },
+            { id: 'reframe', label: 'Reframe', icon: RotateCcw },
+            { id: 'celebrate', label: 'Celebrate', icon: Award },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = mode === tab.id;
@@ -368,7 +389,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 id={`mode-tab-${tab.id}`}
                 onClick={() => setMode(tab.id as ReflectionMode)}
                 aria-pressed={isActive}
-                className={`relative whitespace-nowrap rounded-lg border px-3 py-1.5 font-medium transition-colors ${
+                className={`relative whitespace-nowrap rounded-lg border px-2.5 py-1 font-medium transition-colors ${
                   isActive
                     ? 'text-[#EEF4FF]'
                     : 'border-[#223056] bg-[#121E40] text-[#888] hover:bg-[#1A2957] hover:text-[#D9E2F5]'
@@ -513,49 +534,25 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 </span>
               </div>
 
-              {/* Message Bubble */}
-              <div
-                className={`relative group rounded-2xl p-4 sm:p-5 text-sm leading-relaxed transition-all shadow-sm ${
-                  isUser
-                    ? 'bg-[#17254F] border border-[#2B3E74] text-[#EEF4FF] rounded-br-xs whitespace-pre-wrap'
-                    : 'bg-[#0E1730] border border-[#223056] text-[#D9E2F5] rounded-bl-xs w-full'
-                }`}
-              >
                 {isUser ? (
-                  <div>{msg.content}</div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="prose prose-invert max-w-none text-[#D9E2F5] text-sm leading-relaxed">
-                      <Markdown>{msg.content}</Markdown>
-                    </div>
-
-                    {/* Copy action button */}
-                    <div className="pt-2 flex items-center justify-between border-t border-[#223056] text-xs text-[#666]">
-                      <div className="flex items-center gap-1.5">
-                        <Sparkles className="h-3 w-3 text-sky-400" />
-                        <span className="text-[11px] font-medium text-[#888]">{activeModel}</span>
-                      </div>
-                      <button
-                        onClick={() => handleCopyMessage(msg.id, msg.content)}
-                        className="flex items-center gap-1 rounded p-1 text-[#666] hover:text-[#D9E2F5] hover:bg-[#17254F] transition-colors"
-                        title="Copy reflection"
-                      >
-                        {copiedId === msg.id ? (
-                          <>
-                            <Check className="h-3 w-3 text-emerald-400" />
-                            <span className="text-[10px] text-emerald-400">Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3 w-3" />
-                            <span className="text-[10px]">Copy</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                  <div className="relative group rounded-2xl p-4 sm:p-5 text-sm leading-relaxed transition-all shadow-sm bg-[#17254F] border border-[#2B3E74] text-[#EEF4FF] rounded-br-xs whitespace-pre-wrap">
+                    {msg.content}
                   </div>
+                ) : (
+                  <AiAttributionResponseCard
+                    output={{
+                      skill: (msg.skill as CompanionSkill) || (mode as CompanionSkill) || 'reflect',
+                      reply: msg.content,
+                      observations: msg.observations || [],
+                      suggestions: msg.suggestions || [],
+                      inferences: msg.inferences || [],
+                      summary: interaction?.summary,
+                      tags: interaction?.tags,
+                      modelUsed: activeModel,
+                    }}
+                    className="w-full"
+                  />
                 )}
-              </div>
             </motion.div>
           );
         })}

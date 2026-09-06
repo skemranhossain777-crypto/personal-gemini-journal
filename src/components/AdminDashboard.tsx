@@ -131,7 +131,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Activity className="h-3.5 w-3.5" />
               Admin Seed
             </div>
-            <p className="mt-1 text-xs font-medium text-emerald-400">ADMIN_EMAILS env active</p>
+            <p className="mt-1 text-xs font-medium text-emerald-400">Server allow-list active</p>
           </motion.div>
         </div>
 
@@ -210,16 +210,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
           <div className="space-y-1 text-xs text-[#CFDAF0]">
             <p>
-              Admin role is seeded via{' '}
-              <code className="rounded bg-[#0B1226] px-1 font-mono text-sky-400">ADMIN_EMAILS</code>{' '}
-              environment variable.
+              Admin role is seeded from the{' '}
+              <code className="rounded bg-[#0B1226] px-1 font-mono text-sky-400">server allow-list</code>{' '}
+              (email-based).
             </p>
             <p>
               Current admin: <span className="font-medium text-sky-300">{adminEmail}</span>
             </p>
             <p className="mt-2 text-[#888]">
               Admins can view all users, manage roles, and access the admin dashboard. Additional
-              admins can be added by appending emails to the ADMIN_EMAILS env var (comma-separated).
+              admins are added server-side by the operator (comma-separated emails).
             </p>
           </div>
         </div>

@@ -1,5 +1,54 @@
 @import "tailwindcss";
 
+@theme {
+  /* ── JOURNAL∞ design tokens ──────────────────────────────── */
+
+  /* Surfaces (deep navy world) */
+  --color-page: #070b16;
+  --color-surface-1: #0b1226;
+  --color-surface-2: #0e1730;
+  --color-surface-3: #121e40;
+  --color-surface-4: #17254f;
+  --color-surface-5: #1c2c5e;
+  --color-surface-hover: #26376b;
+
+  /* Hairlines */
+  --color-line: #223056;
+  --color-line-strong: #31447f;
+  --color-line-accent: #4a63a3;
+
+  /* Ink */
+  --color-ink-hi: #eef4ff;
+  --color-ink-mid: #d9e2f5;
+  --color-ink-low: #9fb0d4;
+  --color-ink-faint: #888888;
+
+  /* Accent */
+  --color-accent: #38bdf8;
+  --color-accent-strong: #0ea5e9;
+  --color-accent-deep: #0284c7;
+  --color-depth: #172554;
+
+  /* Semantic */
+  --color-success: #34d399;
+  --color-success-deep: #059669;
+  --color-danger: #f87171;
+  --color-danger-deep: #dc2626;
+  --color-warning: #fbbf24;
+
+  /* Type */
+  --font-display:
+    "New York", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, ui-serif, serif;
+  --font-body: "Inter", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* Depth */
+  --shadow-card: 0 10px 34px -14px rgba(2, 6, 23, 0.55);
+  --shadow-pop: 0 24px 60px -18px rgba(2, 6, 23, 0.65);
+  --shadow-glow: 0 0 0 1px rgba(56, 189, 248, 0.28), 0 10px 34px -14px rgba(2, 6, 23, 0.55);
+}
+
 @layer base {
   html,
   body {
@@ -11,6 +60,8 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     scroll-behavior: smooth;
+    font-family: var(--font-body);
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* Sophisticated Dark custom scrollbars */
@@ -161,6 +212,34 @@
   }
   .animate-spin-slow {
     animation: spin-slow 14s linear infinite;
+  }
+}
+
+/* ── JOURNAL∞ typography primitives ─────────────────────────── */
+@layer components {
+  .text-eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-faint;
+  }
+  .text-display {
+    @apply font-display text-3xl font-medium leading-tight tracking-[-0.01em] text-ink-hi md:text-4xl;
+  }
+  .text-display-sm {
+    @apply font-display text-2xl font-medium leading-snug tracking-[-0.01em] text-ink-hi;
+  }
+  .text-title {
+    @apply text-lg font-semibold text-ink-hi;
+  }
+  .text-body {
+    @apply text-sm leading-relaxed text-ink-mid;
+  }
+  .text-prose {
+    @apply text-sm leading-relaxed text-ink-low;
+  }
+  .text-caption {
+    @apply text-xs text-ink-faint;
+  }
+  .text-mono-label {
+    @apply font-mono text-[11px] tracking-tight text-ink-low;
   }
 }
 

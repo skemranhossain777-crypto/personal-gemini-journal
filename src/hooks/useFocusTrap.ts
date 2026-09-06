@@ -8,9 +8,11 @@ const FOCUSABLE_SELECTOR =
  * while `active` is true. Moves focus to the first focusable on open and
  * restores it to the previously focused element on close (WCAG 2.4.3 focus order).
  */
-export function useFocusTrap<T extends HTMLElement>(active: boolean) {
+export function useFocusTrap<T extends HTMLElement>(active: boolean, onEscape?: () => void) {
   const ref = useRef<T | null>(null);
   const restoreFocusTo = useRef<HTMLElement | null>(null);
+  const onEscapeRef = useRef(onEscape);
+  onEscapeRef.current = onEscape;
 
   useEffect(() => {
     if (!active) return;
@@ -26,9 +28,17 @@ export function useFocusTrap<T extends HTMLElement>(active: boolean) {
       );
 
     const focusables = getFocusable();
-    if (focusables.length > 0) focusables[0].focus();
+    if (focusables.length > 0 && !root.contains(document.activeElement)) {
+      focusables[0].focus();
+    }
 
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && onEscapeRef.current) {
+        e.preventDefault();
+        onEscapeRef.current();
+        return;
+      }
+
       if (e.key !== 'Tab') return;
       const items = getFocusable();
       if (items.length === 0) {

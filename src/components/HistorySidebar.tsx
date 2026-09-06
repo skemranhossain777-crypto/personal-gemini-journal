@@ -54,8 +54,22 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
 
   const getModeBadge = (mode: ReflectionMode) => {
     switch (mode) {
+      case 'challenge':
+        return { label: 'Challenge', color: 'bg-amber-950/40 text-amber-400 border-amber-800/40' };
+      case 'coach':
+        return { label: 'Coach', color: 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40' };
       case 'summarize':
-        return { label: 'Summary', color: 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40' };
+        return { label: 'Summary', color: 'bg-teal-950/40 text-teal-400 border-teal-800/40' };
+      case 'explore':
+        return { label: 'Explore', color: 'bg-indigo-950/40 text-indigo-400 border-indigo-800/40' };
+      case 'remember':
+        return { label: 'Remember', color: 'bg-cyan-950/40 text-cyan-400 border-cyan-800/40' };
+      case 'connect':
+        return { label: 'Connect', color: 'bg-rose-950/40 text-rose-400 border-rose-800/40' };
+      case 'reframe':
+        return { label: 'Reframe', color: 'bg-orange-950/40 text-orange-400 border-orange-800/40' };
+      case 'celebrate':
+        return { label: 'Celebrate', color: 'bg-yellow-950/40 text-yellow-400 border-yellow-800/40' };
       case 'brainstorm':
         return { label: 'Brainstorm', color: 'bg-blue-950/40 text-sky-400 border-blue-800/40' };
       case 'chat':
@@ -168,14 +182,19 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
           <Filter className="h-3 w-3 text-[#666] shrink-0" />
           {[
             { id: 'all', label: 'All' },
             { id: 'reflect', label: 'Reflect' },
+            { id: 'challenge', label: 'Challenge' },
+            { id: 'coach', label: 'Coach' },
             { id: 'summarize', label: 'Summary' },
-            { id: 'brainstorm', label: 'Ideas' },
-            { id: 'chat', label: 'Dialogue' },
+            { id: 'explore', label: 'Explore' },
+            { id: 'remember', label: 'Remember' },
+            { id: 'connect', label: 'Connect' },
+            { id: 'reframe', label: 'Reframe' },
+            { id: 'celebrate', label: 'Celebrate' },
           ].map((tab) => (
             <button
               key={tab.id}

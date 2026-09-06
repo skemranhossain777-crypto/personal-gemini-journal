@@ -1,65 +1,566 @@
 rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Every private document lives under an owner-scoped partition:
+//
+//   users/{uid}/journalEntries/{id}    — reflection entries (mood/energy/tags/
+//                                        location/attachments/AI metadata)
+//   users/{uid}/memories/{id}          — personal memory engine (user-reviewed)
+//   users/{uid}/conversations/{id}     — multi-turn Gemini companion sessions
+//   users/{uid}/goals/{id}             — goals with progress/milestones/entry links
+//   users/{uid}/habits/{id}            — habit tracking with bounded log
+//   users/{uid}/collections/{id}       — curated entry groupings
+//   users/{uid}/timelineEvents/{id}    — visual timeline (year/month/day precomputed)
+//   users/{uid}/insights/{id}          — AI reflections (daily..yearly/pattern)
+//   users/{uid}/aiInteractions/{id}    — append-only AI audit trail
+//   users/{uid}/settings/preferences   — single preferences doc (fixed id)
+//   users/{uid}/notifications/{id}     — in-app notification queue
+//
+// Every document stores the owning uid in a first-class `uid` field that the
+// rules require to equal request.auth.uid (immutable on update). All writes
+// must satisfy a per-collection validator (types, enums, length caps) on BOTH
+// create and update — there is no create/update validation gap.
+//
+// Pedigree / immutable fields (client may read but never set/change):
+//   id, uid, createdAt
+//
+// Access control: strict owner-only. No user can read or write another user's
+// partition. Children are matched through the shared /users/{userId} prefix,
+// capped at one level of depth below `users`, so there is no collection
+// traversal and unknown subcollections are denied by default.
+//
+// NOTE ON LIST VALIDATION: the emulator's rules engine provides no list
+// iteration (.all/.any), so list validators enforce the count cap and inspect
+// the leading LIST_PROBE_DEPTH elements explicitly by index. The client data
+// layer mirrors and extends these checks before every write.
+// ===============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ── Helpers ───────────────────────────────────────────────────────────────
-    // Owner-scoped access for a doc whose {userId} segment equals the caller.
+
+    // ── Auth / ownership helpers ────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
     function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // A message: { id, role, content, timestamp } with minimal type/size bounds.
-    function isMessage(m) {
-      return m is map
-        && ('id' in m && m.id is string && m.id.size() <= 128)
-        && ('role' in m && m.role is string && (m.role == 'user' || m.role == 'model'))
-        && ('content' in m && m.content is string && m.content.size() <= 120000)
-        && ('timestamp' in m && m.timestamp is string && m.timestamp.size() <= 64);
+    // ── Shared guards ────────────────────────────────────────────────────────
+    // Validate a document id: non-empty, bounded, and free of path separators
+    // and reserved control segments. Mirrors the client's assertSafeId().
+    function isValidId(id) {
+      return id is string
+        && id.size() > 0
+        && id.size() <= 128
+        && !id.matches('/')
+        && !id.matches('\\\\')
+        && !id.matches('^__proto__$')
+        && id != '.'
+        && id != '..'
+        && id != 'constructor'
+        && id != 'prototype';
     }
 
-    // An interaction document shape with type safety + resource-use bounds.
-    function isValidInteraction(data) {
+    // Immutable pedigree present and correct on writes. uid MUST equal the
+    // caller's uid and the immutable fields id/uid/createdAt cannot change.
+    function hasValidPedigree(data) {
       return data is map
-        && ('id' in data && data.id is string && data.id.size() <= 128)
-        && ('userId' in data && data.userId is string)
-        // author must be the owning UID — prevents cross-user attribution
-        && data.userId == request.auth.uid
-        && ('title' in data && data.title is string && data.title.size() <= 200)
-        && ('mode' in data && data.mode is string && data.mode.size() <= 24)
-        && ('messages' in data && data.messages is list
-            && data.messages.size() <= 200
-            && data.messages.all(m is map && isMessage(m)))
-        && ('createdAt' in data && data.createdAt is string)
-        && ('updatedAt' in data && data.updatedAt is string)
-        // optional summary / modelUsed bounded strings
+        && data.id is string && isValidId(data.id)
+        && data.uid is string && data.uid.size() <= 128
+        && data.uid == request.auth.uid;
+    }
+    function immutableUnchanged(data, existing) {
+      return existing is map
+        && (!('id' in data) || data.id == existing.id)
+        && (!('uid' in data) || data.uid == existing.uid)
+        && (!('createdAt' in data) || data.createdAt == existing.createdAt);
+    }
+
+    function hasTimestamps(data) {
+      return data is map
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // ── List bounds, probe helpers, and ref checks ───────────────────────────
+    // boundedList enforces the element-count cap; probe*At validates the Nth
+    // element when present (an index beyond the end is vacuously valid). This
+    // combination bounds the list in size and structurally validates the
+    // leading elements without requiring list iteration.
+    function boundedList(list, maxCount) {
+      return list is list && list.size() <= maxCount;
+    }
+    function probeStringAt(list, i, maxLen) {
+      return list.size() <= i || (list[i] is string && list[i].size() >= 1 && list[i].size() <= maxLen);
+    }
+    function probeSafeIdAt(list, i) {
+      return list.size() <= i || isValidId(list[i]);
+    }
+    function validStringList(list, maxCount, maxLen) {
+      return boundedList(list, maxCount)
+        && probeStringAt(list, 0, maxLen)
+        && probeStringAt(list, 1, maxLen)
+        && probeStringAt(list, 2, maxLen)
+        && probeStringAt(list, 3, maxLen);
+    }
+    function validDocIdList(list, maxCount) {
+      return boundedList(list, maxCount)
+        && probeSafeIdAt(list, 0)
+        && probeSafeIdAt(list, 1)
+        && probeSafeIdAt(list, 2)
+        && probeSafeIdAt(list, 3);
+    }
+    function isValidRef(ref) {
+      return ref is map
+        && ref.keys().hasOnly(['collection', 'docId'])
+        && ref.collection is string && ref.collection.size() >= 1 && ref.collection.size() <= 64
+        && ref.docId is string && isValidId(ref.docId);
+    }
+    function probeRefAt(list, i) {
+      return list.size() <= i || isValidRef(list[i]);
+    }
+    function validDocRefList(list) {
+      return boundedList(list, 200)
+        && probeRefAt(list, 0)
+        && probeRefAt(list, 1)
+        && probeRefAt(list, 2)
+        && probeRefAt(list, 3);
+    }
+
+    // ===============================================================
+    // 1. journalEntries
+    // ===============================================================
+    function isJournalLocation(loc) {
+      return loc is map
+        && loc.keys().hasOnly(['lat', 'lng', 'placeName', 'address'])
+        && loc.lat is number && loc.lng is number
+        && loc.placeName is string && loc.placeName.size() >= 1 && loc.placeName.size() <= 200
+        && (!('address' in loc) || (loc.address is string && loc.address.size() <= 500));
+    }
+    function isAttachment(a) {
+      return a is map
+        && a.keys().hasOnly(['id', 'kind', 'url', 'caption', 'createdAt'])
+        && a.id is string && isValidId(a.id)
+        && (a.kind == 'image' || a.kind == 'voice' || a.kind == 'file')
+        && a.url is string && a.url.size() <= 2000
+        && (a.url.matches('^https://.*') || a.url.matches('^blob:.*'))
+        && (!('caption' in a) || (a.caption is string && a.caption.size() <= 1000))
+        && a.createdAt is timestamp;
+    }
+    function probeAttachmentAt(list, i) {
+      return list.size() <= i || isAttachment(list[i]);
+    }
+    function isAiMetadata(m) {
+      return m is map
+        && m.keys().hasOnly(['summary', 'suggestedTags', 'emotion', 'generatedBy'])
+        && (!('summary' in m) || (m.summary is string && m.summary.size() <= 50000))
+        && (!('emotion' in m) || (m.emotion is string && m.emotion.size() <= 64))
+        && (!('generatedBy' in m) || (m.generatedBy is string && m.generatedBy.size() <= 64))
+        && (!('suggestedTags' in m) || validStringList(m.suggestedTags, 50, 32));
+    }
+    function isValidJournalEntry(data) {
+      return hasValidPedigree(data) && hasTimestamps(data)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.body is string && data.body.size() <= 50000
+        && (data.mode in ['free-write', 'morning', 'evening', 'deep', 'gratitude', 'idea',
+                          'goal', 'work', 'learning', 'travel'])
+        && (data.mood == null || (data.mood is number && data.mood >= 1 && data.mood <= 5))
+        && (data.energy == null || (data.energy is number && data.energy >= 0 && data.energy <= 100))
+        && validStringList(data.tags, 50, 32)
+        && (data.location == null || isJournalLocation(data.location))
+        && boundedList(data.attachments, 20)
+        && probeAttachmentAt(data.attachments, 0)
+        && probeAttachmentAt(data.attachments, 1)
+        && probeAttachmentAt(data.attachments, 2)
+        && probeAttachmentAt(data.attachments, 3)
+        && data.favorite is bool
+        && data.archived is bool
+        && data.private is bool
+        && (data.aiMetadata == null || isAiMetadata(data.aiMetadata));
+    }
+
+    match /users/{userId}/journalEntries/{entryId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidJournalEntry(request.resource.data);
+      allow update: if isOwner(userId) && isValidJournalEntry(request.resource.data)
+                    && immutableUnchanged(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // ===============================================================
+    // 2. memories
+    // ===============================================================
+    function isValidMemory(data) {
+      return hasValidPedigree(data) && hasTimestamps(data)
+        && (data.type in ['person', 'place', 'project', 'goal', 'achievement',
+                          'important-event', 'idea', 'preference', 'lesson',
+                          'milestone', 'recurring-theme'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.narrative is string && data.narrative.size() <= 20000
+        && data.importance is number && data.importance >= 1 && data.importance <= 5
+        && data.confidence is number && data.confidence >= 0 && data.confidence <= 1
+        && validDocIdList(data.sourceEntryIds, 200)
+        && validStringList(data.tags, 50, 32)
+        && data.saved is bool
+        && (data.occurredAt == null || data.occurredAt is timestamp);
+    }
+
+    match /users/{userId}/memories/{memoryId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidMemory(request.resource.data);
+      allow update: if isOwner(userId) && isValidMemory(request.resource.data)
+                    && immutableUnchanged(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // ===============================================================
+    // 3. conversations
+    // ===============================================================
+    function isValidMessage(m) {
+      return m is map
+        && m.keys().hasOnly(['id', 'role', 'content', 'timestamp'])
+        && m.id is string && isValidId(m.id)
+        && (m.role == 'user' || m.role == 'model')
+        && m.content is string && m.content.size() <= 120000
+        && m.timestamp is timestamp;
+    }
+    function probeMessageAt(list, i) {
+      return list.size() <= i || isValidMessage(list[i]);
+    }
+    function isValidConversation(data) {
+      return hasValidPedigree(data) && hasTimestamps(data)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && (data.skill in ['reflect', 'challenge', 'coach', 'summarize', 'explore',
+                           'remember', 'connect', 'reframe', 'celebrate', 'ask-my-life'])
+        && boundedList(data.messages, 200)
+        && probeMessageAt(data.messages, 0)
+        && probeMessageAt(data.messages, 1)
+        && probeMessageAt(data.messages, 2)
+        && probeMessageAt(data.messages, 3)
+        && (!('summary' in data) || (data.summary is string && data.summary.size() <= 50000))
+        && (!('modelUsed' in data) || (data.modelUsed is string && data.modelUsed.size() <= 128));
+    }
+
+    match /users/{userId}/conversations/{conversationId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidConversation(request.resource.data);
+      allow update: if isOwner(userId) && isValidConversation(request.resource.data)
+                    && immutableUnchanged(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // ===============================================================
+    // 4. goals
+    // ===============================================================
+    function isValidMilestone(m) {
+      return m is map
+        && m.keys().hasOnly(['id', 'title', 'done'])
+        && m.id is string && isValidId(m.id)
+        && m.title is string && m.title.size() >= 1 && m.title.size() <= 200
+        && m.done is bool;
+    }
+    function probeMilestoneAt(list, i) {
+      return list.size() <= i || isValidMilestone(list[i]);
+    }
+    function isValidGoal(data) {
+      return hasValidPedigree(data) && hasTimestamps(data)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.description is string && data.description.size() <= 2000
+        && (data.status in ['active', 'paused', 'completed', 'archived'])
+        && data.progress is number && data.progress >= 0 && data.progress <= 100
+        && (data.targetDate == null || data.targetDate is timestamp)
+        && boundedList(data.milestones, 200)
+        && probeMilestoneAt(data.milestones, 0)
+        && probeMilestoneAt(data.milestones, 1)
+        && probeMilestoneAt(data.milestones, 2)
+        && probeMilestoneAt(data.milestones, 3)
+        && validDocIdList(data.relatedEntryIds, 200)
+        && validStringList(data.tags, 50, 32);
+    }
+
+    match /users/{userId}/goals/{goalId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidGoal(request.resource.data);
+      allow update: if isOwner(userId) && isValidGoal(request.resource.data)
+                    && immutableUnchanged(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // ===============================================================
+    // 5. habits
+    // ===============================================================
+    function isValidHabitLogEntry(e) {
+      return e is map
+        && e.keys().hasOnly(['date', 'done'])
+        && e.date is timestamp
+        && e.done is bool;
+    }
+    function probeLogEntryAt(list, i) {
+      return list.size() <= i || isValidHabitLogEntry(list[i]);
+    }
+    function isValidHabit(data) {
+      return hasValidPedigree(data) && hasTimestamps(data)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && data.description is string && data.description.size() <= 2000
+        && (data.frequency in ['daily', 'weekly', 'monthly'])
+        // daysOfWeek is bounded to 7, so every element is probed.
+        && data.daysOfWeek is list
+        && data.daysOfWeek.size() <= 7
+        && probeNumberInRangeAt(data.daysOfWeek, 0, 0, 6)
+        && probeNumberInRangeAt(data.daysOfWeek, 1, 0, 6)
+        && probeNumberInRangeAt(data.daysOfWeek, 2, 0, 6)
+        && probeNumberInRangeAt(data.daysOfWeek, 3, 0, 6)
+        && probeNumberInRangeAt(data.daysOfWeek, 4, 0, 6)
+        && probeNumberInRangeAt(data.daysOfWeek, 5, 0, 6)
+        && probeNumberInRangeAt(data.daysOfWeek, 6, 0, 6)
+        && data.streak is number && data.streak >= 0 && data.streak % 1 == 0
+        && boundedList(data.log, 3660)
+        && probeLogEntryAt(data.log, 0)
+        && probeLogEntryAt(data.log, 1)
+        && probeLogEntryAt(data.log, 2)
+        && probeLogEntryAt(data.log, 3);
+    }
+    function probeNumberInRangeAt(list, i, min, max) {
+      return list.size() <= i || (list[i] is number && list[i] >= min && list[i] <= max && list[i] % 1 == 0);
+    }
+
+    match /users/{userId}/habits/{habitId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidHabit(request.resource.data);
+      allow update: if isOwner(userId) && isValidHabit(request.resource.data)
+                    && immutableUnchanged(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // ===============================================================
+    // 6. collections
+    // ===============================================================
+    function isValidCollection(data) {
+      return hasValidPedigree(data) && hasTimestamps(data)
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && data.description is string && data.description.size() <= 2000
+        && data.color is string && data.color.matches('^#([0-9a-fA-F]{6})$')
+        && validDocIdList(data.entryIds, 200);
+    }
+
+    match /users/{userId}/collections/{collectionId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidCollection(request.resource.data);
+      allow update: if isOwner(userId) && isValidCollection(request.resource.data)
+                    && immutableUnchanged(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // ===============================================================
+    // 7. timelineEvents
+    // ===============================================================
+    function isValidSourceRef(ref) {
+      return isValidRef(ref);
+    }
+    function isValidTimelineEvent(data) {
+      return hasValidPedigree(data) && hasTimestamps(data)
+        && (data.type in ['journal', 'memory', 'goal', 'achievement', 'trip',
+                          'milestone', 'idea', 'important-event'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.description is string && data.description.size() <= 2000
+        && data.occurredAt is timestamp
+        && data.year is number && data.year >= 0
+        && data.month is number && data.month >= 1 && data.month <= 12
+        && data.day is number && data.day >= 1 && data.day <= 31
+        && (data.source == null || isValidSourceRef(data.source))
+        && validStringList(data.tags, 50, 32);
+    }
+
+    match /users/{userId}/timelineEvents/{eventId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidTimelineEvent(request.resource.data);
+      allow update: if isOwner(userId) && isValidTimelineEvent(request.resource.data)
+                    && immutableUnchanged(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // ===============================================================
+    // 8. insights
+    // ===============================================================
+    function isValidInsight(data) {
+      return hasValidPedigree(data) && hasTimestamps(data)
+        && (data.kind in ['daily', 'weekly', 'monthly', 'yearly', 'pattern'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.narrative is string && data.narrative.size() <= 20000
+        && data.content is string && data.content.size() <= 100000
+        && data.periodStart is timestamp
+        && data.periodEnd is timestamp
+        && validStringList(data.themes, 50, 32)
+        && validDocIdList(data.sourceIds, 200)
+        && data.saved is bool;
+    }
+
+    match /users/{userId}/insights/{insightId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidInsight(request.resource.data);
+      allow update: if isOwner(userId) && isValidInsight(request.resource.data)
+                    && immutableUnchanged(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // ===============================================================
+    // 9. aiInteractions — append-only audit trail
+    // ===============================================================
+    function isValidAiInteraction(data) {
+      return hasValidPedigree(data) && hasTimestamps(data)
+        && (data.skill in ['reflect', 'challenge', 'coach', 'summarize', 'explore',
+                           'remember', 'connect', 'reframe', 'celebrate', 'ask-my-life'])
+        && data.prompt is string && data.prompt.size() >= 1 && data.prompt.size() <= 50000
+        && data.response is string && data.response.size() <= 100000
+        && validDocRefList(data.contextRefs)
+        && (!('modelUsed' in data) || (data.modelUsed is string && data.modelUsed.size() <= 128))
+        && (!('durationMs' in data) || (data.durationMs is number && data.durationMs >= 0));
+    }
+
+    match /users/{userId}/aiInteractions/{interactionId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidAiInteraction(request.resource.data);
+      // The audit trail is otherwise immutable — no updates after creation —
+      // so a record can never be silently rewritten. Owners retain full
+      // delete rights so their data is always removable (privacy mandate).
+      allow update: if false;
+      allow delete: if isOwner(userId);
+    }
+
+    // ===============================================================
+    // 10. settings (single preferences document)
+    // ===============================================================
+    // The flag maps have fixed, known keys — enumerate them so every flag is
+    // verified to be present and boolean (the emulator cannot iterate map
+    // values, and a missing key would otherwise abort the evaluation).
+    function isValidAiPreferences(map) {
+      return map is map
+        && map.size() == 6
+        && map.keys().hasOnly(['reflectionSuggestions', 'patternDetection', 'weeklySummaries',
+                               'memorySuggestions', 'askBeforeSavingMemory', 'allowHistoricalContext'])
+        && map.reflectionSuggestions is bool
+        && map.patternDetection is bool
+        && map.weeklySummaries is bool
+        && map.memorySuggestions is bool
+        && map.askBeforeSavingMemory is bool
+        && map.allowHistoricalContext is bool;
+    }
+    function isValidWritingAssistant(map) {
+      return map is map
+        && map.size() == 3
+        && map.keys().hasOnly(['suggestions', 'grammar', 'rewriting'])
+        && map.suggestions is bool
+        && map.grammar is bool
+        && map.rewriting is bool;
+    }
+    function isValidNotificationPreferences(map) {
+      return map is map
+        && map.size() == 3
+        && map.keys().hasOnly(['reflectionReminders', 'memorySuggestions', 'goalReminders'])
+        && map.reflectionReminders is bool
+        && map.memorySuggestions is bool
+        && map.goalReminders is bool;
+    }
+    function isValidPreferences(data) {
+      return hasValidPedigree(data) && hasTimestamps(data)
+        && data.language is string && data.language.size() >= 2 && data.language.size() <= 16
+        && data.timezone is string && data.timezone.size() >= 1 && data.timezone.size() <= 64
+        && isValidAiPreferences(data.aiPreferences)
+        && isValidWritingAssistant(data.writingAssistant)
+        && isValidNotificationPreferences(data.notificationPreferences);
+    }
+
+    match /users/{userId}/settings/preferences {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidPreferences(request.resource.data);
+      allow update: if isOwner(userId) && isValidPreferences(request.resource.data)
+                    && immutableUnchanged(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // ===============================================================
+    // 11. notifications
+    // ===============================================================
+    function isValidNotification(data) {
+      return hasValidPedigree(data) && hasTimestamps(data)
+        && (data.kind in ['reflection-prompt', 'memory-suggestion', 'goal-reminder', 'system'])
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.body is string && data.body.size() <= 2000
+        && (data.data == null || isValidSourceRef(data.data))
+        && data.read is bool;
+    }
+
+    match /users/{userId}/notifications/{notificationId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidNotification(request.resource.data);
+      allow update: if isOwner(userId) && isValidNotification(request.resource.data)
+                    && immutableUnchanged(request.resource.data, resource.data);
+      allow delete: if isOwner(userId);
+    }
+
+    // ===============================================================
+    // Legacy: `interactions` subcollection (Phase 3 cloud persistence)
+    // ===============================================================
+    // The shipping UI still persists companion sessions at
+    // `users/{uid}/interactions/{id}` (subscribeUserInteractions). Preserve
+    // that owner-scoped access with an emulator-safe validator; the record
+    // must carry `userId == request.auth.uid` and the legacy string
+    // timestamps. Removed: the old blanket `{document=**}` owner wildcard,
+    // which previously let clients write anything anywhere under their id.
+    function isLegacyMessage(m) {
+      return m is map
+        && m.keys().hasOnly(['id', 'role', 'content', 'timestamp'])
+        && m.id is string && m.id.size() >= 1 && m.id.size() <= 128
+        && (m.role == 'user' || m.role == 'model')
+        && m.content is string && m.content.size() <= 120000
+        && m.timestamp is string && m.timestamp.size() >= 1 && m.timestamp.size() <= 64;
+    }
+    function probeLegacyMessageAt(list, i) {
+      return list.size() <= i || isLegacyMessage(list[i]);
+    }
+    function isValidLegacyInteraction(data) {
+      return data is map
+        && data.id is string && isValidId(data.id)
+        && data.userId is string && data.userId == request.auth.uid
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.mode is string && data.mode.size() >= 1 && data.mode.size() <= 24
+        && boundedList(data.messages, 200)
+        && probeLegacyMessageAt(data.messages, 0)
+        && probeLegacyMessageAt(data.messages, 1)
+        && probeLegacyMessageAt(data.messages, 2)
+        && probeLegacyMessageAt(data.messages, 3)
+        && data.createdAt is string && data.createdAt.size() >= 1 && data.createdAt.size() <= 64
+        && data.updatedAt is string && data.updatedAt.size() >= 1 && data.updatedAt.size() <= 64
         && (!('summary' in data) || (data.summary is string && data.summary.size() <= 120000))
         && (!('modelUsed' in data) || (data.modelUsed is string && data.modelUsed.size() <= 128));
     }
 
-    match /users/{userId} {
-      allow read, create, update, delete: if isOwner(userId);
-
-      match /interactions/{interactionId} {
-        allow read: if isOwner(userId);
-        allow create, update: if isOwner(userId) && isValidInteraction(request.resource.data);
-        allow delete: if isOwner(userId);
-      }
-
-      match /settings/{settingId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      match /{document=**} {
-        allow read, write: if isOwner(userId);
-      }
+    match /users/{userId}/interactions/{interactionId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidLegacyInteraction(request.resource.data);
+      allow update: if isOwner(userId) && isValidLegacyInteraction(request.resource.data)
+                    && (!('id' in request.resource.data) || request.resource.data.id == resource.data.id);
+      allow delete: if isOwner(userId);
     }
 
-    match /roles/{uid} {
-      // Reads: owner can view their own role.
-      allow read: if request.auth != null && request.auth.uid == uid;
-      // Writes: DENIED for all clients. Role assignment is a privileged,
-      // server-only operation performed via the Firebase Admin SDK (bypasses
-      // rules). This blocks self-assigned-admin / privilege escalation.
+    // ===============================================================
+    // Legacy: `roles/{uid}` — owner can read their own role document;
+    // writes are DENIED for all clients (role assignment is a privileged,
+    // server-only operation via the Admin SDK — prevents self-assigned admin).
+    // ===============================================================
+    match /roles/{roleId} {
+      allow read: if request.auth != null && request.auth.uid == roleId;
       allow create, update, delete: if false;
     }
+
+    // ===============================================================
+    // Only exact collection matches above are allowed. Any other path —
+    // scanners probing for future collections, or deeper subcollections —
+    // is denied by default.
+    // ===============================================================
   }
 }
