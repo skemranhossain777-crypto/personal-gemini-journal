@@ -897,13 +897,8 @@ async function startServer() {
   } else {
     const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.use('*', (_req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'), (err) => {
-        if (err && !res.headersSent) {
-          console.error('[Server SPA Route Error]', err);
-          res.status(500).send('Error loading SPA index.html');
-        }
-      });
+    app.use((_req: Request, res: Response) => {
+      res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
