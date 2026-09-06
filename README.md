@@ -1,7 +1,7 @@
 # JOURNAL∞ — Personal Memory & AI Reflection Engine 🏆
 
-> **Google Cloud & Gemini Hackathon Competition Candidate**  
-> **Live Staging URL:** [https://gemini-journal-staging-618285014094.us-central1.run.app](https://gemini-journal-staging-618285014094.us-central1.run.app)  
+> **Google Cloud & Gemini Hackathon Competition Candidate**
+> **Live Staging URL:** [https://gemini-journal-staging-618285014094.us-central1.run.app](https://gemini-journal-staging-618285014094.us-central1.run.app)
 > **Documentation Hub:** [`/docs/`](docs/) · **5-Minute Demo Script:** [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) · **Judge Tour:** Interactive 5-tab tour available directly on the landing page header.
 
 ---
