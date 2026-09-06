@@ -1,9 +1,9 @@
 # JOURNAL∞ Production Deployment & CI/CD Documentation
 
-> **Document Version**: 1.0.0  
-> **Status**: PRODUCTION-APPROVED & VERIFIED  
-> **Target Environment**: GitHub Actions / Google Cloud Run / GCP Secret Manager  
-> **Last Verified**: September 6, 2026  
+> **Document Version**: 1.0.0
+> **Status**: production-ready & VERIFIED
+> **Target Environment**: GitHub Actions / Google Cloud Run / GCP Secret Manager
+> **Last Verified**: September 6, 2026
 
 ---
 
@@ -13,7 +13,7 @@ This document details the production CI/CD architecture and operational deployme
 
 ---
 
-## 2. CI/CD Pipeline Architecture ([`.github/workflows/deploy.yml`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/.github/workflows/deploy.yml))
+## 2. CI/CD Pipeline Architecture ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml))
 
 The GitHub Actions workflow executes 13 mandatory pipeline steps across 4 isolated job stages:
 
@@ -74,14 +74,14 @@ The GitHub Actions workflow executes 13 mandatory pipeline steps across 4 isolat
 10. **Container Vulnerability Scan**: Scans base OS packages and application dependencies using Trivy for OS/library vulnerabilities before pushing to GCP Artifact Registry / GCR.
 
 ### 3.3 Stage 3: Staging Deployment & Smoke Testing
-11. **Deploy to Staging**: Deploys the built container to Cloud Run service `journal-app-staging` with Secret Manager bindings.
+11. **Deploy to Staging**: Deploys the built container to Cloud Run service `gemini-journal-staging` with Secret Manager bindings.
 12. **Staging Smoke Tests**: Executes `npm run smoke` (`scripts/smoke-test.mjs`) against the live staging HTTP service (`/health`, `/api/health`, `/`).
 
 ### 3.4 Stage 4: Production Deployment Gate
-13. **Production Deployment Approval**: 
+13. **Production Deployment Approval**:
     - Enforces GitHub Environment Protection (`environment: production`).
     - Requires designated engineering leads to manually review staging smoke test logs and approve the deployment in GitHub UI.
-    - Upon approval, tags container image as `latest` and deploys to Cloud Run service `journal-app-production`.
+    - Upon approval, tags container image as `latest` and deploys to Cloud Run service `gemini-journal-production`.
 
 ---
 
@@ -105,18 +105,18 @@ Cloud Run maintains an immutable history of all previous revisions. To instantly
 ```bash
 # 1. List past revisions to identify the previous healthy revision ID
 gcloud run revisions list \
-  --service=journal-app-production \
+  --service=gemini-journal-production \
   --region=us-central1 \
   --project=journal-prod-app
 
 # Example output:
 # REVISION                             ACTIVE  CREATED
-# journal-app-production-00042-abc     YES     2026-09-06 11:40
-# journal-app-production-00041-xyz             2026-09-06 09:15
+# gemini-journal-production-00042-abc     YES     2026-09-06 11:40
+# gemini-journal-production-00041-xyz             2026-09-06 09:15
 
 # 2. Revert 100% of production traffic to the previous healthy revision (e.g., 00041-xyz)
-gcloud run services update-traffic journal-app-production \
-  --to-revisions=journal-app-production-00041-xyz=100 \
+gcloud run services update-traffic gemini-journal-production \
+  --to-revisions=gemini-journal-production-00041-xyz=100 \
   --region=us-central1 \
   --project=journal-prod-app
 
@@ -131,7 +131,7 @@ If a new revision needs to be explicitly created from a prior container SHA:
 # Deploy previous git commit SHA image to Cloud Run production
 PREVIOUS_GOOD_SHA="abc1234def5678"
 
-gcloud run deploy journal-app-production \
+gcloud run deploy gemini-journal-production \
   --image="gcr.io/journal-prod-app/journal-app:${PREVIOUS_GOOD_SHA}" \
   --region="us-central1" \
   --platform="managed" \
@@ -146,7 +146,7 @@ If a secret rotation caused API failures (e.g., corrupted `GEMINI_API_KEY` or Se
 gcloud secrets versions list journal-gemini-api-key --project=journal-prod-app
 
 # 2. Update Cloud Run service to pin secret to the prior working version ID (e.g., version 1)
-gcloud run services update journal-app-production \
+gcloud run services update gemini-journal-production \
   --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:1" \
   --region=us-central1 \
   --project=journal-prod-app

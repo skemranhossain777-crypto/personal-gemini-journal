@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   RotateCcw,
 } from 'lucide-react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import { seedDemoEnvironment, resetDemoEnvironment } from '../services/demoEnvironment';
 
 interface JudgeTourModalProps {
@@ -34,14 +35,14 @@ export const JudgeTourModal: React.FC<JudgeTourModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-black/80 backdrop-blur-md"
+          className="absolute inset-0 bg-black/80 backdrop-blur-md" aria-hidden="true"
         />
 
         {/* Modal Window */}
@@ -113,7 +114,7 @@ export const JudgeTourModal: React.FC<JudgeTourModalProps> = ({
                     What is JOURNAL∞?
                   </h3>
                   <p className="text-xs leading-relaxed text-[#A9B8DB]">
-                    JOURNAL∞ is an AI-native personal wisdom engine. Rather than leaving daily journal entries as static dead text, JOURNAL∞ uses <strong>Gemini 2.5</strong> to extract structured personal memories, generate daily reflections, and allow users to query their past experiences conversationally with zero hallucination.
+                    JOURNAL∞ is an AI-native personal wisdom engine. Rather than leaving daily journal entries as static dead text, JOURNAL∞ uses <strong>Gemini 3.6</strong> to extract structured personal memories, generate daily reflections, and allow users to query their past experiences conversationally with Evidence-grounded retrieval designed to reduce unsupported answers.
                   </p>
                 </div>
 
@@ -124,7 +125,7 @@ export const JudgeTourModal: React.FC<JudgeTourModalProps> = ({
                       Why does Gemini Matter?
                     </div>
                     <p className="text-[#888] leading-relaxed">
-                      Gemini 2.5 Flash provides 1M+ token context windows for deep multi-journal RAG synthesis, structured JSON memory extraction, and ultra-fast real-time reflection responses.
+                      Gemini 3.6 Flash provides 1M+ token context windows for deep multi-journal RAG synthesis, structured JSON memory extraction, and ultra-fast real-time reflection responses.
                     </p>
                   </div>
 
@@ -238,16 +239,8 @@ export const JudgeTourModal: React.FC<JudgeTourModalProps> = ({
                 </div>
 
                 <div className="rounded-xl border border-[#223056] bg-[#0E1730] p-4 space-y-3">
-                  <h4 className="font-semibold text-[#EEF4FF]">Multimodal & Resilience Highlights:</h4>
+                  <h4 className="font-semibold text-[#EEF4FF]">Resilience Highlights:</h4>
                   <ul className="space-y-2 text-[#888]">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-                      <span><strong>Multimodal Input:</strong> Supports Web Audio voice transcription and Cloud Storage image attachments.</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-                      <span><strong>5-Model Fallback Ladder:</strong> `gemini-2.5-flash` → `gemini-2.5-pro` → `gemini-2.0-flash` guarantees continuous uptime even during API rate spikes.</span>
-                    </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                       <span><strong>Autosave & Draft Recovery:</strong> In-flight reflections are stored in IndexedDB and sync automatically upon network reconnection.</span>

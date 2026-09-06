@@ -203,7 +203,10 @@ export class AuthService implements AuthServiceContract {
 
   getIdToken(): Promise<string | null> {
     if (this._user?.isDemo) {
-      return Promise.resolve('demo-token');
+      if (import.meta.env.DEV || import.meta.env.MODE === 'test') {
+        return Promise.resolve('demo-token');
+      }
+      return Promise.resolve(null);
     }
     return this.auth.currentUser?.getIdToken() ?? Promise.resolve(null);
   }

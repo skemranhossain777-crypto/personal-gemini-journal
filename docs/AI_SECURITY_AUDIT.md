@@ -64,14 +64,14 @@ To prevent prompt injection and instruction override, all AI operations enforce 
 | 10 | **Context Poisoning** | Retrieved documents are contextually ranked using BM25 and placed inside untrusted data blocks. Citations require explicit document metadata matching. | ✅ PASSED |
 | 11 | **Excessive Context** | Prompt payload is compressed and capped at 12,000 characters before sending to Gemini. | ✅ PASSED |
 | 12 | **Token Abuse** | Input text length is validated (`maxLen: 12000`). Oversized requests are rejected upfront with `OVERSIZED_INPUT` (HTTP 400). | ✅ PASSED |
-| 13 | **Model Failure** | `generateWithFallback` implements a 5-tier fallback ladder (`gemini-3.7-flash` ➔ `gemini-3.6-flash` ➔ `gemini-3.5-flash` ➔ `gemini-flash-latest` ➔ `gemini-3.1-flash-lite`) with retry logic. | ✅ PASSED |
+| 13 | **Model Failure** | `generateWithFallback` implements a 5-tier fallback ladder (`gemini-3.7-flash` ➔ `gemini-3.6-flash` ➔ `gemini-3.6-flash` ➔ `gemini-flash-latest` ➔ `gemini-3.1-flash-lite`) with retry logic. | ✅ PASSED |
 | 14 | **Malformed Structured Output** | `parseAndValidateJson` and `extractJsonFromText` parse markdown codeblocks, substring braces, or fall back to safe default output objects without crashing. | ✅ PASSED |
 
 ---
 
 ## Adversarial Test Suite Verification
 
-The adversarial test suite [`server/gemini/__tests__/aiSecurityAdversarial.test.ts`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/server/gemini/__tests__/aiSecurityAdversarial.test.ts) executes 14 automated adversarial tests against the Gemini engine:
+The adversarial test suite [`server/gemini/__tests__/aiSecurityAdversarial.test.ts`](server/gemini/__tests__/aiSecurityAdversarial.test.ts) executes 14 automated adversarial tests against the Gemini engine:
 
 ```bash
  ✓ server/gemini/__tests__/aiSecurityAdversarial.test.ts (14 tests) 406ms

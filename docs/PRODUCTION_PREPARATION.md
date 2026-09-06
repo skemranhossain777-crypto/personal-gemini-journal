@@ -40,7 +40,7 @@ JOURNAL∞ operates across three isolated deployment tiers:
 
 ---
 
-## 3. Production Container Specification ([`Dockerfile`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/Dockerfile))
+## 3. Production Container Specification ([`Dockerfile`](Dockerfile))
 
 The production container uses a multi-stage Docker build pattern for maximum security, layer caching efficiency, and minimal image footprint.
 
@@ -161,7 +161,7 @@ gcloud projects add-iam-policy-binding journal-prod-app \
   --role="roles/secretmanager.secretAccessor"
 
 # 4. Deploy Container to Cloud Run
-gcloud run deploy journal-app-production \
+gcloud run deploy gemini-journal-production \
   --image="gcr.io/journal-prod-app/journal-app:latest" \
   --region="us-central1" \
   --platform="managed" \

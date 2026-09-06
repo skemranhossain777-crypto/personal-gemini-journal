@@ -38,7 +38,7 @@ const signatureExperiences = [
     iconColor: 'text-amber-400',
     title: '3. AI Reflection Loop',
     description:
-      'Real-time thought partner with 5-model Gemini fallback ladder, perspective reframing, theme extraction, and multimodal voice/image journaling.',
+      'Real-time thought partner with Gemini 3.6 Flash, perspective reframing, and theme extraction.',
   },
 ];
 
@@ -90,7 +90,7 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
             variants={fadeUp}
             className="font-serif text-3xl font-bold leading-tight tracking-tight text-[#EEF4FF] sm:text-4xl lg:text-5xl"
           >
-            Your lifelong personal wisdom engine powered by Gemini 2.5
+            Your lifelong personal wisdom engine powered by Gemini 3.6 Flash
           </motion.h1>
 
           <motion.p variants={fadeUp} className="text-base leading-relaxed text-[#9FB0D4] sm:text-lg">
@@ -139,10 +139,10 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
                     onDemoSignIn();
                   }}
                   className="flex items-center justify-center gap-2 rounded-xl border border-sky-500/40 bg-sky-950/40 px-5 py-3 text-sm font-semibold text-sky-300 shadow-md transition-all hover:border-sky-400 hover:bg-sky-900/50 hover:text-[#EEF4FF] active:scale-[0.98]"
-                  title="Explore all reflection features instantly in demo workspace"
+                  title="Google Sign-In is required for live Gemini features. Explore Demo offline."
                 >
                   <Sparkles className="h-4 w-4 text-sky-400" />
-                  <span>Instant Demo Mode</span>
+                  <span>Explore Demo</span>
                 </button>
               )}
             </div>
@@ -208,7 +208,7 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
                   <p className="text-xs leading-relaxed text-[#888]">{f.description}</p>
                 </div>
                 <div className="pt-4 border-t border-[#1C2C5E] mt-4 flex items-center justify-between text-[11px] font-semibold text-sky-400">
-                  <span>Gemini 2.5 Powered</span>
+                  <span>Gemini 3.6 Flash Powered</span>
                   <Compass className="h-3.5 w-3.5" />
                 </div>
               </motion.div>

@@ -90,30 +90,12 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
             <div className="flex gap-1.5">
               <button
                 type="button"
-                onClick={() => pick('image')}
-                disabled={disabled || uploading}
-                className="flex h-9 items-center gap-1.5 rounded-xl border border-line px-2.5 text-xs text-ink-mid hover:border-line-strong hover:text-ink-hi disabled:opacity-50"
-              >
-                <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                {uploading ? 'Uploading…' : 'Photo'}
-              </button>
-              <button
-                type="button"
                 onClick={() => pick('file')}
                 disabled={disabled || uploading}
                 className="flex h-9 items-center gap-1.5 rounded-xl border border-line px-2.5 text-xs text-ink-mid hover:border-line-strong hover:text-ink-hi disabled:opacity-50"
               >
                 <Upload className="h-3.5 w-3.5" aria-hidden="true" />
                 File
-              </button>
-              <button
-                type="button"
-                onClick={() => pick('voice')}
-                disabled={disabled || uploading}
-                className="flex h-9 items-center gap-1.5 rounded-xl border border-line px-2.5 text-xs text-ink-mid hover:border-line-strong hover:text-ink-hi disabled:opacity-50"
-              >
-                <Mic className="h-3.5 w-3.5" aria-hidden="true" />
-                Voice
               </button>
             </div>
           </div>

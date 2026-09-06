@@ -32,7 +32,7 @@ export interface ReflectRequest {
 }
 
 export class AIError extends Error {
-  constructor(message: string, public readonly status?: number) {
+  constructor(message: string, public readonly status?: number, public readonly code?: string) {
     super(message);
     this.name = 'AIError';
   }
@@ -48,6 +48,10 @@ export function withTimeout<T>(fn: () => Promise<T>, ms: number = AI_TIMEOUT_MS)
 
 /** Helper function to call server AI endpoints. */
 async function callAiEndpoint<TPayload, TResult>(endpoint: string, payload: TPayload): Promise<TResult> {
+  if (authService.currentUser?.isDemo) {
+    throw new AIError('Live Gemini AI is available after signing in with Google.', undefined, 'LIVE_AI_REQUIRES_SIGN_IN');
+  }
+
   return withTimeout(async () => {
     let response: Response;
     try {

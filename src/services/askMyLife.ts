@@ -221,6 +221,18 @@ export async function askMyLifeQuery(options: AskMyLifeQueryOptions): Promise<As
   // 3. Relevance Ranking & Context Compression
   const contextDocuments = scoreAndRankDocuments(question, allDocs, intents);
 
+  if (authService.currentUser?.isDemo) {
+    const aiRequiredResult: AskMyLifeOutput = {
+      answer: 'Live Gemini AI is available after signing in with Google.',
+      evidence: [],
+      confidence: 'insufficient',
+      hasSufficientEvidence: false,
+      modelUsed: 'none',
+    };
+    queryCache.set(cacheKey, { timestamp: Date.now(), result: aiRequiredResult });
+    return aiRequiredResult;
+  }
+
   if (contextDocuments.length === 0) {
     const insufficientResult: AskMyLifeOutput = {
       answer: 'There is not enough information in your journal history to answer this question.',

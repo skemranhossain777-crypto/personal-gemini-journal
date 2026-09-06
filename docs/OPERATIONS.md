@@ -35,7 +35,7 @@ JOURNAL∞ monitors 8 core operational telemetry vectors via Google Cloud Monito
 
 To comply with global data privacy regulations and OWASP AI guidelines:
 
-- **Strict `safeLog()` Requirement**: All server logging calls MUST pass through `safeLog()` in [`server/gemini/geminiService.ts`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/server/gemini/geminiService.ts).
+- **Strict `safeLog()` Requirement**: All server logging calls MUST pass through `safeLog()` in [`server/gemini/geminiService.ts`](server/gemini/geminiService.ts).
 - **Redacted Information**:
   - ❌ **NEVER LOGGED:** Raw journal body text, title strings, user reflection notes, audio transcriptions, session JWT tokens, or `GEMINI_API_KEY` values.
   - ✅ **PERMITTED METRICS:** ISO Timestamps, anonymized user UID hashes (`uid.slice(0, 6)`), HTTP status codes, latency in milliseconds, model tier used (`gemini-3.7-flash`), and error category keys (`TIMEOUT`, `API_ERROR`).
@@ -56,7 +56,7 @@ To comply with global data privacy regulations and OWASP AI guidelines:
 ### Alert 2: `HIGH_LATENCY_P95_DEGRADATION`
 - **Severity:** `P2 - HIGH`
 - **Condition:** 95th percentile request latency exceeds `3,000ms` over 5 minutes.
-- **Meaning:** Gemini 2.5 API calls are timing out, context compression limit is overloaded, or Firestore cold starts are degrading performance.
+- **Meaning:** Gemini 3.6 Flash API calls are timing out, context compression limit is overloaded, or Firestore cold starts are degrading performance.
 - **Response Procedure:**
   1. Check Gemini fallback metrics in Cloud Logging (`"Model attempt failed"`).
   2. Verify Gemini API quota status in Google Cloud Console.
@@ -139,5 +139,5 @@ gcloud run services describe gemini-journal-staging --region us-central1
 gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=gemini-journal-staging" --limit 50 --format json
 
 # Execute HTTP health check probe
-curl -i https://gemini-journal-staging-s7hw7hui2q-uc.a.run.app/health
+curl -i https://gemini-journal-staging-618285014094.us-central1.run.app/health
 ```

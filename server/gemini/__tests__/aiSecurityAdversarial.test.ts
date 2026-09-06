@@ -259,7 +259,7 @@ describe('AI Security Audit & Adversarial Threat Vectors', () => {
       models: {
         generateContent: vi.fn(async (params: any) => {
           triedModels.push(params.model);
-          if (params.model === 'gemini-3.7-flash') {
+          if (params.model === 'gemini-3.6-flash') {
             const err = new Error('503 High demand');
             (err as any).status = 503;
             throw err;
@@ -272,8 +272,8 @@ describe('AI Security Audit & Adversarial Threat Vectors', () => {
     const service = new GeminiService({ apiKey: 'test-key' }, mockClient);
     const result = await service.summarize({ text: 'Test entry text.' });
 
-    expect(triedModels).toContain('gemini-3.7-flash');
     expect(triedModels).toContain('gemini-3.6-flash');
+    expect(triedModels).toContain('gemini-3.1-flash-lite');
     expect(result.summary).toBe('Fallback success');
   });
 

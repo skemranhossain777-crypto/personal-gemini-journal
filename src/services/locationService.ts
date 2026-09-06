@@ -112,13 +112,11 @@ export async function requestDeviceLocation(params: {
     );
   }
 
-  // Simulated browser geolocation resolution with user consent
-  return {
-    placeName: 'Current General Area',
-    address: 'Approximate Device Region',
-    lat: 37.7749,
-    lng: -122.4194,
-  };
+  // Location collection disabled for submission
+  throw new LocationPrivacyError(
+    'Device geolocation is disabled in this environment.',
+    'SILENT_COLLECTION_PROHIBITED'
+  );
 }
 
 /**

@@ -74,7 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
               <span
                 className="hidden items-center rounded-md border border-[#223056] bg-[#17254F] px-2 py-0.5 text-[10px] font-medium text-sky-400 sm:inline-flex"
-                title="5-model Gemini Flash fallback ladder"
+                title="Gemini 3.6 Flash Engine"
               >
                 Gemini 3.x Flash
               </span>

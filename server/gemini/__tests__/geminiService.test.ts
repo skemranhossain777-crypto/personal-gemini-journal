@@ -268,3 +268,258 @@ TAGS: Project, Growth, Focus
     }
   });
 });
+
+describe('Gemini Model Fallback Ladder (Cloud Run AI Challenge)', () => {
+  // A. Primary success
+  it('A. Primary success — gemini-3.6-flash succeeds and no fallback model is called', async () => {
+    const calledModels: string[] = [];
+    const mockClient = {
+      models: {
+        generateContent: vi.fn(async (params: any) => {
+          calledModels.push(params.model);
+          return { text: '{"summary":"Success on primary","keyTakeaways":[],"emotionalTone":"Calm"}' };
+        }),
+      },
+    };
+
+    const service = new GeminiService({ apiKey: 'test-key' }, mockClient);
+    const result = await service.summarize({ text: 'Testing primary model.' });
+
+    expect(calledModels).toEqual(['gemini-3.6-flash']);
+    expect(result.modelUsed).toBe('gemini-3.6-flash');
+  });
+
+  // B. 503 fallback
+  it('B. 503 fallback — primary returns 503 and advances to gemini-3.1-flash-lite', async () => {
+    const calledModels: string[] = [];
+    const mockClient = {
+      models: {
+        generateContent: vi.fn(async (params: any) => {
+          calledModels.push(params.model);
+          if (params.model === 'gemini-3.6-flash') {
+            const err = new Error('503 Service Unavailable');
+            (err as any).status = 503;
+            throw err;
+          }
+          return { text: '{"summary":"503 recovered","keyTakeaways":[],"emotionalTone":"Calm"}' };
+        }),
+      },
+    };
+
+    const service = new GeminiService({ apiKey: 'test-key' }, mockClient);
+    const result = await service.summarize({ text: 'Testing 503 fallback.' });
+
+    expect(calledModels).toEqual(['gemini-3.6-flash', 'gemini-3.1-flash-lite']);
+    expect(result.modelUsed).toBe('gemini-3.1-flash-lite');
+  });
+
+  // C. 429 fallback
+  it('C. 429 fallback — primary returns 429 and advances to gemini-3.1-flash-lite', async () => {
+    const calledModels: string[] = [];
+    const mockClient = {
+      models: {
+        generateContent: vi.fn(async (params: any) => {
+          calledModels.push(params.model);
+          if (params.model === 'gemini-3.6-flash') {
+            const err = new Error('429 Resource Exhausted');
+            (err as any).status = 429;
+            throw err;
+          }
+          return { text: '{"summary":"429 recovered","keyTakeaways":[],"emotionalTone":"Calm"}' };
+        }),
+      },
+    };
+
+    const service = new GeminiService({ apiKey: 'test-key' }, mockClient);
+    const result = await service.summarize({ text: 'Testing 429 fallback.' });
+
+    expect(calledModels).toEqual(['gemini-3.6-flash', 'gemini-3.1-flash-lite']);
+    expect(result.modelUsed).toBe('gemini-3.1-flash-lite');
+  });
+
+  // D. 404 fallback
+  it('D. 404 fallback — primary returns 404 and advances to gemini-3.1-flash-lite', async () => {
+    const calledModels: string[] = [];
+    const mockClient = {
+      models: {
+        generateContent: vi.fn(async (params: any) => {
+          calledModels.push(params.model);
+          if (params.model === 'gemini-3.6-flash') {
+            const err = new Error('404 Not Found');
+            (err as any).status = 404;
+            throw err;
+          }
+          return { text: '{"summary":"404 recovered","keyTakeaways":[],"emotionalTone":"Calm"}' };
+        }),
+      },
+    };
+
+    const service = new GeminiService({ apiKey: 'test-key' }, mockClient);
+    const result = await service.summarize({ text: 'Testing 404 fallback.' });
+
+    expect(calledModels).toEqual(['gemini-3.6-flash', 'gemini-3.1-flash-lite']);
+    expect(result.modelUsed).toBe('gemini-3.1-flash-lite');
+  });
+
+  // E. 500 fallback
+  it('E. 500 fallback — primary returns 500 and advances to gemini-3.1-flash-lite', async () => {
+    const calledModels: string[] = [];
+    const mockClient = {
+      models: {
+        generateContent: vi.fn(async (params: any) => {
+          calledModels.push(params.model);
+          if (params.model === 'gemini-3.6-flash') {
+            const err = new Error('500 Internal Server Error');
+            (err as any).status = 500;
+            throw err;
+          }
+          return { text: '{"summary":"500 recovered","keyTakeaways":[],"emotionalTone":"Calm"}' };
+        }),
+      },
+    };
+
+    const service = new GeminiService({ apiKey: 'test-key' }, mockClient);
+    const result = await service.summarize({ text: 'Testing 500 fallback.' });
+
+    expect(calledModels).toEqual(['gemini-3.6-flash', 'gemini-3.1-flash-lite']);
+    expect(result.modelUsed).toBe('gemini-3.1-flash-lite');
+  });
+
+  // F. Timeout fallback
+  it('F. Timeout fallback — primary times out and advances to secondary model without terminating ladder', async () => {
+    const calledModels: string[] = [];
+    const mockClient = {
+      models: {
+        generateContent: vi.fn(async (params: any) => {
+          calledModels.push(params.model);
+          if (params.model === 'gemini-3.6-flash') {
+            await new Promise((resolve) => setTimeout(resolve, 80));
+            return { text: 'Too late' };
+          }
+          return { text: '{"summary":"Timeout recovered","keyTakeaways":[],"emotionalTone":"Calm"}' };
+        }),
+      },
+    };
+
+    const service = new GeminiService({ apiKey: 'test-key', timeoutMs: 25 }, mockClient);
+    const result = await service.summarize({ text: 'Testing timeout fallback.' });
+
+    expect(calledModels).toEqual(['gemini-3.6-flash', 'gemini-3.1-flash-lite']);
+    expect(result.modelUsed).toBe('gemini-3.1-flash-lite');
+    expect(result.summary).toBe('Timeout recovered');
+  });
+
+  // G. Empty response fallback
+  it('G. Empty response fallback — primary returns empty response and advances to secondary model', async () => {
+    const calledModels: string[] = [];
+    const mockClient = {
+      models: {
+        generateContent: vi.fn(async (params: any) => {
+          calledModels.push(params.model);
+          if (params.model === 'gemini-3.6-flash') {
+            return { text: '   ' };
+          }
+          return { text: '{"summary":"Empty recovered","keyTakeaways":[],"emotionalTone":"Calm"}' };
+        }),
+      },
+    };
+
+    const service = new GeminiService({ apiKey: 'test-key' }, mockClient);
+    const result = await service.summarize({ text: 'Testing empty response fallback.' });
+
+    expect(calledModels).toEqual(['gemini-3.6-flash', 'gemini-3.1-flash-lite']);
+    expect(result.modelUsed).toBe('gemini-3.1-flash-lite');
+    expect(result.summary).toBe('Empty recovered');
+  });
+
+  // H. Correct order
+  it('H. Correct order — sequentially attempts gemini-3.6-flash -> gemini-3.1-flash-lite -> gemini-flash-latest -> gemini-3.7-flash', async () => {
+    const calledModels: string[] = [];
+    const mockClient = {
+      models: {
+        generateContent: vi.fn(async (params: any) => {
+          calledModels.push(params.model);
+          if (params.model !== 'gemini-3.7-flash') {
+            const err = new Error(`503 Unavailable on ${params.model}`);
+            (err as any).status = 503;
+            throw err;
+          }
+          return { text: '{"summary":"Last resort success","keyTakeaways":[],"emotionalTone":"Calm"}' };
+        }),
+      },
+    };
+
+    const service = new GeminiService({ apiKey: 'test-key' }, mockClient);
+    const result = await service.summarize({ text: 'Testing complete ladder order.' });
+
+    expect(calledModels).toEqual([
+      'gemini-3.6-flash',
+      'gemini-3.1-flash-lite',
+      'gemini-flash-latest',
+      'gemini-3.7-flash',
+    ]);
+    expect(result.modelUsed).toBe('gemini-3.7-flash');
+    expect(result.summary).toBe('Last resort success');
+  });
+
+  // I. Non-recoverable error stops immediately
+  it('I. Non-recoverable error — invalid API key or validation errors halt ladder immediately', async () => {
+    const calledModels: string[] = [];
+    const mockClient = {
+      models: {
+        generateContent: vi.fn(async (params: any) => {
+          calledModels.push(params.model);
+          throw new Error('API_KEY_INVALID: The provided key is invalid.');
+        }),
+      },
+    };
+
+    const service = new GeminiService({ apiKey: 'bad-key' }, mockClient);
+
+    await expect(service.summarize({ text: 'Testing non-recoverable error.' })).rejects.toThrowError(
+      expect.objectContaining({
+        code: 'API_ERROR',
+        status: 401,
+      })
+    );
+
+    expect(calledModels).toEqual(['gemini-3.6-flash']);
+  });
+
+  // J. All models fail recoverably
+  it('J. All models fail — throws normalized GeminiError without leaking API keys or secrets', async () => {
+    const calledModels: string[] = [];
+    const mockClient = {
+      models: {
+        generateContent: vi.fn(async (params: any) => {
+          calledModels.push(params.model);
+          const err = new Error(`503 Service Unavailable on ${params.model}`);
+          (err as any).status = 503;
+          throw err;
+        }),
+      },
+    };
+
+    const service = new GeminiService({ apiKey: 'super-secret-api-key-12345' }, mockClient);
+
+    await expect(service.summarize({ text: 'Testing all models fail.' })).rejects.toThrowError(
+      expect.objectContaining({
+        code: 'API_ERROR',
+        status: 502,
+      })
+    );
+
+    expect(calledModels).toEqual([
+      'gemini-3.6-flash',
+      'gemini-3.1-flash-lite',
+      'gemini-flash-latest',
+      'gemini-3.7-flash',
+    ]);
+
+    try {
+      await service.summarize({ text: 'Testing secret leak.' });
+    } catch (err: any) {
+      expect(err.message).not.toContain('super-secret-api-key-12345');
+    }
+  });
+});

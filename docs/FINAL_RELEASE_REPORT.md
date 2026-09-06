@@ -1,19 +1,19 @@
 # JOURNAL∞ — OFFICIAL FINAL RELEASE REPORT 🏆
 
-> **Version:** `v1.0.0-GA` (General Availability Release Candidate)  
-> **Release Date:** 2026-09-06  
-> **Staging Live URL:** [https://gemini-journal-staging-s7hw7hui2q-uc.a.run.app](https://gemini-journal-staging-s7hw7hui2q-uc.a.run.app)  
-> **Repository:** `skemranhossain777-crypto/personal-gemini-journal`  
+> **Version:** `v1.0.0-GA` (General Availability Release Candidate)
+> **Release Date:** 2026-09-06
+> **Staging Live URL:** [https://gemini-journal-staging-618285014094.us-central1.run.app](https://gemini-journal-staging-618285014094.us-central1.run.app)
+> **Repository:** `skemranhossain777-crypto/personal-gemini-journal`
 > **Official Declaration:** **RELEASE READY** 🟢
 
 ---
 
 ## 🎯 1. Product Features & Signature Experiences
 
-JOURNAL∞ is a secure, personal wisdom engine powered by **Google Gemini 2.5 Flash** and **Google Cloud Run**. It transforms raw daily reflections into a structured personal knowledge graph across three signature experiences:
+JOURNAL∞ is a secure, personal wisdom engine powered by **Google Gemini 3.6 Flash** and **Google Cloud Run**. It transforms raw daily reflections into a structured personal knowledge graph across three signature experiences:
 
 1. **Personal Memory Engine 🧠**: Categorizes extractions into 11 typed memory domains (`goal`, `habit`, `preference`, `relationship`, `insight`, `emotion`, `location`, `skill`, `value`, `milestone`, `idea`) with normalized 1–5 importance & 0–1 confidence scores. Enforces **Zero Untrusted AI Mutations**: extractions land as `saved: false` proposals and require explicit user approval.
-2. **Ask My Life RAG Retrieval 💬**: Multi-document RAG retrieval engine compressing prompt context under 12,000 characters. Answers queries using Gemini 2.5 Flash and outputs verified evidence quotes with timestamped entry links.
+2. **Ask My Life RAG Retrieval 💬**: Multi-document RAG retrieval engine compressing prompt context under 12,000 characters. Answers queries using Gemini 3.6 Flash and outputs verified evidence quotes with timestamped entry links.
 3. **AI Reflection Loop 🔄**: Real-time compassionate thought partner delivering an 8-section structured reflection report (*Emotional Tone*, *Key Themes*, *Victories*, *Obstacles*, *Habit Signals*, *Goal Progress*, *Unconscious Patterns*, *Actionable Advice*) across 10 specialized journaling modes.
 
 ---
@@ -57,7 +57,7 @@ The **Final Security Gate** was executed with **NO CRITICAL OR HIGH ISSUES**:
 ## 🚀 4. Production Deployment & Cloud Run Status
 
 - **Cloud Run Service:** `gemini-journal-staging` (us-central1)
-- **Production Endpoint:** `https://gemini-journal-staging-s7hw7hui2q-uc.a.run.app`
+- **Production Endpoint:** `https://gemini-journal-staging-618285014094.us-central1.run.app`
 - **Health Probes:**
   - `GET /health` → HTTP 200 OK (`{ status: 'ok', uptimeSeconds: 1268, memory: '19.83MB' }`)
   - `GET /api/health` → HTTP 200 OK
@@ -76,9 +76,9 @@ The **Final Security Gate** was executed with **NO CRITICAL OR HIGH ISSUES**:
 
 ## 🏆 6. Competition Compliance & Demo Instructions
 
-- **Google Cloud Run AI Challenge Compliance:** 31/31 Official Requirements Passed ([`docs/COMPETITION_COMPLIANCE.md`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/docs/COMPETITION_COMPLIANCE.md)).
+- **Google Cloud Run AI Challenge Compliance:** 31/31 Official Requirements Passed ([`docs/COMPETITION_COMPLIANCE.md`](docs/COMPETITION_COMPLIANCE.md)).
 - **Interactive 5-Minute Judge Tour:** Accessible via top header badge pill on the landing page header.
-- **5-Minute Presenter Script:** Complete walkthrough script available in [`docs/DEMO_SCRIPT.md`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/docs/DEMO_SCRIPT.md).
+- **5-Minute Presenter Script:** Complete walkthrough script available in [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).
 - **1-Click Demo Reset:** Click **Reset Demo Environment** in the Judge Tour modal to re-seed pristine sample entries (`resetDemoEnvironment()`).
 
 ---

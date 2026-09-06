@@ -263,20 +263,6 @@ export const LocationPickerView: React.FC<LocationPickerViewProps> = ({
             />
           </div>
 
-          {/* Device Location Consent Action */}
-          <div className="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
-            <div className="text-xs text-slate-400">
-              <span className="text-slate-300 font-medium">Device GPS:</span> Never silently queried. Requires explicit click.
-            </div>
-            <button
-              onClick={handleRequestDeviceLocation}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-medium transition"
-            >
-              <Navigation className="w-3.5 h-3.5" />
-              <span>Use My Current Location</span>
-            </button>
-          </div>
-
           {/* Search Suggestions */}
           {isSearching && (
             <div className="space-y-1 bg-slate-950 rounded-xl border border-slate-800 p-2 max-h-48 overflow-y-auto">

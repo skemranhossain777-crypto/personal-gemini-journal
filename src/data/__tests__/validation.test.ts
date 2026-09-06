@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   validateJournalEntryInput,
   validateMemoryInput,
@@ -33,7 +33,7 @@ const journalOk = {
   aiMetadata: null,
 };
 
-describe('validation â€” journalEntries', () => {
+describe('validation — journalEntries', () => {
   it('accepts a fully valid input', () => {
     expect(validateJournalEntryInput(journalOk).ok).toBe(true);
   });
@@ -68,7 +68,7 @@ describe('validation â€” journalEntries', () => {
   });
 });
 
-describe('validation â€” memories', () => {
+describe('validation — memories', () => {
   const ok = {
     type: 'milestone',
     title: 'Launched',
@@ -92,7 +92,7 @@ describe('validation â€” memories', () => {
   });
 });
 
-describe('validation â€” conversations', () => {
+describe('validation — conversations', () => {
   const ok = {
     title: 'Chat',
     skill: 'reflect',
@@ -117,7 +117,7 @@ describe('validation â€” conversations', () => {
   });
 });
 
-describe('validation â€” goals', () => {
+describe('validation — goals', () => {
   const ok = {
     title: 'Run a marathon',
     description: 'Train',
@@ -139,7 +139,7 @@ describe('validation â€” goals', () => {
   });
 });
 
-describe('validation â€” habits', () => {
+describe('validation — habits', () => {
   const ok = {
     name: 'Meditate',
     description: '',
@@ -159,7 +159,7 @@ describe('validation â€” habits', () => {
   });
 });
 
-describe('validation â€” collections', () => {
+describe('validation — collections', () => {
   const ok = { name: 'Work', description: '', color: '#1f2d5a', entryIds: ['e1'] };
   it('accepts a valid collection', () => {
     expect(validateCollectionInput(ok).ok).toBe(true);
@@ -169,7 +169,7 @@ describe('validation â€” collections', () => {
   });
 });
 
-describe('validation â€” timelineEvents', () => {
+describe('validation — timelineEvents', () => {
   const ok = {
     type: 'milestone',
     title: 'Trip',
@@ -189,7 +189,7 @@ describe('validation â€” timelineEvents', () => {
   });
 });
 
-describe('validation â€” insights', () => {
+describe('validation — insights', () => {
   const ok = {
     kind: 'weekly',
     title: 'Week 1',
@@ -206,7 +206,7 @@ describe('validation â€” insights', () => {
   });
 });
 
-describe('validation â€” aiInteractions', () => {
+describe('validation — aiInteractions', () => {
   const ok = {
     skill: 'ask-my-life',
     prompt: 'question',
@@ -223,7 +223,7 @@ describe('validation â€” aiInteractions', () => {
   });
 });
 
-describe('validation â€” settings preferences', () => {
+describe('validation — settings preferences', () => {
   const ok = {
     aiPreferences: {
       reflectionSuggestions: true,
@@ -248,7 +248,7 @@ describe('validation â€” settings preferences', () => {
   });
 });
 
-describe('validation â€” notifications', () => {
+describe('validation — notifications', () => {
   const ok = { kind: 'system', title: 'Hi', body: 'msg', data: null, read: false };
   it('accepts a valid notification', () => {
     expect(validateNotificationInput(ok).ok).toBe(true);

@@ -27,22 +27,33 @@ import { GeminiError } from './types';
 import { parseAndValidateJson, validateTextInput, sanitizeRetrievedContext } from './validation';
 import { MEMORY_TYPES, type MemoryType } from '../../src/data/models';
 
+function extractErrorStatus(err: any): number | null {
+  if (!err) return null;
+  if (typeof err.status === 'number') return err.status;
+  if (typeof err.statusCode === 'number') return err.statusCode;
+  if (typeof err.status === 'string' && !isNaN(Number(err.status))) return Number(err.status);
+  if (typeof err.statusCode === 'string' && !isNaN(Number(err.statusCode))) return Number(err.statusCode);
+  if (err.error && typeof err.error.code === 'number') return err.error.code;
+  if (err.error && typeof err.error.status === 'number') return err.error.status;
+  if (err.response && typeof err.response.status === 'number') return err.response.status;
+  return null;
+}
+
 export class GeminiService {
   private aiClient: GoogleGenAI | null = null;
   private config: Required<GeminiServiceConfig>;
 
   constructor(config?: GeminiServiceConfig, customAiClient?: any) {
     const defaultModels = [
-      'gemini-3.7-flash',
       'gemini-3.6-flash',
-      'gemini-3.5-flash',
-      'gemini-flash-latest',
       'gemini-3.1-flash-lite',
+      'gemini-flash-latest',
+      'gemini-3.7-flash',
     ];
 
     this.config = {
       apiKey: config?.apiKey || process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_SECRET || '',
-      defaultModel: config?.defaultModel || 'gemini-3.7-flash',
+      defaultModel: config?.defaultModel || 'gemini-3.6-flash',
       fallbackModels: config?.fallbackModels || defaultModels,
       timeoutMs: config?.timeoutMs ?? 30000,
       maxPromptLength: config?.maxPromptLength ?? 12000,
@@ -77,7 +88,7 @@ export class GeminiService {
 
   /**
    * Primary execution engine with model fallback ladder, timeout handling,
-   * input sanitization, and transient error retry logic.
+   * input sanitization, and recoverable error advancement.
    */
   async generateWithFallback(
     contents: any,
@@ -86,69 +97,102 @@ export class GeminiService {
   ): Promise<{ text: string; modelUsed: string }> {
     const ai = this.getClient();
     let lastError: any = null;
-    const MAX_ATTEMPTS_PER_MODEL = 2;
 
     for (const model of this.config.fallbackModels) {
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS_PER_MODEL; attempt++) {
-        try {
-          this.safeLog('log', `Attempting generation with model: ${model} (attempt ${attempt}/${MAX_ATTEMPTS_PER_MODEL})`);
+      try {
+        this.safeLog('log', `Attempting generation with model: ${model}`);
 
-          const generatePromise = ai.models.generateContent({
-            model,
-            contents,
-            config: { systemInstruction, temperature },
-          });
+        const generatePromise = ai.models.generateContent({
+          model,
+          contents,
+          config: { systemInstruction, temperature },
+        });
 
-          const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(
-              () => reject(new GeminiError(`Request timed out after ${this.config.timeoutMs / 1000}s.`, 'TIMEOUT', 504)),
-              this.config.timeoutMs
-            )
-          );
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new GeminiError(`Request timed out after ${this.config.timeoutMs / 1000}s.`, 'TIMEOUT', 504)),
+            this.config.timeoutMs
+          )
+        );
 
-          const response = (await Promise.race([generatePromise, timeoutPromise])) as any;
-          const text = response?.text || '';
+        const response = (await Promise.race([generatePromise, timeoutPromise])) as any;
+        const text = response?.text || '';
 
-          if (!text || !text.trim()) {
-            throw new GeminiError('Gemini model returned an empty response.', 'EMPTY_RESPONSE', 500);
-          }
-
-          this.safeLog('log', `Generation successful with model: ${model}`);
-          return { text, modelUsed: model };
-        } catch (err: any) {
-          lastError = err;
-
-          // Re-throw validation or explicit GeminiErrors directly
-          if (
-            err instanceof GeminiError &&
-            (err.code === 'INVALID_INPUT' ||
-              err.code === 'OVERSIZED_INPUT' ||
-              err.code === 'PROMPT_INJECTION' ||
-              err.code === 'EMPTY_RESPONSE' ||
-              err.code === 'TIMEOUT')
-          ) {
-            throw err;
-          }
-
-          const errMsg = err?.message || String(err);
-          const errStatus = err?.status || err?.statusCode || 500;
-          const isTransient = errStatus === 503 || errStatus === 429 || errMsg.includes('high demand') || errMsg.includes('resource exhausted');
-
-          this.safeLog('warn', `Model ${model} attempt ${attempt} failed: ${errMsg.slice(0, 120)}`);
-
-          if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('apiKey is invalid')) {
-            throw new GeminiError('Gemini API key is invalid or revoked.', 'API_ERROR', 401, err);
-          }
-
-          if (isTransient && attempt < MAX_ATTEMPTS_PER_MODEL) {
-            await new Promise((resolve) => setTimeout(resolve, 200 * attempt));
-            continue;
-          }
-
-          // Move to next model in fallback ladder
-          break;
+        if (!text || !text.trim()) {
+          throw new GeminiError('Gemini model returned an empty response.', 'EMPTY_RESPONSE', 500);
         }
+
+        this.safeLog('log', `Generation successful with model: ${model}`);
+        return { text, modelUsed: model };
+      } catch (err: any) {
+        lastError = err;
+
+        // Non-recoverable validation/security errors must throw immediately without fallback
+        if (
+          err instanceof GeminiError &&
+          (err.code === 'INVALID_INPUT' ||
+            err.code === 'OVERSIZED_INPUT' ||
+            err.code === 'PROMPT_INJECTION')
+        ) {
+          throw err;
+        }
+
+        const errMsg = err?.message || String(err || '');
+        const errStatus = extractErrorStatus(err);
+
+        // Non-recoverable API key or authentication errors must throw immediately
+        if (
+          errMsg.includes('API_KEY_INVALID') ||
+          errMsg.includes('apiKey is invalid') ||
+          errMsg.includes('API key not valid') ||
+          errMsg.includes('API_KEY_EXPIRED') ||
+          errStatus === 401 ||
+          errStatus === 403
+        ) {
+          throw new GeminiError('Gemini API key is invalid or revoked.', 'API_ERROR', 401, err);
+        }
+
+        // Recoverable error classification (503, 429, 404, 500, TIMEOUT, EMPTY_RESPONSE)
+        const isRecoverable =
+          (err instanceof GeminiError && (err.code === 'TIMEOUT' || err.code === 'EMPTY_RESPONSE')) ||
+          errStatus === 503 ||
+          errStatus === 429 ||
+          errStatus === 404 ||
+          errStatus === 500 ||
+          errMsg.includes('503') ||
+          errMsg.includes('429') ||
+          errMsg.includes('404') ||
+          errMsg.includes('500') ||
+          errMsg.includes('high demand') ||
+          errMsg.includes('resource exhausted') ||
+          errMsg.includes('quota') ||
+          errMsg.includes('unavailable') ||
+          errMsg.includes('not found') ||
+          errMsg.includes('INTERNAL') ||
+          errMsg.includes('UNAVAILABLE') ||
+          errMsg.includes('RESOURCE_EXHAUSTED') ||
+          errMsg.includes('timed out') ||
+          errMsg.includes('TIMEOUT') ||
+          errMsg.includes('empty response');
+
+        this.safeLog(
+          'warn',
+          `Model ${model} failed${errStatus ? ` (status ${errStatus})` : ''}: ${errMsg.slice(0, 120)}`
+        );
+
+        if (isRecoverable) {
+          // Advance promptly to the next model in the fallback ladder
+          continue;
+        }
+
+        // For any unexpected non-recoverable error, throw immediately
+        throw err;
       }
+    }
+
+    // All models in fallback ladder exhausted
+    if (lastError instanceof GeminiError && (lastError.code === 'TIMEOUT' || lastError.code === 'EMPTY_RESPONSE')) {
+      throw lastError;
     }
 
     throw new GeminiError(

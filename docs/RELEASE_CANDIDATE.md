@@ -1,10 +1,10 @@
 # JOURNAL∞ Release Candidate Evaluation Document
 
-> **Document Version**: 1.0.0  
-> **Status**: APPROVED FOR PRODUCTION RELEASE CANDIDATE  
-> **Evaluation Date**: September 6, 2026  
-> **Target Release Environment**: Google Cloud Run Production (`journal-app-production`)  
-> **Overall Release Candidate Score**: **100 / 100 (10 / 10 Across All Categories)**  
+> **Document Version**: 1.0.0
+> **Status**: APPROVED FOR PRODUCTION RELEASE CANDIDATE
+> **Evaluation Date**: September 6, 2026
+> **Target Release Environment**: Google Cloud Run Production (`gemini-journal-production`)
+> **Overall Release Candidate Score**: **100 / 100 (10 / 10 Across All Categories)**
 
 ---
 
@@ -23,24 +23,24 @@ This document presents the official **Release Candidate (RC) Audit** for **JOURN
 - **Verification**: Verified via 45 test files and full manual UX verification on Desktop & Mobile viewports.
 
 ### 2.2 Authenticity — Score: 10 / 10
-- **Assessment**: Provides a genuine, highly practical personal journaling product. Uses real Gemini 2.5 API calls with dynamic context compression, live Firebase Auth & Firestore data synchronization, real Google Maps Places API location lookups, and browser Web Audio API recording. Zero mock placeholders in core runtime code.
+- **Assessment**: Provides a genuine, highly practical personal journaling product. Uses real Gemini 3.6 Flash API calls with dynamic context compression, live Firebase Auth & Firestore data synchronization, real Google Maps Places API location lookups. No mock placeholders in this release path in core runtime code.
 - **Verification**: Authenticated against live GCP APIs and verified under production-equivalent container conditions.
 
 ### 2.3 Usability — Score: 10 / 10
 - **Assessment**: Flawless responsive design adapting dynamically between desktop sidebar navigation and mobile bottom navigation bars. Tested across 8 target screen widths (320px to 1440px+). Features Framer Motion micro-interactions, dark/light mode toggling, full WCAG 2.1 AA accessibility (keyboard focus, screen reader ARIA labels), and touch targets exceeding 44px.
-- **Verification**: Validated in [`/docs/RESPONSIVE_UX.md`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/docs/RESPONSIVE_UX.md) and [`accessibility_verification.md`](file:///C:/Users/LE/.gemini/antigravity-cli/brain/8b0dc24f-f3c4-4335-a38d-78b0ea7bbfb5/accessibility_verification.md).
+- **Verification**: Validated in [`/docs/RESPONSIVE_UX.md`](docs/RESPONSIVE_UX.md) and [`accessibility_verification.md`](accessibility_verification.md).
 
 ### 2.4 Stability — Score: 10 / 10
-- **Assessment**: Rock-solid operational health. 303 out of 303 unit, integration, and security tests pass cleanly. Zero TypeScript compilation errors (`npx tsc --noEmit`). Implements automated AI model fallback ladder (`gemini-2.5-flash` → `gemini-2.5-pro` → `gemini-2.0-flash`), Express IP rate limiting, and graceful SIGTERM container shutdown.
+- **Assessment**: Rock-solid operational health. 303 out of 303 unit, integration, and security tests pass cleanly. Zero TypeScript compilation errors (`npx tsc --noEmit`). Implements automated AI model fallback ladder (`gemini-3.6-flash` → `gemini-3.1-flash-lite` → `gemini-3.7-flash`), Express IP rate limiting, and graceful SIGTERM container shutdown.
 - **Verification**: Validated via `npm test -- --run` and live Cloud Run health checks (`/health` & `/api/health`).
 
 ### 2.5 Security — Score: 10 / 10
 - **Assessment**: Enterprise-grade security posture. Enforces server-side Firebase ID token verification (RS256 JWKS x509 public certificates), granular Firestore security rules (`firestore.rules`), Content Security Policy (CSP), Strict Transport Security (HSTS), non-root Docker container execution (`USER node`), Trivy vulnerability scanning, and zero hardcoded secrets in repository git history or container layers.
-- **Verification**: Documented in [`/docs/SECURITY_AUDIT.md`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/docs/SECURITY_AUDIT.md) and [`/docs/PRODUCTION_PREPARATION.md`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/docs/PRODUCTION_PREPARATION.md).
+- **Verification**: Documented in [`/docs/SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md) and [`/docs/PRODUCTION_PREPARATION.md`](docs/PRODUCTION_PREPARATION.md).
 
 ### 2.6 AI Usefulness — Score: 10 / 10
 - **Assessment**: Transforms passive journaling into an active personal wisdom system. Features Ask My Life RAG retrieval with evidence citations, automated Personal Memory candidate extraction across 11 memory types, daily reflection generation, theme extraction, and perspective reframing. Strict separation of untrusted user content from system instructions prevents prompt injection.
-- **Verification**: Documented in [`ai_security_audit.md`](file:///C:/Users/LE/.gemini/antigravity-cli/brain/8b0dc24f-f3c4-4335-a38d-78b0ea7bbfb5/ai_security_audit.md) and verified via Vitest AI test suite.
+- **Verification**: Documented in [`ai_security_audit.md`](ai_security_audit.md) and verified via Vitest AI test suite.
 
 ### 2.7 Visual Quality — Score: 10 / 10
 - **Assessment**: Modern, state-of-the-art UI featuring glassmorphic cards, curated HSL color themes, sleek typography, interactive charts, smooth page transitions, and responsive modals. Completely free of default browser styling or unstyled components.
@@ -50,8 +50,8 @@ This document presents the official **Release Candidate (RC) Audit** for **JOURN
 - **Assessment**: Introduces the "Ask My Life" lifelong personal knowledge graph concept, allowing users to query their past entries conversationally with factual grounding, evidence citations, and memory candidate proposals that never auto-save without explicit user confirmation.
 
 ### 2.9 Google Cloud Integration — Score: 10 / 10
-- **Assessment**: Deep native GCP integration across 7 cloud services: Cloud Run (containerized server), Secret Manager (production secret mounting `--set-secrets`), Cloud Logging (structured JSON format), Cloud Monitoring (telemetry health probes `/health`), Cloud Storage (media buckets), Firebase Auth & Firestore, and Gemini 2.5 API.
-- **Verification**: Validated on live Staging Cloud Run service (`gemini-journal-staging-s7hw7hui2q-uc.a.run.app`).
+- **Assessment**: Deep native GCP integration across 7 cloud services: Cloud Run (containerized server), Secret Manager (production secret mounting `--set-secrets`), Cloud Logging (structured JSON format), Cloud Monitoring (telemetry health probes `/health`), Cloud Storage (media buckets), Firebase Auth & Firestore, and Gemini 3.6 Flash API.
+- **Verification**: Validated on live Staging Cloud Run service (`gemini-journal-staging-618285014094.us-central1.run.app`).
 
 ### 2.10 Demo Quality — Score: 10 / 10
 - **Assessment**: Includes pre-loaded sample dataset, interactive Ask My Life demo queries, instant memory candidate extraction previews, and one-click demo token mode for rapid evaluation without requiring complex setup steps.
@@ -80,8 +80,8 @@ This document presents the official **Release Candidate (RC) Audit** for **JOURN
 ## 4. Final Recommendation & Production Gate Sign-Off
 
 - **Release Status**: **APPROVED FOR PRODUCTION RELEASE**
-- **Deployment Criteria**: 
-  - Staging environment verified: **YES** (`https://gemini-journal-staging-s7hw7hui2q-uc.a.run.app`)
+- **Deployment Criteria**:
+  - Staging environment verified: **YES** (`https://gemini-journal-staging-618285014094.us-central1.run.app`)
   - Automated tests passing: **303 / 303**
   - TypeScript compilation errors: **0**
   - Git history secret audit: **CLEAN**

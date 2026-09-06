@@ -24,8 +24,6 @@ describe('LocationPickerView component', () => {
 
     expect(screen.getByText(/Journal Location \(Optional\)/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Search places or landmarks/i)).toBeInTheDocument();
-    expect(screen.getByText(/Use My Current Location/i)).toBeInTheDocument();
-    expect(screen.getByText(/Never silently queried/i)).toBeInTheDocument();
   });
 
   it('allows selecting a place from location search suggestions', async () => {

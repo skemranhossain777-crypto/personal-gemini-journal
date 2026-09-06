@@ -45,8 +45,8 @@ export const DEMO_PIPELINE_STEPS: DemoStepInfo[] = [
     id: 'gemini-reflection',
     title: 'Gemini AI Reflection',
     targetDurationSeconds: 45,
-    description: 'Trigger real-time AI reflection on the journal entry.',
-    speakingPoint: 'Gemini 2.5 Flash analyzes emotional tone, extracts core themes, flags unconscious patterns, and delivers actionable advice.',
+    description: 'Observe AI reflection behavior (Google Sign-In is required for live Gemini features).',
+    speakingPoint: 'Gemini 3.6 Flash analyzes emotional tone, extracts core themes, flags unconscious patterns, and delivers actionable advice.',
     actionGuidance: 'Click "✨ Gemini AI Reflection" in the entry side panel and inspect the structured reflection dimensions.',
   },
   {
@@ -113,8 +113,8 @@ const createTs = (daysAgo: number) => ({
 // Baseline repeatable demo entries
 export const DEMO_SAMPLE_ENTRIES: Omit<JournalEntry, 'id' | 'uid'>[] = [
   {
-    title: '🚀 Launching JOURNAL∞ with Gemini 2.5 Architecture',
-    body: 'Today we finalized the core architecture for JOURNAL∞ on Google Cloud Run. The integration of Gemini 2.5 Flash allows 1M token context windows, structured JSON schema parsing, and sub-second RAG retrieval. Our team solved the context compression challenge by capping prompt context at 12k characters while preserving evidence citations.',
+    title: '🚀 Launching JOURNAL∞ with Gemini 3.6 Flash Engine',
+    body: 'Today we finalized the core architecture for JOURNAL∞ on Google Cloud Run. The integration of Gemini 3.6 Flash allows 1M token context windows, structured JSON schema parsing, and sub-second RAG retrieval. Our team solved the context compression challenge by capping prompt context at 12k characters while preserving evidence citations.',
     mode: 'work',
     mood: 5,
     energy: 100,
@@ -125,7 +125,7 @@ export const DEMO_SAMPLE_ENTRIES: Omit<JournalEntry, 'id' | 'uid'>[] = [
     archived: false,
     private: false,
     aiMetadata: {
-      summary: 'Engineered JOURNAL∞ on Cloud Run with Gemini 2.5 Flash RAG context compression.',
+      summary: 'Engineered JOURNAL∞ on Cloud Run with Gemini 3.6 Flash RAG context compression.',
       suggestedTags: ['cloud-run', 'architecture', 'gemini-2.5'],
       emotion: 'Optimistic & Highly Focused',
       generatedBy: 'gemini-3.7-flash',
@@ -158,7 +158,7 @@ export const DEMO_SAMPLE_MEMORIES: Partial<Memory>[] = [
     uid: 'demo-local-user',
     type: 'milestone',
     title: '[DEMO SAMPLE] Launched JOURNAL∞ on Google Cloud Run',
-    narrative: 'Successfully deployed production container to Google Cloud Run with Gemini 2.5 Flash integration.',
+    narrative: 'Successfully deployed production container to Google Cloud Run with Gemini 3.6 Flash integration.',
     importance: 5,
     confidence: 0.99,
     sourceEntryIds: ['demo-entry-1'],

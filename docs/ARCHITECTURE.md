@@ -1,6 +1,6 @@
 # ARCHITECTURE — JOURNAL∞ (Personal AI Journal / "Gemini Journal & Reflections")
 
-- **Repo:** `D:\Apersonontherun\Google-Programmed\gemini-journal-reflections`
+- **Repo:** `.`
 - **Date:** 2026-09-05
 - **Inputs:** `Project Instruction/Personal Gemini Journal — Master Vibe Coding Instruction.md` (the working spec, "Spec §N"), `docs/PROJECT_STATE.md` (inspection baseline, "STATE §N").
 - **Phase:** Design only. **No application code was changed** to produce this document.

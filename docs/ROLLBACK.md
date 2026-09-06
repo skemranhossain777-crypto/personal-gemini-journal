@@ -11,7 +11,7 @@
 | Telemetry Vector | Rollback Metric | SLA Target | Verification Result |
 | :--- | :--- | :--- | :---: |
 | **Traffic Shift Time** | Time to shift 100% traffic to prior revision | `< 10 seconds` | **PASS (Immediate)** |
-| **Downtime Impact** | Service downtime during rollback | `0 seconds (Zero Downtime)` | **PASS** |
+| **Downtime Impact** | Service downtime during rollback | `0 seconds (minimizes disruption)` | **PASS** |
 | **Database Compatibility** | Forward/Backward schema compatibility | `100% Additive Schemas` | **PASS** |
 | **Secret Compatibility** | Secret Manager version independence | `Version Decoupled` | **PASS** |
 | **Rollback Verification** | Automated smoke test verification | `200 OK Probe` | **PASS** |
@@ -63,7 +63,7 @@ gcloud run services update-traffic gemini-journal-staging \
 JOURNAL∞ enforces **Strict Additive Schema Design** in Cloud Firestore to guarantee 100% backward and forward compatibility across code revisions:
 
 1. **No Destructive Field Removals**: New features add optional fields (`aiMetadata`, `tags`, `attachments`). Fields are never renamed or deleted from Firestore document schemas.
-2. **Graceful Degradation**: Older application code revisions reading newer document versions ignore unrecognized properties without throwing exceptions (`normalizeInput()` and `validateJournalEntryInput()` in [`src/data/validation.ts`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/src/data/validation.ts)).
+2. **Graceful Degradation**: Older application code revisions reading newer document versions ignore unrecognized properties without throwing exceptions (`normalizeInput()` and `validateJournalEntryInput()` in [`src/data/validation.ts`](src/data/validation.ts)).
 3. **Null-Guarded Metadata**: Optional fields fall back to `null` or empty arrays (`[]`), allowing previous code builds to parse documents seamlessly.
 
 ---

@@ -1,7 +1,7 @@
 # JOURNAL∞ — Personal Memory & AI Reflection Engine 🏆
 
 > **Google Cloud & Gemini Hackathon Competition Candidate**  
-> **Live Staging URL:** [https://gemini-journal-staging-s7hw7hui2q-uc.a.run.app](https://gemini-journal-staging-s7hw7hui2q-uc.a.run.app)  
+> **Live Staging URL:** [https://gemini-journal-staging-618285014094.us-central1.run.app](https://gemini-journal-staging-618285014094.us-central1.run.app)  
 > **Documentation Hub:** [`/docs/`](docs/) · **5-Minute Demo Script:** [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) · **Judge Tour:** Interactive 5-tab tour available directly on the landing page header.
 
 ---
@@ -12,7 +12,7 @@
 Traditional journaling apps are passive data graveyards. People write daily thoughts, goal commitments, emotional struggles, and key life milestones—only for those entries to sink into forgotten archives. Existing AI note tools either treat notes as disposable search indexes or use invasive background LLMs that automatically mutate user memories, risk prompt injection attacks, or suffer from severe AI hallucinations.
 
 ### The Solution: JOURNAL∞
-**JOURNAL∞** is a secure, personal wisdom engine powered by **Google Gemini 2.5 Flash** and **Google Cloud Run**. It transforms raw daily reflections into a structured personal knowledge graph—extracting memory candidates across 11 typed domains, enabling conversational multi-document RAG over years of journal history (*Ask My Life*), and providing an empathetic 8-dimension reflection loop (*AI Reflection Loop*).
+**JOURNAL∞** is a secure, personal wisdom engine powered by **Google Gemini 3.6 Flash** and **Google Cloud Run**. It transforms raw daily reflections into a structured personal knowledge graph—extracting memory candidates across 11 typed domains, enabling conversational multi-document RAG over years of journal history (*Ask My Life*), and providing an empathetic 8-dimension reflection loop (*AI Reflection Loop*).
 
 ### Fundamental Design Principle: Zero Untrusted AI Mutations
 Unlike other AI systems, **JOURNAL∞** enforces strict human agency: **the AI *proposes* memory candidates, but only the user can approve, edit, or commit them to permanent storage.**
@@ -53,12 +53,12 @@ Unlike other AI systems, **JOURNAL∞** enforces strict human agency: **the AI *
          (Row-Level Security Rules)                 (GEMINI_API_KEY / Credentials)
          `request.auth.uid == userId`                              │
                        │                                           ▼
-                       └─────────────────────────────────► [ Gemini 2.5 Flash ]
-                                                    (5-Model Fallback Ladder)
+                       └─────────────────────────────────► [ Gemini 3.6 Flash ]
+                                                    (four-model fallback ladder Ladder)
 ```
 
 ### Technology Stack
-- **Frontend**: React 18, TypeScript, TailwindCSS, Motion (Framer Motion), Lucide Icons, Vite.
+- **Frontend**: React 19, TypeScript, TailwindCSS, Motion (Framer Motion), Lucide Icons, Vite.
 - **Backend API**: Node 22, Express, Google Cloud Client Libraries (`@google/genai`, `@google-cloud/secret-manager`, `@google-cloud/logging`).
 - **Database & Auth**: Google Cloud Firestore, Firebase Authentication (Google Sign-In, RS256 JWT tokens).
 - **Deployment**: Google Cloud Run (Containerized Docker microservice), Firebase Hosting CDN.
@@ -67,13 +67,13 @@ Unlike other AI systems, **JOURNAL∞** enforces strict human agency: **the AI *
 
 ## 🤖 Gemini 2.5 Integration & Fallback Ladder
 
-JOURNAL∞ utilizes **Gemini 2.5 Flash** for high-speed, structured multimodal generation and 1M context window capability.
+JOURNAL∞ utilizes **Gemini 3.6 Flash** for high-speed, structured multimodal generation and 1M context window capability.
 
 ### 5-Model Automated Fallback Ladder
-To guarantee 99.99% availability during peak LLM API traffic, the server implements an automated fallback ladder:
+To guarantee Sequential fallback improves resilience during peak LLM API traffic, the server implements an automated fallback ladder:
 1. `gemini-3.7-flash` (Primary high-performance reasoning)
 2. `gemini-3.6-flash` (Secondary fallback)
-3. `gemini-3.5-flash` (Tertiary fallback)
+3. `gemini-3.6-flash` (Tertiary fallback)
 4. `gemini-flash-latest` (Quaternary fallback)
 5. `gemini-3.1-flash-lite` (Final lightweight contingency)
 
@@ -89,11 +89,11 @@ JOURNAL∞ adheres to strict agentic security engineering principles:
 
 | Threat Vector | Defense Implementation | Verification |
 | :--- | :--- | :--- |
-| **Indirect Prompt Injection** | Retrieved journal context is wrapped in explicit `<RETRIEVED_CONTENT>` XML tags and marked as untrusted data in system instructions. System role prompts prohibit instruction overrides. | Tested via [`aiSecurityAdversarial.test.ts`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/server/gemini/__tests__/aiSecurityAdversarial.test.ts) |
-| **Cross-User Data Leakage** | Firestore security rules enforce `request.auth.uid == userId` on all document paths (`/users/{uid}/journalEntries/{id}`). | Verified via [`memoriesSecurity.test.ts`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/src/data/__tests__/memoriesSecurity.test.ts) |
-| **Unauthorized Memory Creation** | Candidate extractions return un-saved proposals (`saved: false`, `status: 'candidate'`). Write access to `/memories/{id}` requires explicit user confirmation. | Verified via [`memoryAiValidation.test.ts`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/server/gemini/__tests__/memoryAiValidation.test.ts) |
+| **Indirect Prompt Injection** | Retrieved journal context is wrapped in explicit `<RETRIEVED_CONTENT>` XML tags and marked as untrusted data in system instructions. System role prompts prohibit instruction overrides. | Tested via [`aiSecurityAdversarial.test.ts`](server/gemini/__tests__/aiSecurityAdversarial.test.ts) |
+| **Cross-User Data Leakage** | Firestore security rules enforce `request.auth.uid == userId` on all document paths (`/users/{uid}/journalEntries/{id}`). | Verified via [`memoriesSecurity.test.ts`](src/data/__tests__/memoriesSecurity.test.ts) |
+| **Unauthorized Memory Creation** | Candidate extractions return un-saved proposals (`saved: false`, `status: 'candidate'`). Write access to `/memories/{id}` requires explicit user confirmation. | Verified via [`memoryAiValidation.test.ts`](server/gemini/__tests__/memoryAiValidation.test.ts) |
 | **Secret Protection** | `GEMINI_API_KEY` and server credentials reside exclusively in **Google Cloud Secret Manager**. Zero client-side API keys. | Verified via Secret Manager Integration Audit |
-| **Data Ownership & Export** | 1-click complete data export in JSON and Markdown formats, plus 1-click full account data wipe. | Verified via [`PrivacyCenterView.test.tsx`](file:///D:/Apersonontherun/Google-Programmed/gemini-journal-reflections/src/components/privacy/__tests__/PrivacyCenterView.test.tsx) |
+| **Data Ownership & Export** | 1-click complete data export in JSON and Markdown formats, plus 1-click full account data wipe. | Verified via [`PrivacyCenterView.test.tsx`](src/components/privacy/__tests__/PrivacyCenterView.test.tsx) |
 
 ---
 

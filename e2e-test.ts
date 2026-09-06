@@ -110,7 +110,7 @@ globalThis.fetch = async (input: string | URL | Request, init?: RequestInit): Pr
       const documents = Object.entries(mockFirestore)
         .filter(([key]) => key.startsWith('users/') && !key.includes('/'))
         .map(([key, val]) => ({
-          name: `projects/test/databases/(default)/documents/${key}`,
+          name: `projects/test/databases/${process.env.FIRESTORE_DATABASE_ID || '(default)'}/documents/${key}`,
           fields: val,
         }));
       return new Response(JSON.stringify({ documents }), {
@@ -196,7 +196,7 @@ function buildMockApp(): express.Express {
   app.get('/api/admin/users', mockVerifyToken, mockRequireAdmin, async (req: MockAuthRequest, res: ExpressResponse) => {
     try {
       const authToken = req.headers.authorization?.slice(7);
-      const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users`;
+      const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${process.env.FIRESTORE_DATABASE_ID || '(default)'}/documents/users`;
       const fsResp = await fetch(firestoreUrl, { headers: { Authorization: `Bearer ${authToken}` } });
       if (!fsResp.ok) {
         res.json({ users: [{ uid: req.auth?.uid, email: req.auth?.email, role: 'admin', interactionCount: 0, lastActive: null }], note: 'Limited listing' });
@@ -231,7 +231,7 @@ function buildMockApp(): express.Express {
         return;
       }
       const authToken = req.headers.authorization?.slice(7);
-      const docPath = `projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/roles/${targetUid}`;
+      const docPath = `projects/${FIREBASE_PROJECT_ID}/databases/${process.env.FIRESTORE_DATABASE_ID || '(default)'}/documents/roles/${targetUid}`;
       const fsResp = await fetch(
         `https://firestore.googleapis.com/v1/${docPath}?currentDocument.exists=true`,
         {
@@ -248,7 +248,7 @@ function buildMockApp(): express.Express {
       );
       if (!fsResp.ok) {
         const createResp = await fetch(
-          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/roles?documentId=${targetUid}`,
+          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${process.env.FIRESTORE_DATABASE_ID || '(default)'}/documents/roles?documentId=${targetUid}`,
           {
             method: 'POST',
             headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
@@ -275,7 +275,7 @@ function buildMockApp(): express.Express {
       const uid = req.auth?.uid;
       if (!uid) { res.status(401).json({ error: 'Auth required' }); return; }
       const authToken = req.headers.authorization?.slice(7);
-      const docPath = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${uid}/settings/notifications`;
+      const docPath = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${process.env.FIRESTORE_DATABASE_ID || '(default)'}/documents/${uid}/settings/notifications`;
       const fsResp = await fetch(docPath, { headers: { Authorization: `Bearer ${authToken}` } });
       if (!fsResp.ok) {
         res.json({ enabled: false, notifyOn: ['reflect', 'summarize', 'brainstorm', 'chat'] });
@@ -304,7 +304,7 @@ function buildMockApp(): express.Express {
 
       // Ensure parent doc
       await fetch(
-        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${uid}`,
+        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${process.env.FIRESTORE_DATABASE_ID || '(default)'}/documents/${uid}`,
         {
           method: 'PATCH',
           headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
@@ -312,7 +312,7 @@ function buildMockApp(): express.Express {
         }
       );
 
-      const settingsPath = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${uid}/settings/notifications`;
+      const settingsPath = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${process.env.FIRESTORE_DATABASE_ID || '(default)'}/documents/${uid}/settings/notifications`;
       const fsResp = await fetch(
         `${settingsPath}?currentDocument.exists=true`,
         {
@@ -335,7 +335,7 @@ function buildMockApp(): express.Express {
 
       if (!fsResp.ok) {
         await fetch(
-          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${uid}/settings?documentId=notifications`,
+          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${process.env.FIRESTORE_DATABASE_ID || '(default)'}/documents/${uid}/settings?documentId=notifications`,
           {
             method: 'POST',
             headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },

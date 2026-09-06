@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
-import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 import jwt from 'jsonwebtoken';
 import admin from 'firebase-admin';
@@ -77,79 +76,6 @@ setInterval(() => {
   }
 }, 5 * 60_000).unref?.();
 
-// Lazy GoogleGenAI client accessor
-let aiClient: GoogleGenAI | null = null;
-function getGenAI(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY environment variable is not configured');
-  if (!aiClient) aiClient = new GoogleGenAI({ apiKey });
-  return aiClient;
-}
-
-// Model Fallback Ladder
-// Order = preference. Prefer the newest stable dated Gemini 3.x Flash first
-// (reliable, no alias contention), then lighter/fallback tiers.
-// `gemini-flash-latest` is the most contended alias and frequently 503s under
-// high demand, so it lives mid-ladder, not first. Model names verified as of
-// 2026-09: gemini-3.7-flash (stable), gemini-3.6-flash, gemini-3.5-flash,
-// gemini-3.1-flash-lite. There is no gemini-3.8-flash.
-const MODEL_FALLBACK_LADDER = [
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
-  'gemini-flash-latest',
-  'gemini-3.1-flash-lite',
-];
-
-async function generateContentWithFallback(
-  contents: any,
-  systemInstruction: string,
-  temperature = 0.7
-): Promise<{ text: string; modelUsed: string }> {
-  const ai = getGenAI();
-  let lastError: any = null;
-  const REQUEST_TIMEOUT_MS = 30000; // frontier models do heavy reasoning; 18s was too tight
-  const MAX_ATTEMPTS = 2; // retry transient 503 "high demand" responses before falling back
-
-  for (const model of MODEL_FALLBACK_LADDER) {
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      try {
-        console.log(`[Gemini Engine] Attempting generation with model: ${model} (attempt ${attempt}/${MAX_ATTEMPTS})`);
-        const generatePromise = ai.models.generateContent({
-          model,
-          contents,
-          config: { systemInstruction, temperature },
-        });
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`Model ${model} request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`)), REQUEST_TIMEOUT_MS)
-        );
-        const response = await Promise.race([generatePromise, timeoutPromise]);
-        const text = response.text || '';
-        if (text.trim()) {
-          console.log(`[Gemini Engine] Generation successful with model: ${model}`);
-          return { text, modelUsed: model };
-        }
-      } catch (err: any) {
-        lastError = err;
-        const errMsg = err?.message || String(err);
-        const errStatus = err?.status || err?.error?.status || '';
-        const errCode = err?.statusCode || err?.error?.code || '';
-        const isTransient503 = errStatus === 503 || errCode === 503 || errMsg.includes('high demand');
-        console.warn(`[Gemini Engine] Model ${model} error (status: ${errStatus}, code: ${errCode}): ${errMsg.slice(0, 150)}`);
-        if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('apiKey is invalid') || errMsg.includes('API key not valid')) throw err;
-        // Retry this same model once on transient capacity spikes; otherwise move on
-        if (isTransient503 && attempt < MAX_ATTEMPTS) {
-          console.log(`[Gemini Engine] Transient 503 on ${model}, retrying (attempt ${attempt + 1})...`);
-          await new Promise((r) => setTimeout(r, 250));
-          continue;
-        }
-        console.log(`[Gemini Engine] Falling back to next model...`);
-        break;
-      }
-    }
-  }
-  throw new Error(`All Gemini models exhausted. Last error: ${lastError?.message || lastError}`);
-}
 
 // ─── Firebase Token Verification (Lightweight, no Admin SDK) ─────────────────
 // Fetches Google's public certificate (JWKS x509) once and caches it, then
@@ -157,6 +83,7 @@ async function generateContentWithFallback(
 // No fragile ESM/CJS dependencies — works in both dev and the bundled prod server.
 
 const FIREBASE_PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID || '';
+const FIRESTORE_DATABASE_ID = process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || process.env.FIREBASE_FIRESTORE_DATABASE_ID || '(default)';
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
 
 // ─── Firebase Admin SDK (privileged server writes) ───────────────────────────
@@ -443,7 +370,7 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 app.post('/api/gemini/companion-skill', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await geminiService.executeCompanionSkill(req.body || {});
+    const result = await geminiService.executeCompanionSkill((req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}));
     res.json({ success: true, ...result, result });
   } catch (error: any) {
     console.error('Companion skill error:', error);
@@ -455,7 +382,7 @@ app.post('/api/gemini/companion-skill', verifyFirebaseToken, rateLimiter, async 
 
 app.post('/api/gemini/reflect', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await geminiService.reflect(req.body || {});
+    const result = await geminiService.reflect((req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}));
     res.json({ success: true, ...result });
   } catch (error: any) {
     console.error('Reflect error:', error);
@@ -467,7 +394,7 @@ app.post('/api/gemini/reflect', verifyFirebaseToken, rateLimiter, async (req: Re
 
 app.post('/api/gemini/summarize', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await geminiService.summarize(req.body || {});
+    const result = await geminiService.summarize((req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}));
     res.json({ success: true, result });
   } catch (error: any) {
     console.error('Summarize error:', error);
@@ -479,7 +406,7 @@ app.post('/api/gemini/summarize', verifyFirebaseToken, rateLimiter, async (req: 
 
 app.post('/api/gemini/extract-themes', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await geminiService.extractThemes(req.body || {});
+    const result = await geminiService.extractThemes((req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}));
     res.json({ success: true, result });
   } catch (error: any) {
     console.error('Extract themes error:', error);
@@ -491,7 +418,7 @@ app.post('/api/gemini/extract-themes', verifyFirebaseToken, rateLimiter, async (
 
 app.post('/api/gemini/extract-memories', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await geminiService.extractMemoryCandidates(req.body || {});
+    const result = await geminiService.extractMemoryCandidates((req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}));
     res.json({ success: true, result });
   } catch (error: any) {
     console.error('Extract memories error:', error);
@@ -503,7 +430,7 @@ app.post('/api/gemini/extract-memories', verifyFirebaseToken, rateLimiter, async
 
 app.post('/api/gemini/contextual-questions', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await geminiService.generateContextualQuestions(req.body || {});
+    const result = await geminiService.generateContextualQuestions((req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}));
     res.json({ success: true, result });
   } catch (error: any) {
     console.error('Contextual questions error:', error);
@@ -515,7 +442,7 @@ app.post('/api/gemini/contextual-questions', verifyFirebaseToken, rateLimiter, a
 
 app.post('/api/gemini/coach', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await geminiService.provideCoaching(req.body || {});
+    const result = await geminiService.provideCoaching((req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}));
     res.json({ success: true, result });
   } catch (error: any) {
     console.error('Coach error:', error);
@@ -527,7 +454,7 @@ app.post('/api/gemini/coach', verifyFirebaseToken, rateLimiter, async (req: Requ
 
 app.post('/api/gemini/reframe', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await geminiService.reframePerspective(req.body || {});
+    const result = await geminiService.reframePerspective((req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}));
     res.json({ success: true, result });
   } catch (error: any) {
     console.error('Reframe error:', error);
@@ -539,7 +466,7 @@ app.post('/api/gemini/reframe', verifyFirebaseToken, rateLimiter, async (req: Re
 
 app.post('/api/gemini/ask-my-life', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await geminiService.askMyLife(req.body || {});
+    const result = await geminiService.askMyLife((req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}));
     res.json({ success: true, ...result, result });
   } catch (error: any) {
     console.error('Ask My Life error:', error);
@@ -551,14 +478,15 @@ app.post('/api/gemini/ask-my-life', verifyFirebaseToken, rateLimiter, async (req
 
 // ─── Google Places Autocomplete Proxy ────────────────────────────────────────
 
-app.post('/api/google/places/autocomplete', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+export const placesAutocompleteHandler = async (req: Request, res: Response): Promise<void> => {
   try {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
       res.status(500).json({ error: 'GOOGLE_MAPS_API_KEY not configured on server' });
       return;
     }
-    const { input, sessiontoken } = req.body;
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const { input, sessiontoken } = body;
     if (!input || typeof input !== 'string' || input.trim().length < 2) {
       res.status(400).json({ error: 'Input must be at least 2 characters' });
       return;
@@ -588,18 +516,22 @@ app.post('/api/google/places/autocomplete', verifyFirebaseToken, rateLimiter, as
     res.json({ suggestions, status: data.status });
   } catch (error: any) {
     console.error('Places autocomplete error:', error);
-    res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'Places API request failed' : error?.message });
+    res.status(500).json({ error: 'Failed to fetch places' });
   }
-});
+};
+app.post('/api/google/places/autocomplete', verifyFirebaseToken, rateLimiter, placesAutocompleteHandler);
 
-app.post('/api/google/places/details', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+// ─── Google Places Details Proxy ─────────────────────────────────────────────
+
+export const placesDetailsHandler = async (req: Request, res: Response): Promise<void> => {
   try {
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
       res.status(500).json({ error: 'GOOGLE_MAPS_API_KEY not configured' });
       return;
     }
-    const { placeId } = req.body;
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const { placeId } = body;
     if (!placeId) {
       res.status(400).json({ error: 'placeId is required' });
       return;
@@ -630,7 +562,8 @@ app.post('/api/google/places/details', verifyFirebaseToken, rateLimiter, async (
     console.error('Place details error:', error);
     res.status(500).json({ error: process.env.NODE_ENV === 'production' ? 'Place details request failed' : error?.message });
   }
-});
+};
+app.post('/api/google/places/details', verifyFirebaseToken, rateLimiter, placesDetailsHandler);
 
 // ─── Admin Endpoints ─────────────────────────────────────────────────────────
 
@@ -652,7 +585,7 @@ app.get('/api/admin/users', verifyFirebaseToken, requireAdmin, async (req: Authe
     }
 
     // Query Firestore for all user documents
-    const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users`;
+    const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE_ID}/documents/users`;
     const fsResp = await fetch(firestoreUrl, {
       headers: { Authorization: `Bearer ${authToken}` },
     });
@@ -717,7 +650,8 @@ app.post('/api/admin/seed-role', verifyFirebaseToken, async (req: AuthenticatedR
 
 app.post('/api/admin/roles', verifyFirebaseToken, requireAdmin, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { targetUid, role } = req.body;
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const { targetUid, role } = body;
     if (!targetUid || !['admin', 'user'].includes(role)) {
       res.status(400).json({ error: 'targetUid and valid role (admin/user) required' });
       return;
@@ -751,7 +685,7 @@ app.get('/api/notifications/settings', verifyFirebaseToken, async (req: Authenti
 
     const projectId = FIREBASE_PROJECT_ID;
     const authToken = req.headers.authorization?.slice(7);
-    const docPath = `projects/${projectId}/databases/(default)/documents/${uid}/settings/notifications`;
+    const docPath = `projects/${projectId}/databases/${FIRESTORE_DATABASE_ID}/documents/${uid}/settings/notifications`;
 
     const fsResp = await fetch(
       `https://firestore.googleapis.com/v1/${docPath}`,
@@ -782,12 +716,13 @@ app.put('/api/notifications/settings', verifyFirebaseToken, async (req: Authenti
     const uid = req.auth?.uid;
     if (!uid) { res.status(401).json({ error: 'Auth required' }); return; }
 
-    const { slackWebhookUrl, discordWebhookUrl, enabled, notifyOn } = req.body;
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const { slackWebhookUrl, discordWebhookUrl, enabled, notifyOn } = body;
     const projectId = FIREBASE_PROJECT_ID;
     const authToken = req.headers.authorization?.slice(7);
 
     // Ensure parent document exists
-    const parentPath = `projects/${projectId}/databases/(default)/documents/${uid}`;
+    const parentPath = `projects/${projectId}/databases/${FIRESTORE_DATABASE_ID}/documents/${uid}`;
     await fetch(
       `https://firestore.googleapis.com/v1/${parentPath}`,
       {
@@ -797,7 +732,7 @@ app.put('/api/notifications/settings', verifyFirebaseToken, async (req: Authenti
       }
     );
 
-    const settingsPath = `projects/${projectId}/databases/(default)/documents/${uid}/settings/notifications`;
+    const settingsPath = `projects/${projectId}/databases/${FIRESTORE_DATABASE_ID}/documents/${uid}/settings/notifications`;
     const fsResp = await fetch(
       `https://firestore.googleapis.com/v1/${settingsPath}?currentDocument.exists=true`,
       {
@@ -821,7 +756,7 @@ app.put('/api/notifications/settings', verifyFirebaseToken, async (req: Authenti
     if (!fsResp.ok) {
       // Create new doc
       await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${uid}/settings?documentId=notifications`,
+        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE_ID}/documents/${uid}/settings?documentId=notifications`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
@@ -850,7 +785,8 @@ app.put('/api/notifications/settings', verifyFirebaseToken, async (req: Authenti
 
 app.post('/api/notifications/test', verifyFirebaseToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { channel, webhookUrl } = req.body;
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const { channel, webhookUrl } = body;
     if (!channel || !webhookUrl) {
       res.status(400).json({ error: 'channel (slack/discord) and webhookUrl required' });
       return;

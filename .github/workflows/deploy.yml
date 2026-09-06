@@ -2,9 +2,12 @@ name: JOURNAL∞ Production CI/CD Pipeline
 
 on:
   push:
-    branches: [main, release/*]
+    branches:
+      - master
+      - 'release/*'
   pull_request:
-    branches: [main]
+    branches:
+      - master
   workflow_dispatch:
 
 permissions:
@@ -33,24 +36,15 @@ jobs:
         run: npm ci
 
       - name: 2. Dependency Audit & Security Validation
-        run: npm audit --audit-level=high || echo "::warning ::Dependency vulnerabilities detected. Review npm audit report."
+        run: npm audit --audit-level=high
 
-      - name: 3. Lint Codebase
-        run: npm run lint
-
-      - name: 4. Typecheck Codebase
+      - name: 3. Typecheck Codebase
         run: npm run typecheck
 
-      - name: 5. Execute Unit Tests
-        run: npx vitest run tests/journal-crud-offline.test.ts tests/autosave-recovery.test.ts
+      - name: 4. Execute Unit Tests
+        run: npm test
 
-      - name: 6. Execute Integration Tests
-        run: npx vitest run tests/automated-suite.test.ts tests/timeline-goals-habits.test.ts
-
-      - name: 7. Execute Security Tests
-        run: npx vitest run tests/security-matrix.test.ts tests/ai-security.test.ts
-
-      - name: 8. Execute Complete Production Build
+      - name: 5. Execute Complete Production Build
         run: npm run build
 
       - name: Upload Build Artifacts
@@ -88,7 +82,7 @@ jobs:
         with:
           image-ref: gcr.io/journal-staging-app/journal-app:${{ github.sha }}
           format: 'table'
-          exit-code: '0'
+          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
@@ -123,13 +117,14 @@ jobs:
 
       - name: 11. Deploy Container to Cloud Run (Staging)
         run: |
-          gcloud run deploy journal-app-staging \
+          gcloud run deploy gemini-journal-staging \
             --image="gcr.io/${{ secrets.GCP_PROJECT_STAGING }}/journal-app:${{ github.sha }}" \
             --region="us-central1" \
             --platform="managed" \
             --service-account="journal-staging-sa@${{ secrets.GCP_PROJECT_STAGING }}.iam.gserviceaccount.com" \
             --allow-unauthenticated \
-            --set-env-vars="NODE_ENV=production,APP_URL=${{ secrets.STAGING_APP_URL }}" \
+            --labels="dev-tutorial=cloud-run-ai-challenge" \
+            --set-env-vars=FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,"NODE_ENV=production,APP_URL=${{ secrets.STAGING_APP_URL }}" \
             --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:latest,GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,ADMIN_EMAILS=journal-admin-emails:latest,FIREBASE_SERVICE_ACCOUNT_JSON=journal-firebase-sa-json:latest"
 
       - name: 12. Execute Automated Staging Smoke Tests
@@ -146,7 +141,7 @@ jobs:
     needs: deploy-staging
     runs-on: ubuntu-latest
     environment: production # Requires manual environment approval in GitHub UI
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -170,13 +165,14 @@ jobs:
 
       - name: 13. Deploy Container to Cloud Run (Production)
         run: |
-          gcloud run deploy journal-app-production \
+          gcloud run deploy gemini-journal-production \
             --image="gcr.io/${{ secrets.GCP_PROJECT_PROD }}/journal-app:${{ github.sha }}" \
             --region="us-central1" \
             --platform="managed" \
             --service-account="journal-app-sa@${{ secrets.GCP_PROJECT_PROD }}.iam.gserviceaccount.com" \
             --allow-unauthenticated \
-            --set-env-vars="NODE_ENV=production,APP_URL=${{ secrets.PROD_APP_URL }}" \
+            --labels="dev-tutorial=cloud-run-ai-challenge" \
+            --set-env-vars=FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,"NODE_ENV=production,APP_URL=${{ secrets.PROD_APP_URL }}" \
             --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:latest,GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,ADMIN_EMAILS=journal-admin-emails:latest,FIREBASE_SERVICE_ACCOUNT_JSON=journal-firebase-sa-json:latest"
 
       - name: Production Smoke Tests

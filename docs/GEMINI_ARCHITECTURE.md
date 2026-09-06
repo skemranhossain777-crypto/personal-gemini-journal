@@ -23,7 +23,7 @@ The system provides an emotionally intelligent, private, and resilient reflectio
 To ensure reliability during peak AI Studio / Gemini API demand, the system utilizes a 5-tier fallback ladder:
 1. `gemini-3.7-flash` (Primary stable frontier model)
 2. `gemini-3.6-flash`
-3. `gemini-3.5-flash`
+3. `gemini-3.6-flash`
 4. `gemini-flash-latest`
 5. `gemini-3.1-flash-lite`
 

@@ -1,6 +1,6 @@
 # DESIGN SYSTEM — JOURNAL∞
 
-- **Repo:** `D:\Apersonontherun\Google-Programmed\gemini-journal-reflections`
+- **Repo:** `.`
 - **Date:** 2026-09-05
 - **Sources of truth:** Master Vibe Coding Spec §27–§29 (design language, responsive, accessibility), §44 (UI quality bar); `docs/PROJECT_STATE.md` (current navy visual language); `docs/ARCHITECTURE.md` §2 (frontend decisions).
 - **Status:** Tokens + primitives implemented. Adopted incrementally by existing screens during Phase 3+; existing components remain functional in parallel (additive rule).

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { MapPin, X, Search, Loader2 } from 'lucide-react';
 import type { JournalLocation } from '../types';
+import { authService } from '../services/auth';
 
 declare global {
   interface Window {
@@ -117,11 +118,20 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ location, onLoca
       setSuggestions([]);
       return;
     }
+    if (authService.currentUser?.isDemo) {
+      setSuggestions([{ placeId: 'demo-lock', description: 'Sign in with Google to use live cloud features.', mainText: 'Sign in with Google to use live cloud features.', secondaryText: 'Live Google Places API unavailable in Demo Mode' }]);
+      setShowDropdown(true);
+      return;
+    }
     setIsSearching(true);
     try {
+      const token = await authService.getIdToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const resp = await fetch('/api/google/places/autocomplete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ input }),
       });
       const data = await resp.json();
@@ -141,13 +151,21 @@ export const LocationPicker: React.FC<LocationPickerProps> = ({ location, onLoca
   };
 
   const selectPlace = async (suggestion: PlaceSuggestion) => {
+    if (suggestion.placeId === 'demo-lock' || authService.currentUser?.isDemo) {
+      setShowDropdown(false);
+      return;
+    }
     setQuery(suggestion.description);
     setShowDropdown(false);
     setIsSearching(true);
     try {
+      const token = await authService.getIdToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const resp = await fetch('/api/google/places/details', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ placeId: suggestion.placeId }),
       });
       const data = await resp.json();

@@ -1,6 +1,6 @@
 # PROJECT STATE — JOURNAL∞ (Gemini Journal & Reflections)
 
-- **Repo:** `D:\Apersonontherun\Google-Programmed\gemini-journal-reflections`
+- **Repo:** `.`
 - **Date of inspection:** 2026-09-05
 - **Governing spec:** `Project Instruction/Personal Gemini Journal - Master Vibe Coding Instruction.md` (JOURNAL∞ — "Write your life. Understand yourself. Remember what matters."; loop: CAPTURE → UNDERSTAND → REMEMBER → REFLECT → ACT → CAPTURE AGAIN)
 - **Purpose of this pass:** Full repository inspection only. **No application code was modified or deleted** during this review. One new file was added: this document (`docs/PROJECT_STATE.md`).
@@ -31,7 +31,7 @@ Browser (React 19 SPA, static assets)
 
 - Hosting live site: `https://gen-lang-client-0345619653.web.app`
 - Cloud Run service `gemini-journal`, region `us-central1`
-  - Canonical URL (from `gcloud`): `https://gemini-journal-s7hw7hui2q-uc.a.run.app` (HTTP 200 verified)
+  - Canonical URL (from `gcloud`): `https://gemini-journal-production-618285014094.us-central1.run.app` (HTTP 200 verified)
   - Regional URL also serves: `https://gemini-journal-618285014094.us-central1.run.app` (HTTP 200 verified)
   - Latest live revision: `gemini-journal-00005-czm`
   - Env injected at runtime: `GEMINI_API_KEY` (Secret Manager, key name `GEMINI_API_KEY`, version `latest`) and `VITE_FIREBASE_PROJECT_ID`. All other `VITE_*` config is baked at build time / falls back to the committed client config (see 1.4).
@@ -58,7 +58,7 @@ Browser (React 19 SPA, static assets)
 - In-memory per-IP rate limiter on the Gemini endpoint: 30 req / 60 s → HTTP 429. Map cleanup every 5 min. Not distributed — per-instance only.
 - Routes:
   - `GET /api/health`
-  - `POST /api/gemini/reflect` (rate-limited): calls GoogleGenAI with a 5-model fallback ladder (`gemini-3.7-flash` → `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-flash-latest` → `gemini-3.1-flash-lite`); returns reply + 1-line summary + 3–5 tags + `modelUsed`. Prompt sanitization: user text treated as passive plain data.
+  - `POST /api/gemini/reflect` (rate-limited): calls GoogleGenAI with a four-model fallback ladder ladder (`gemini-3.7-flash` → `gemini-3.6-flash` → `gemini-3.6-flash` → `gemini-flash-latest` → `gemini-3.1-flash-lite`); returns reply + 1-line summary + 3–5 tags + `modelUsed`. Prompt sanitization: user text treated as passive plain data.
   - `POST /api/google/places/autocomplete`, `POST /api/google/places/details` (server-side `GOOGLE_MAPS_API_KEY`; client uses a separate referrer-restricted Maps JS key — dual-key isolation).
   - `GET /api/admin/users`, `POST /api/admin/seed-role`, `POST /api/admin/roles` (Firebase ID-token verification + `ADMIN_EMAILS`-based admin check server-side; no client role toggling).
   - `GET /api/notifications/settings`, `PUT /api/notifications/settings`, `POST /api/notifications/test` (Slack/Discord webhooks dispatched server-side only; SSRF guard; webhook URLs never returned to the client after save).
