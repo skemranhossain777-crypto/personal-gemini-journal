@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { AnimatePresence, motion, MotionConfig } from 'motion/react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { MotionConfig } from 'motion/react';
 import {
   subscribeUserInteractions,
   deleteUserInteraction,
@@ -14,6 +14,14 @@ import { HistorySidebar } from './components/HistorySidebar';
 import { JournalEditor } from './components/JournalEditor';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import type { CommandPaletteItem } from './components/CommandPalette';
+import {
+  journalEntriesApi,
+  memoriesApi,
+  goalsApi,
+  timelineEventsApi,
+  insightsApi,
+} from './data';
+import type { JournalEntry, Memory, Goal, TimelineEvent, Insight } from './data/models';
 
 const ThreatModelModal = React.lazy(() =>
   import('./components/ThreatModelModal').then((m) => ({ default: m.ThreatModelModal })),
@@ -30,6 +38,11 @@ const CommandPalette = React.lazy(() =>
 const DesignSystem = React.lazy(() =>
   import('./pages/DesignSystem').then((m) => ({ default: m.DesignSystem })),
 );
+const ResponsiveNavigationShell = React.lazy(() =>
+  import('./components/navigation/ResponsiveNavigationShell').then((m) => ({
+    default: m.ResponsiveNavigationShell,
+  })),
+);
 import {
   AuthErrorScreen,
   AuthLoadingScreen,
@@ -44,17 +57,14 @@ import {
   useAuth,
   type AppRoute,
 } from './auth';
-import { JournalWorkspace } from './pages/journal/JournalWorkspace';
 import {
-  Sparkles,
-  WifiOff,
   FilePlus2,
   Shield,
   Bell,
   Crown,
   LogOut,
   PenLine,
-  Palette,
+  WifiOff,
 } from 'lucide-react';
 
 export default function App() {
@@ -89,6 +99,15 @@ function AppShell() {
   const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
+  // Owner-scoped collection state fed into the primary navigation shell.
+  const isDemo = currentUser?.isDemo ?? false;
+  const uid = currentUser?.uid ?? '';
+  const [shellEntries, setShellEntries] = useState<JournalEntry[]>([]);
+  const [shellMemories, setShellMemories] = useState<Memory[]>([]);
+  const [shellGoals, setShellGoals] = useState<Goal[]>([]);
+  const [shellTimelineEvents, setShellTimelineEvents] = useState<TimelineEvent[]>([]);
+  const [shellInsights, setShellInsights] = useState<Insight[]>([]);
 
   const isBusy = status === 'initializing' || status === 'signing-in';
   const effectiveRoute: 'design' | 'app' | 'journal' | 'home' =
@@ -165,7 +184,7 @@ function AppShell() {
     };
   }, [currentUser?.uid, getAccessToken]);
 
-  // Subscribe to real-time user-isolated Firestore entries
+  // Subscribe to real-time user-isolated Firestore interactions
   useEffect(() => {
     if (!currentUser) {
       setInteractions([]);
@@ -189,6 +208,43 @@ function AppShell() {
 
     return () => unsubData();
   }, [currentUser?.uid]);
+
+  // Owner-scoped collection subscriptions for the primary navigation shell.
+  // Demo sessions stay purely local (no Firestore reads) — the shell views show
+  // empty/entries-only states and the JournalWorkspace owns its own demo store.
+  useEffect(() => {
+    if (!currentUser || isDemo) {
+      setShellEntries([]);
+      setShellMemories([]);
+      setShellGoals([]);
+      setShellTimelineEvents([]);
+      setShellInsights([]);
+      return;
+    }
+    const unsubs = [
+      journalEntriesApi.subscribe(
+        (items) => setShellEntries(items),
+        (err) => console.warn('[shell] entries subscription failed:', err),
+      ),
+      memoriesApi.subscribe(
+        (items) => setShellMemories(items),
+        (err) => console.warn('[shell] memories subscription failed:', err),
+      ),
+      goalsApi.subscribe(
+        (items) => setShellGoals(items),
+        (err) => console.warn('[shell] goals subscription failed:', err),
+      ),
+      timelineEventsApi.subscribe(
+        (items) => setShellTimelineEvents(items),
+        (err) => console.warn('[shell] timeline subscription failed:', err),
+      ),
+      insightsApi.subscribe(
+        (items) => setShellInsights(items),
+        (err) => console.warn('[shell] insights subscription failed:', err),
+      ),
+    ];
+    return () => unsubs.forEach((u) => u());
+  }, [currentUser?.uid, isDemo]);
 
   const selectedInteraction =
     interactions.find((item) => item.id === selectedInteractionId) || null;
@@ -243,23 +299,18 @@ function AppShell() {
   // Command palette actions (available everywhere, filtered to the signed-in context).
   const paletteActions: CommandPaletteItem[] = [
     {
-      id: 'design-system',
-      label: 'Design system',
-      hint: 'Preview the JOURNAL∞ UI primitives',
-      keywords: 'design system ui primitives theme tokens colours',
-      icon: <Palette className="h-3.5 w-3.5" />,
-      onSelect: () => {
-        setRoute(currentRoute());
-        window.history.pushState(null, '', '#/design');
-      },
-    },
-    {
       id: 'new-entry',
       label: currentUser ? 'New reflection' : 'Sign in to start writing',
       hint: currentUser ? 'Start a fresh journal entry' : 'Google sign-in',
       keywords: 'new entry start write create',
       icon: <FilePlus2 className="h-3.5 w-3.5" />,
-      onSelect: () => (currentUser ? handleNewEntry() : void signIn()),
+      onSelect: () => {
+        if (currentUser) {
+          navigateTo('#/journal/new');
+        } else {
+          void signIn();
+        }
+      },
     },
     {
       id: 'threat-model',
@@ -321,36 +372,35 @@ function AppShell() {
     }),
   }));
 
-  const workspace = (() => {
-    if (!currentUser) return null;
-    return (
-    <motion.div
-      key="dashboard"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.3 }}
-      className="flex h-screen flex-col overflow-hidden bg-[#070B16] text-[#D9E2F5]"
-    >
-      <Navbar
-        user={currentUser}
-        onSignOut={() => void signOut()}
-        onNewEntry={handleNewEntry}
-        onOpenThreatModel={() => setIsThreatModalOpen(true)}
-        onOpenNotifications={() => setIsNotificationSettingsOpen(true)}
-        onOpenAdminDashboard={() => setIsAdminDashboardOpen(true)}
-        onSignInGoogle={() => void signIn()}
-        isAdmin={isAdmin}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        activeSection="companion"
-        onOpenJournal={() => navigateTo('#/journal')}
-        onOpenCompanion={() => navigateTo('#/app')}
-        newEntryLabel="New Reflection"
-      />
+  // Route-derived initial state for the shell.
+  const journalPart = parseJournalLocation(
+    typeof window !== 'undefined' ? window.location.hash : '',
+  );
+  const initialShellTab = useMemo<{ tab: 'home' | 'journal'; entryId: string | null; isNew: boolean; subview: 'journal' | 'companion' }>(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    if (hash.startsWith('#/app')) return { tab: 'journal', entryId: null, isNew: false, subview: 'companion' };
+    if (hash.startsWith('#/journal/new')) return { tab: 'journal', entryId: null, isNew: true, subview: 'journal' };
+    if (hash.startsWith('#/journal')) {
+      return { tab: 'journal', entryId: journalPart.entryId ?? null, isNew: journalPart.isNew, subview: 'journal' };
+    }
+    return { tab: 'home', entryId: null, isNew: false, subview: 'journal' };
+  }, [journalPart]);
 
-      {!isOnline && <OfflineBanner />}
+  const companionWorkspace = currentUser ? (
+    <div className="flex flex-col md:flex-row overflow-hidden rounded-2xl border border-[#223056] bg-[#070B16] text-[#D9E2F5] min-h-[70vh] md:h-[calc(100vh-9rem)]">
+      {/* History Sidebar */}
+      <div className={`w-full shrink-0 md:block md:w-72 lg:w-80 border-r border-[#223056] ${mobileTab === 'history' ? 'block' : 'hidden md:block'}`}>
+        <HistorySidebar
+          interactions={interactions}
+          selectedId={selectedInteractionId}
+          onSelect={handleSelectInteraction}
+          onNew={handleNewEntry}
+          onDelete={handleDeleteInteraction}
+          isLoading={isInteractionsLoading}
+        />
+      </div>
 
-      {/* Mobile Tab Switcher */}
+      {/* Mobile tab switcher */}
       <div className="flex gap-2 border-b border-[#223056] bg-[#0E1730] px-4 py-2 text-xs md:hidden">
         {(
           [
@@ -362,143 +412,52 @@ function AppShell() {
             key={tab.id}
             onClick={() => setMobileTab(tab.id)}
             aria-pressed={mobileTab === tab.id}
-            className={`relative flex-1 rounded-lg py-1.5 text-center font-medium transition-colors ${
-              mobileTab === tab.id
-                ? 'text-[#EEF4FF]'
-                : 'bg-[#121E40] text-[#888] hover:text-[#D9E2F5]'
+            className={`flex-1 rounded-lg py-1.5 text-center font-medium transition-colors ${
+              mobileTab === tab.id ? 'text-[#EEF4FF]' : 'bg-[#121E40] text-[#888] hover:text-[#D9E2F5]'
             }`}
           >
-            {mobileTab === tab.id && (
-              <motion.span
-                layoutId="mobile-tab-pill"
-                className="absolute inset-0 rounded-lg border border-[#31447F] bg-[#17254F]"
-                transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-              />
-            )}
-            <span className="relative">{tab.label}</span>
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Main Full-Height Workspace */}
-      <div id="main" tabIndex={-1} className="flex min-h-0 flex-1 overflow-hidden focus:outline-none">
-        {/* Left History Sidebar */}
-        <div
-          className={`h-full min-h-0 w-full shrink-0 md:block md:w-80 lg:w-96 ${
-            mobileTab === 'history' ? 'block' : 'hidden'
-          }`}
-        >
-          <HistorySidebar
-            interactions={interactions}
-            selectedId={selectedInteractionId}
-            onSelect={handleSelectInteraction}
-            onNew={handleNewEntry}
-            onDelete={handleDeleteInteraction}
-            isLoading={isInteractionsLoading}
-          />
-        </div>
-
-        {/* Right Editor Workspace */}
-        <div
-          className={`h-full min-h-0 min-w-0 flex-1 ${
-            mobileTab === 'editor' ? 'block' : 'hidden md:block'
-          }`}
-        >
-          <JournalEditor
-            userId={currentUser!.uid}
-            interaction={selectedInteraction}
-            onInteractionUpdated={handleInteractionUpdated}
-            onNewEntry={handleNewEntry}
-          />
-        </div>
+      {/* Editor Workspace */}
+      <div className={`min-w-0 flex-1 ${mobileTab === 'editor' ? 'block' : 'hidden md:block'}`}>
+        <JournalEditor
+          userId={currentUser.uid}
+          interaction={selectedInteraction}
+          onInteractionUpdated={handleInteractionUpdated}
+          onNewEntry={handleNewEntry}
+        />
       </div>
+    </div>
+  ) : null;
 
-      {/* Threat Model Modal */}
-      <ThreatModelModal
-        isOpen={isThreatModalOpen}
-        onClose={() => setIsThreatModalOpen(false)}
-        userUid={currentUser!.uid}
-      />
-
-      {/* Admin Dashboard Modal */}
-      {isAdmin && authToken && (
-        <AdminDashboard
-          isOpen={isAdminDashboardOpen}
-          onClose={() => setIsAdminDashboardOpen(false)}
-          authToken={authToken}
-          adminEmail={currentUser!.email || ''}
-        />
-      )}
-
-      {/* Notification Settings Modal */}
-      {authToken && (
-        <NotificationSettingsModal
-          isOpen={isNotificationSettingsOpen}
-          onClose={() => setIsNotificationSettingsOpen(false)}
-          authToken={authToken}
-        />
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={pendingDelete !== null}
-        title="Delete Reflection?"
-        message={`This will permanently delete "${pendingDelete?.title || ''}" and all of its conversation history from your isolated Firestore partition. This action cannot be undone.`}
-        confirmLabel="Delete Reflection"
-        cancelLabel="Cancel"
-        onConfirm={() => void confirmDeleteInteraction()}
-        onCancel={() => setPendingDelete(null)}
-      />
-    </motion.div>
-    );
-  })();
-
-  // Journal∞ workspace (list / composer), driven by the #/journal hash.
-  const journalPart = parseJournalLocation(
-    typeof window !== 'undefined' ? window.location.hash : '',
-  );
-  const journalView = currentUser ? (
-    <motion.div
-      key="journal"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.3 }}
-      className="flex min-h-screen flex-col bg-[#070B16] text-[#D9E2F5]"
-    >
-      <Navbar
-        user={currentUser}
+  const shell = currentUser ? (
+    <RequireAuth>
+      <ResponsiveNavigationShell
+        currentUserId={currentUser.uid}
+        entries={shellEntries}
+        memories={shellMemories}
+        goals={shellGoals}
+        timelineEvents={shellTimelineEvents}
+        insights={shellInsights}
         onSignOut={() => void signOut()}
-        onNewEntry={() => navigateTo('#/journal/new')}
-        onOpenThreatModel={() => setIsThreatModalOpen(true)}
-        onOpenNotifications={() => setIsNotificationSettingsOpen(true)}
-        onOpenAdminDashboard={() => setIsAdminDashboardOpen(true)}
-        onSignInGoogle={() => void signIn()}
-        isAdmin={isAdmin}
-        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        activeSection="journal"
-        onOpenJournal={() => navigateTo('#/journal')}
-        onOpenCompanion={() => navigateTo('#/app')}
-        newEntryLabel="New Entry"
+        onUpdateEntries={(entries) => setShellEntries(entries)}
+        onUpdateMemories={(memories) => setShellMemories(memories)}
+        onUpdateGoals={(goals) => setShellGoals(goals)}
+        initialTab={initialShellTab.tab}
+        initialEntryId={initialShellTab.entryId}
+        initialComposerNew={initialShellTab.isNew}
+        initialJournalSubview={initialShellTab.subview}
+        companionWorkspace={companionWorkspace}
       />
-      {!isOnline && <OfflineBanner />}
-      <main id="main" tabIndex={-1} className="flex-1 focus:outline-none">
-        <JournalWorkspace
-          entryId={journalPart.entryId ?? null}
-          isNew={journalPart.isNew}
-          onNavigateHome={() => navigateTo('#/journal')}
-          onOpenNew={() => navigateTo('#/journal/new')}
-          onOpenEntry={(id) => navigateTo(`#/journal/${id}`)}
-        />
-      </main>
-    </motion.div>
+    </RequireAuth>
   ) : null;
 
   return (
     <MotionConfig reducedMotion="user">
-      <a href="#main" className="skip-link">
-        Skip to main content
-      </a>
+      {!isOnline && <OfflineBanner />}
 
       {effectiveRoute === 'design' ? (
         <DesignSystem onExit={exitDesign} />
@@ -506,48 +465,34 @@ function AppShell() {
         <AuthLoadingScreen label="Securing your journal…" />
       ) : status === 'restore-failed' ? (
         <AuthErrorScreen onHome={goHome} />
-      ) : currentUser && effectiveRoute === 'journal' ? (
-        // Journal∞ engine (list / composer).
-        journalView
       ) : currentUser ? (
-        // Authenticated companion workspace wrapped in RequireAuth as a second
-        // layer of defense — the gate re-asserts the session before render.
-        <RequireAuth>{workspace}</RequireAuth>
+        <React.Suspense fallback={<AuthLoadingScreen label="Loading your journal…" />}>
+          {shell}
+        </React.Suspense>
       ) : isProtectedRoute(route) ? (
-        // Direct access to a protected route while signed out → access denied.
         <RequireAuth fallback={<UnauthorizedScreen onHome={goHome} />}>
-          {effectiveRoute === 'journal' ? journalView : workspace}
+          {shell}
         </RequireAuth>
       ) : (
-        <AnimatePresence mode="wait">
-          <motion.div
-            key="landing"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.3 }}
-            className="flex min-h-screen flex-col bg-[#070B16] text-[#D9E2F5]"
-          >
-            <Navbar
-              user={null}
-              onSignOut={() => {}}
-              onNewEntry={() => {}}
+        <div className="flex min-h-screen flex-col bg-[#070B16] text-[#D9E2F5]">
+          <Navbar
+            user={null}
+            onSignOut={() => {}}
+            onNewEntry={() => {}}
+            onOpenThreatModel={() => setIsThreatModalOpen(true)}
+            onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          />
+          <main id="main" tabIndex={-1} className="flex-1">
+            <AuthLanding
+              onSignIn={() => signIn()}
+              onDemoSignIn={signInAsDemo}
+              isLoading={isBusy}
               onOpenThreatModel={() => setIsThreatModalOpen(true)}
-              onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+              error={error}
+              onClearError={clearError}
             />
-            {!isOnline && <OfflineBanner />}
-            <main id="main" tabIndex={-1} className="flex-1">
-              <AuthLanding
-                onSignIn={() => signIn()}
-                onDemoSignIn={signInAsDemo}
-                isLoading={isBusy}
-                onOpenThreatModel={() => setIsThreatModalOpen(true)}
-                error={error}
-                onClearError={clearError}
-              />
-            </main>
-          </motion.div>
-        </AnimatePresence>
+          </main>
+        </div>
       )}
 
       <React.Suspense fallback={null}>
@@ -562,11 +507,42 @@ function AppShell() {
           }}
         />
 
-        <ThreatModelModal
-          isOpen={isThreatModalOpen}
-          onClose={() => setIsThreatModalOpen(false)}
-        />
+        {currentUser && (
+          <ThreatModelModal
+            isOpen={isThreatModalOpen}
+            onClose={() => setIsThreatModalOpen(false)}
+          />
+        )}
+
+        {currentUser && isAdmin && authToken && (
+          <AdminDashboard
+            isOpen={isAdminDashboardOpen}
+            onClose={() => setIsAdminDashboardOpen(false)}
+            authToken={authToken}
+            adminEmail={currentUser.email || ''}
+          />
+        )}
+
+        {currentUser && authToken && (
+          <NotificationSettingsModal
+            isOpen={isNotificationSettingsOpen}
+            onClose={() => setIsNotificationSettingsOpen(false)}
+            authToken={authToken}
+          />
+        )}
       </React.Suspense>
+
+      {currentUser && (
+        <ConfirmDialog
+          isOpen={pendingDelete !== null}
+          title="Delete Reflection?"
+          message={`This will permanently delete "${pendingDelete?.title || ''}" and all of its conversation history from your isolated Firestore partition. This action cannot be undone.`}
+          confirmLabel="Delete Reflection"
+          cancelLabel="Cancel"
+          onConfirm={() => void confirmDeleteInteraction()}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
 
       <Toaster />
     </MotionConfig>

@@ -114,7 +114,7 @@ export const JudgeTourModal: React.FC<JudgeTourModalProps> = ({
                     What is JOURNAL∞?
                   </h3>
                   <p className="text-xs leading-relaxed text-[#A9B8DB]">
-                    JOURNAL∞ is an AI-native personal wisdom engine. Rather than leaving daily journal entries as static dead text, JOURNAL∞ uses <strong>Gemini 3.6</strong> to extract structured personal memories, generate daily reflections, and allow users to query their past experiences conversationally with Evidence-grounded retrieval designed to reduce unsupported answers.
+                    JOURNAL∞ is an AI-native personal wisdom engine. Rather than leaving daily journal entries as static dead text, JOURNAL∞ uses <strong>Gemini</strong> to extract structured personal memories, generate daily reflections, and allow users to query their past experiences conversationally with Evidence-grounded retrieval designed to reduce unsupported answers.
                   </p>
                 </div>
 
@@ -125,7 +125,7 @@ export const JudgeTourModal: React.FC<JudgeTourModalProps> = ({
                       Why does Gemini Matter?
                     </div>
                     <p className="text-[#888] leading-relaxed">
-                      Gemini 3.6 Flash provides 1M+ token context windows for deep multi-journal RAG synthesis, structured JSON memory extraction, and ultra-fast real-time reflection responses.
+                      Gemini's large context windows enable deep multi-journal RAG synthesis, structured JSON memory extraction, and real-time reflection responses.
                     </p>
                   </div>
 
@@ -135,7 +135,7 @@ export const JudgeTourModal: React.FC<JudgeTourModalProps> = ({
                       What Makes It Different?
                     </div>
                     <p className="text-[#888] leading-relaxed">
-                      <strong>Zero Untrusted Consent Mutations:</strong> AI proposes memory candidates, but NEVER mutates your memory bank automatically. <strong>Untrusted Data Isolation:</strong> Journal entries are treated strictly as data payloads, preventing prompt injection attacks.
+                      <strong>Zero Untrusted Consent Mutations:</strong> AI proposes memory candidates, but NEVER mutates your memory bank automatically. <strong>Untrusted Data Isolation:</strong> Journal entries are treated strictly as data payloads, with defenses designed to reduce prompt-injection risk.
                     </p>
                   </div>
 
@@ -272,8 +272,8 @@ export const JudgeTourModal: React.FC<JudgeTourModalProps> = ({
                     <p className="text-[#888]">Express endpoints verify Firebase ID tokens using RS256 JWKS public key cryptography.</p>
                   </div>
                   <div className="rounded-xl border border-[#223056] bg-[#0E1730] p-4 space-y-1.5">
-                    <div className="font-semibold text-[#EEF4FF]">Prompt Injection Immunity</div>
-                    <p className="text-[#888]">Retrieved journal text is wrapped in explicit <code>&lt;RETRIEVED_CONTENT&gt;</code> XML tags and marked untrusted to prevent instruction hijack.</p>
+                    <div className="font-semibold text-[#EEF4FF]">Retrieval Defense</div>
+                    <p className="text-[#888]">Retrieved journal text is wrapped in explicit <code>&lt;RETRIEVED_CONTENT&gt;</code> XML tags and marked untrusted to reduce instruction-hijack risk.</p>
                   </div>
                   <div className="rounded-xl border border-[#223056] bg-[#0E1730] p-4 space-y-1.5">
                     <div className="font-semibold text-[#EEF4FF]">1-Click Data Wipe & Export</div>
@@ -287,7 +287,7 @@ export const JudgeTourModal: React.FC<JudgeTourModalProps> = ({
           {/* Modal Footer */}
           <div className="flex items-center justify-between border-t border-[#223056] bg-[#0E1730] px-6 py-4">
             <p className="text-xs text-[#888]">
-              Ready to evaluate? Launch Instant Demo Mode to try all signature features live.
+              Ready to evaluate? Launch Instant Demo Mode to explore the AI journal & reflection loop live with sample data.
             </p>
             <div className="flex items-center gap-3">
               <button

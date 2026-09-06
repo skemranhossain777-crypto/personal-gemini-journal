@@ -3,22 +3,14 @@ import {
   PenTool,
   Sparkles,
   Brain,
-  Target,
   Calendar,
-  Clock,
   ChevronRight,
   Sun,
   Moon,
   Compass,
-  Award,
-  BookOpen,
-  Heart,
   Plus,
-  ArrowRight,
-  History,
 } from 'lucide-react';
 import type { JournalEntry, Memory, Goal, TimelineEvent, Insight } from '../../data/models';
-import { getOnThisDayEntries } from '../../services/onThisDay';
 
 export interface CalmDashboardViewProps {
   entries?: JournalEntry[];
@@ -62,25 +54,10 @@ export const CalmDashboardView: React.FC<CalmDashboardViewProps> = ({
     });
   }, [entries, now]);
 
-  // On This Day historical entries
-  const onThisDayGroups = useMemo(() => {
-    return getOnThisDayEntries({ entries, currentUserId, targetDate: now });
-  }, [entries, now, currentUserId]);
-
-  // Active goals
-  const activeGoals = useMemo(() => {
-    return goals.filter((g) => g.status === 'active').slice(0, 3);
-  }, [goals]);
-
   // Saved memories
   const recentMemories = useMemo(() => {
     return memories.slice(0, 3);
   }, [memories]);
-
-  // Recent timeline events
-  const recentTimeline = useMemo(() => {
-    return timelineEvents.slice(0, 4);
-  }, [timelineEvents]);
 
   // Daily reflection prompt
   const dailyPrompt = useMemo(() => {
@@ -183,7 +160,7 @@ export const CalmDashboardView: React.FC<CalmDashboardViewProps> = ({
         )}
       </div>
 
-      {/* Grid: Reflection Prompt & On This Day */}
+      {/* Grid: Reflection Prompt */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Daily Reflection Prompt */}
         <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-lg flex flex-col justify-between">
@@ -204,93 +181,6 @@ export const CalmDashboardView: React.FC<CalmDashboardViewProps> = ({
             <Sparkles className="w-4 h-4 text-amber-400" />
             <span>Reflect on This Prompt</span>
           </button>
-        </div>
-
-        {/* On This Day Card */}
-        <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-lg flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-indigo-300">
-              <History className="w-5 h-5" />
-              <h3 className="text-sm font-bold tracking-wide">On This Day</h3>
-            </div>
-
-            {onThisDayGroups.length > 0 && onThisDayGroups[0].entries.length > 0 ? (
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
-                <div className="text-xs font-bold text-indigo-300">
-                  {onThisDayGroups[0].yearsAgo} {onThisDayGroups[0].yearsAgo === 1 ? 'Year' : 'Years'} Ago Today
-                </div>
-                <div className="text-xs text-slate-200 font-medium">
-                  {onThisDayGroups[0].entries[0].title || 'Historical Entry'}
-                </div>
-                <p className="text-xs text-slate-400 line-clamp-2">{onThisDayGroups[0].entries[0].body}</p>
-                <button
-                  onClick={() => onSelectEntry(onThisDayGroups[0].entries[0].id)}
-                  className="text-[11px] text-purple-400 hover:text-purple-300 font-semibold flex items-center gap-1 pt-1"
-                >
-                  <span>Open Original Entry</span>
-                  <ChevronRight className="w-3 h-3" />
-                </button>
-              </div>
-            ) : (
-              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs text-slate-400 space-y-1">
-                <div className="font-semibold text-slate-300">No past entries on this exact date yet.</div>
-                <div>Write an entry today to create memories for your future self to look back on!</div>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => onNavigateToTab('on-this-day')}
-            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-indigo-600/30 text-indigo-200 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1 transition"
-          >
-            <span>Explore On This Day Memories</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Grid: Active Goals & Recent Memories */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Active Goals */}
-        <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-emerald-400">
-              <Target className="w-5 h-5" />
-              <h3 className="text-sm font-bold tracking-wide">Active Goals</h3>
-            </div>
-            <button
-              onClick={() => onNavigateToTab('goals')}
-              className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1"
-            >
-              <span>View All</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {activeGoals.length > 0 ? (
-            <div className="space-y-3">
-              {activeGoals.map((goal) => (
-                <div key={goal.id} className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-200">{goal.title}</span>
-                    <span className="text-[11px] text-emerald-400 font-mono font-semibold">{goal.progress}%</span>
-                  </div>
-                  <div className="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300"
-                      style={{ width: `${goal.progress}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-6 text-center rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
-              <Target className="w-8 h-8 text-slate-600 mx-auto" />
-              <div className="text-xs font-semibold text-slate-300">No active goals yet</div>
-              <div className="text-[11px] text-slate-500">Set your first personal goal to track growth over time.</div>
-            </div>
-          )}
         </div>
 
         {/* Recent Memories */}

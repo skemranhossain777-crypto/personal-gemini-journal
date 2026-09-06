@@ -57,7 +57,7 @@ describe('CalmDashboardView component', () => {
     updatedAt: Timestamp.fromDate(new Date()),
   };
 
-  it('renders serene greeting, primary journaling CTA, reflection prompt, active goals, and memories', () => {
+  it('renders serene greeting, primary journaling CTA, reflection prompt, and memories', () => {
     render(
       <CalmDashboardView
         entries={[mockEntry]}
@@ -74,8 +74,6 @@ describe('CalmDashboardView component', () => {
     expect(screen.getByText(/Today's Journal/i)).toBeInTheDocument();
     expect(screen.getByText('Written Today')).toBeInTheDocument();
     expect(screen.getByText(/Daily Reflection Prompt/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/On This Day/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Active Goals/i)).toBeInTheDocument();
     expect(screen.getByText(/Personal Memories/i)).toBeInTheDocument();
   });
 
@@ -95,7 +93,6 @@ describe('CalmDashboardView component', () => {
 
     expect(screen.getByText(/Welcome to Your Personal Sanctuary/i)).toBeInTheDocument();
     expect(screen.getByText(/You haven't written in your journal today yet/i)).toBeInTheDocument();
-    expect(screen.getByText(/No active goals yet/i)).toBeInTheDocument();
     expect(screen.getByText(/Your memory bank is ready/i)).toBeInTheDocument();
   });
 
@@ -122,7 +119,7 @@ describe('CalmDashboardView component', () => {
     expect(handleOpenComposer).toHaveBeenCalled();
   });
 
-  it('triggers navigation callback when tab view all is clicked', async () => {
+  it('triggers navigation callback when memories view all is clicked', async () => {
     const user = userEvent.setup();
     const handleNavigate = vi.fn();
 
@@ -139,9 +136,9 @@ describe('CalmDashboardView component', () => {
       />
     );
 
-    const viewGoalsBtn = screen.getAllByRole('button', { name: /View All/i })[0];
-    await user.click(viewGoalsBtn);
+    const viewMemoriesBtn = screen.getAllByRole('button', { name: /View All/i })[0];
+    await user.click(viewMemoriesBtn);
 
-    expect(handleNavigate).toHaveBeenCalledWith('goals');
+    expect(handleNavigate).toHaveBeenCalledWith('memories');
   });
 });

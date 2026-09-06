@@ -66,7 +66,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
   // Model actually used by the server fallback ladder (accurate, not the
   // hardcoded promo name).
-  const activeModel = interaction?.modelUsed || 'gemini-3.7-flash';
+  const activeModel = interaction?.modelUsed || 'gemini-3.6-flash';
 
   // Debounced autosave for in-place title edits on existing entries. Skips when
   // unchanged so opening an entry never needs a write.
@@ -279,7 +279,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         messages: updatedMessages,
         summary: data.summary || interaction?.summary,
         tags: data.tags || interaction?.tags || ['Reflection'],
-        modelUsed: data.modelUsed || 'gemini-3.7-flash',
+        modelUsed: data.modelUsed || 'gemini-3.6-flash',
         location: location || interaction?.location || undefined,
         createdAt: interaction?.createdAt || nowIso,
         updatedAt: nowIso,
@@ -467,7 +467,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 What is on your mind today?
               </h3>
               <p className="mx-auto max-w-md text-sm text-[#888]">
-                Write down your thoughts, reflections, or challenges. Gemini 3.x Flash will assist with constructive perspectives, summarization, and creative brainstorming.
+                Write down your thoughts, reflections, or challenges. Gemini will assist with constructive perspectives, summarization, and creative brainstorming.
               </p>
             </div>
 

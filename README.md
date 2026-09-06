@@ -34,7 +34,7 @@ Unlike other AI systems, **JOURNAL∞** enforces strict human agency: **the AI *
 ### 3. AI Reflection Loop 🔄
 - **8 Structured Dimensions**: Generates deep reflections covering *Emotional Tone*, *Key Themes*, *Victories*, *Obstacles*, *Habit Signals*, *Goal Progress*, *Unconscious Patterns*, and *Actionable Advice*.
 - **10 Journaling Modes**: Specialized prompts for *Free Write*, *Morning Clarity*, *Evening Unwind*, *Gratitude*, *Problem Solving*, *Goal Review*, *Habit Audit*, *Emotional Processing*, *Decision Making*, and *Weekly Reflection*.
-- **Multimodal Journaling**: Supports native audio voice transcription and image context analysis via Gemini.
+- **Resilient Model Fallback**: A four-model Gemini fallback ladder keeps the reflection loop online during peak API traffic.
 
 ---
 
@@ -54,7 +54,7 @@ Unlike other AI systems, **JOURNAL∞** enforces strict human agency: **the AI *
          `request.auth.uid == userId`                              │
                        │                                           ▼
                        └─────────────────────────────────► [ Gemini 3.6 Flash ]
-                                                    (four-model fallback ladder Ladder)
+                                                    (four-model fallback ladder)
 ```
 
 ### Technology Stack
@@ -65,17 +65,16 @@ Unlike other AI systems, **JOURNAL∞** enforces strict human agency: **the AI *
 
 ---
 
-## 🤖 Gemini 2.5 Integration & Fallback Ladder
+## 🤖 Gemini 3.6 Flash Integration & Fallback Ladder
 
-JOURNAL∞ utilizes **Gemini 3.6 Flash** for high-speed, structured multimodal generation and 1M context window capability.
+JOURNAL∞ utilizes **Gemini 3.6 Flash** for high-speed, structured generation and long-context capability.
 
-### 5-Model Automated Fallback Ladder
-To guarantee Sequential fallback improves resilience during peak LLM API traffic, the server implements an automated fallback ladder:
-1. `gemini-3.7-flash` (Primary high-performance reasoning)
-2. `gemini-3.6-flash` (Secondary fallback)
-3. `gemini-3.6-flash` (Tertiary fallback)
-4. `gemini-flash-latest` (Quaternary fallback)
-5. `gemini-3.1-flash-lite` (Final lightweight contingency)
+### 4-Model Automated Fallback Ladder
+To improve resilience during peak LLM API traffic, the server implements an automated fallback ladder:
+1. `gemini-3.6-flash` (Primary)
+2. `gemini-3.1-flash-lite` (Lightweight fallback)
+3. `gemini-flash-latest` (Latest stable fallback)
+4. `gemini-3.7-flash` (Contingency fallback)
 
 ### 9 Companion AI Skills
 The backend exposes 9 specialized companion capabilities:
@@ -134,7 +133,7 @@ JOURNAL∞ adheres to strict agentic security engineering principles:
 
 ## 🧪 Comprehensive Automated Test Suite
 
-JOURNAL∞ features 100% test passing across **303 automated tests** in **45 test files**:
+JOURNAL∞ features 100% test passing across **321 automated tests** in **47 test files**, plus a dedicated emulator-backed Firestore security-rules suite (`npm run test:rules`):
 
 ```bash
 # Execute full Vitest test suite
@@ -185,15 +184,11 @@ For complete deployment details and rollback procedures, consult [`docs/DEPLOYME
 
 Judges can evaluate JOURNAL∞ in five minutes using the predictable demonstration path:
 
-1. **Instant Demo Launch**: Click **🏆 Try Instant Demo (5-Min Tour)** on the landing page header.
+1. **Instant Demo Launch**: Click **Explore Demo** or the **Judge 5-Minute Tour** on the landing page header.
 2. **Create Entry**: Write or choose a sample entry in the editor.
-3. **AI Reflection**: Trigger real-time Gemini AI Reflection.
-4. **Memory Candidate**: Review proposed un-saved memory candidates.
-5. **Approve Memory**: Approve candidate into personal memory store.
-6. **Ask My Life**: Ask *"What milestone did we achieve today with Gemini?"*.
-7. **Evidence Answer**: Review grounded citations and quotes.
-8. **Timeline**: Explore the chronological Life Timeline.
-9. **Privacy Center**: Review OWASP security defenses and export options.
+3. **AI Reflection**: Trigger real-time Gemini AI Reflection (sign in with Google to unlock live Gemini calls).
+4. **Signature Experiences**: Review the architecture behind the **Personal Memory Engine**, **Ask My Life RAG**, and **AI Reflection Loop** in the interactive Judge Tour on the landing page.
+5. **Security Posture**: Open the **Threat Model** panel to review Firestore isolation, token validation, prompt-injection defense, and the four-model fallback ladder.
 
 *For complete speaking points and presenter instructions, see [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md).*
 
@@ -202,7 +197,7 @@ Judges can evaluate JOURNAL∞ in five minutes using the predictable demonstrati
 ## 📚 Complete Documentation Sitemap
 
 - [**`docs/ARCHITECTURE.md`**](docs/ARCHITECTURE.md) — Technical System Architecture & System Topology
-- [**`docs/GEMINI_ARCHITECTURE.md`**](docs/GEMINI_ARCHITECTURE.md) — Gemini 2.5 Integration, RAG Pipeline, & Fallback Ladder
+- [**`docs/GEMINI_ARCHITECTURE.md`**](docs/GEMINI_ARCHITECTURE.md) — Gemini 3.6 Flash Integration, RAG Pipeline, & Fallback Ladder
 - [**`docs/SECURITY_AUDIT.md`**](docs/SECURITY_AUDIT.md) — Comprehensive Security Audit & OWASP Defense Report
 - [**`docs/AI_SECURITY_AUDIT.md`**](docs/AI_SECURITY_AUDIT.md) — Adversarial AI Threat Vectors & Prompt Injection Immunity
 - [**`docs/TESTING.md`**](docs/TESTING.md) — Automated Test Suite & Accessibility Verification
@@ -215,5 +210,5 @@ Judges can evaluate JOURNAL∞ in five minutes using the predictable demonstrati
 ---
 
 <p center>
-Built with ❤️ using <strong>Google Cloud Run</strong> and <strong>Google Gemini 2.5</strong>.
+Built with ❤️ using <strong>Google Cloud Run</strong> and <strong>Google Gemini 3.6 Flash</strong>.
 </p>

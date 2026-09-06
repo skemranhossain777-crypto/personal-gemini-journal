@@ -124,7 +124,7 @@ jobs:
             --service-account="journal-staging-sa@${{ secrets.GCP_PROJECT_STAGING }}.iam.gserviceaccount.com" \
             --allow-unauthenticated \
             --labels="dev-tutorial=cloud-run-ai-challenge" \
-            --set-env-vars=FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,"NODE_ENV=production,APP_URL=${{ secrets.STAGING_APP_URL }}" \
+            --set-env-vars=FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653,"NODE_ENV=production,APP_URL=${{ secrets.STAGING_APP_URL }}" \
             --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:latest,GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,ADMIN_EMAILS=journal-admin-emails:latest,FIREBASE_SERVICE_ACCOUNT_JSON=journal-firebase-sa-json:latest"
 
       - name: 12. Execute Automated Staging Smoke Tests
@@ -172,7 +172,7 @@ jobs:
             --service-account="journal-app-sa@${{ secrets.GCP_PROJECT_PROD }}.iam.gserviceaccount.com" \
             --allow-unauthenticated \
             --labels="dev-tutorial=cloud-run-ai-challenge" \
-            --set-env-vars=FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,"NODE_ENV=production,APP_URL=${{ secrets.PROD_APP_URL }}" \
+            --set-env-vars=FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653,"NODE_ENV=production,APP_URL=${{ secrets.PROD_APP_URL }}" \
             --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:latest,GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,ADMIN_EMAILS=journal-admin-emails:latest,FIREBASE_SERVICE_ACCOUNT_JSON=journal-firebase-sa-json:latest"
 
       - name: Production Smoke Tests

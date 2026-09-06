@@ -130,7 +130,7 @@ export const PrivacyCenterView: React.FC<PrivacyCenterViewProps> = ({
           <h2 className="text-xl font-bold tracking-wide">Privacy & Data Governance Center</h2>
         </div>
         <p className="text-xs text-slate-300">
-          You have 100% control over your personal journal data. We never sell your entries or use your private thoughts to train public AI models.
+          You have full control over your personal journal data. We never sell your entries or use your private thoughts to train public AI models.
         </p>
       </div>
 

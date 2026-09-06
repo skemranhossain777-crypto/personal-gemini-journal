@@ -1,17 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Home,
   BookOpen,
   Brain,
   Calendar,
   Sparkles,
-  User,
+  Shield,
   Plus,
   LogOut,
-  Shield,
-  Menu,
-  X,
-  Compass,
 } from 'lucide-react';
 import type { JournalEntry, Memory, Goal, TimelineEvent, Insight } from '../../data/models';
 import { CalmDashboardView } from '../dashboard/CalmDashboardView';
@@ -44,6 +40,11 @@ export interface ResponsiveNavigationShellProps {
   onUpdateEntries?: (entries: JournalEntry[]) => void;
   onUpdateMemories?: (memories: Memory[]) => void;
   onUpdateGoals?: (goals: Goal[]) => void;
+  initialTab?: NavTab;
+  initialEntryId?: string | null;
+  initialComposerNew?: boolean;
+  initialJournalSubview?: 'journal' | 'companion';
+  companionWorkspace?: React.ReactNode;
 }
 
 export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps> = ({
@@ -57,10 +58,16 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
   onUpdateEntries,
   onUpdateMemories,
   onUpdateGoals,
+  initialTab,
+  initialEntryId = null,
+  initialComposerNew = false,
+  initialJournalSubview,
+  companionWorkspace,
 }) => {
-  const [activeTab, setActiveTab] = useState<NavTab>('home');
-  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-  const [isComposerNew, setIsComposerNew] = useState(false);
+  const [activeTab, setActiveTab] = useState<NavTab>(initialTab ?? 'home');
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(initialEntryId ?? null);
+  const [isComposerNew, setIsComposerNew] = useState(initialComposerNew ?? false);
+  const [journalSubview, setJournalSubview] = useState<'journal' | 'companion'>(initialJournalSubview ?? 'journal');
 
   const NAV_ITEMS: { id: NavTab; label: string; icon: React.ReactNode }[] = [
     { id: 'home', label: 'Home', icon: <Home className="w-5 h-5" /> },
@@ -68,28 +75,60 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
     { id: 'memories', label: 'Memories', icon: <Brain className="w-5 h-5" /> },
     { id: 'timeline', label: 'Timeline', icon: <Calendar className="w-5 h-5" /> },
     { id: 'ask-my-life', label: 'Ask My Life', icon: <Sparkles className="w-5 h-5" /> },
-    { id: 'profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
+    { id: 'profile', label: 'Privacy', icon: <Shield className="w-5 h-5" /> },
   ];
 
   const handleOpenComposer = (mode?: string, initialText?: string) => {
     setIsComposerNew(true);
     setEditingEntryId(null);
+    setJournalSubview('journal');
     setActiveTab('journal');
   };
 
   const handleOpenEntry = (entryId: string) => {
     setIsComposerNew(false);
     setEditingEntryId(entryId);
+    setJournalSubview('journal');
     setActiveTab('journal');
   };
 
   const handleNavigateToTab = (tabId: string) => {
-    if (tabId === 'on-this-day') {
-      setActiveTab('timeline');
-    } else if (NAV_ITEMS.some((n) => n.id === tabId)) {
+    if (NAV_ITEMS.some((n) => n.id === tabId)) {
       setActiveTab(tabId as NavTab);
     }
   };
+
+  // Sync composer/companion state from hash routes (#/journal, #/journal/new,
+  // #/journal/:id, #/app) so deep links and the command palette stay wired to
+  // the shell after it mounts.
+  useEffect(() => {
+    const onNav = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#/app')) {
+        setActiveTab('journal');
+        setJournalSubview('companion');
+        return;
+      }
+      if (hash.startsWith('#/journal/new')) {
+        setActiveTab('journal');
+        setJournalSubview('journal');
+        setIsComposerNew(true);
+        setEditingEntryId(null);
+        return;
+      }
+      if (hash.startsWith('#/journal/')) {
+        const id = hash.replace(/^#\/journal\//, '');
+        if (id && id !== 'new') {
+          setActiveTab('journal');
+          setJournalSubview('journal');
+          setIsComposerNew(false);
+          setEditingEntryId(id);
+        }
+      }
+    };
+    window.addEventListener('hashchange', onNav);
+    return () => window.removeEventListener('hashchange', onNav);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#070B16] text-[#D9E2F5] flex flex-col md:flex-row overflow-x-hidden selection:bg-purple-500/30">
@@ -213,16 +252,52 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
             )}
 
             {activeTab === 'journal' && (
-              <JournalWorkspace
-                entryId={editingEntryId}
-                isNew={isComposerNew}
-                onNavigateHome={() => {
-                  setEditingEntryId(null);
-                  setIsComposerNew(false);
-                }}
-                onOpenNew={() => handleOpenComposer()}
-                onOpenEntry={(id) => handleOpenEntry(id)}
-              />
+              <div className="space-y-4">
+                <div
+                  className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-900 border border-slate-800 w-fit"
+                  role="tablist"
+                  aria-label="Journal view"
+                >
+                  {(
+                    [
+                      { id: 'journal', label: 'Journal' },
+                      { id: 'companion', label: 'AI Companion' },
+                    ] as const
+                  ).map((sub) => {
+                    const isActive = journalSubview === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        role="tab"
+                        aria-selected={isActive}
+                        onClick={() => setJournalSubview(sub.id)}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors min-h-[44px] min-w-[44px] ${
+                          isActive
+                            ? 'bg-purple-950/60 text-purple-200 border border-purple-500/30'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {sub.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {journalSubview === 'companion' && companionWorkspace ? (
+                  companionWorkspace
+                ) : (
+                  <JournalWorkspace
+                    entryId={editingEntryId}
+                    isNew={isComposerNew}
+                    onNavigateHome={() => {
+                      setEditingEntryId(null);
+                      setIsComposerNew(false);
+                    }}
+                    onOpenNew={() => handleOpenComposer()}
+                    onOpenEntry={(id) => handleOpenEntry(id)}
+                  />
+                )}
+              </div>
             )}
 
             {activeTab === 'memories' && (

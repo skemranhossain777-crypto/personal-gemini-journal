@@ -12,7 +12,7 @@ const geminiService = new GeminiService();
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local'), override: false });
 
-const app = express();
+export const app = express();
 const PORT = Number(process.env.PORT || 3000);
 
 app.use(express.json({ limit: '2mb' }));
@@ -82,7 +82,27 @@ setInterval(() => {
 // No fragile ESM/CJS dependencies — works in both dev and the bundled prod server.
 
 const FIREBASE_PROJECT_ID = process.env.VITE_FIREBASE_PROJECT_ID || '';
-const FIRESTORE_DATABASE_ID = process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || process.env.FIREBASE_FIRESTORE_DATABASE_ID || '(default)';
+
+// Resolves the Firestore database id with the canonical server-runtime env var
+// taking precedence, keeping legacy/local Vite-oriented names backward-compatible.
+// "(default)" is only an intentional last-resort fallback.
+export function resolveFirestoreDatabaseId(env: NodeJS.ProcessEnv = process.env): string {
+  return (
+    env.FIRESTORE_DATABASE_ID ||
+    env.FIREBASE_FIRESTORE_DATABASE_ID ||
+    env.VITE_FIREBASE_FIRESTORE_DATABASE_ID ||
+    '(default)'
+  );
+}
+
+const FIRESTORE_DATABASE_ID = resolveFirestoreDatabaseId();
+
+// Builds the Firestore REST document-path URL used by all server-side
+// Firestore calls. Centralizing construction keeps every runtime URL consistent
+// with the resolved database id (never a hardcoded "(default)").
+export function buildFirestoreDocumentPath(projectId: string, databaseId: string, documentPath: string, query = ''): string {
+  return `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/${documentPath}${query}`;
+}
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
 
 // ─── Firebase Admin SDK (privileged server writes) ───────────────────────────
@@ -157,7 +177,7 @@ interface AuthenticatedRequest extends Request {
   };
 }
 
-async function verifyFirebaseTokenAsync(req: AuthenticatedRequest, res: Response): Promise<boolean> {
+export async function verifyFirebaseTokenAsync(req: AuthenticatedRequest, res: Response): Promise<boolean> {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Missing or invalid Authorization header' });
@@ -332,8 +352,9 @@ class NotificationService {
 
 // ─── Health Checks (Cloud Monitoring & Load Balancers) ───────────────────────
 
-const getHealthPayload = () => {
+export const getHealthPayload = () => {
   const memory = process.memoryUsage();
+  const resolvedFirestoreDatabaseId = resolveFirestoreDatabaseId();
   return {
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -346,10 +367,14 @@ const getHealthPayload = () => {
     },
     geminiKeyConfigured: Boolean(process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_SECRET),
     mapsKeyConfigured: Boolean(process.env.GOOGLE_MAPS_API_KEY),
+    firestoreDatabaseConfigured: Boolean(resolvedFirestoreDatabaseId && resolvedFirestoreDatabaseId !== '(default)'),
+    firestoreNamedDatabaseConfigured: resolvedFirestoreDatabaseId !== '(default)',
     services: {
       geminiKeyConfigured: Boolean(process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_SECRET),
       mapsKeyConfigured: Boolean(process.env.GOOGLE_MAPS_API_KEY),
       firebaseProjectIdConfigured: Boolean(process.env.VITE_FIREBASE_PROJECT_ID),
+      firestoreDatabaseConfigured: Boolean(resolvedFirestoreDatabaseId && resolvedFirestoreDatabaseId !== '(default)'),
+      firestoreNamedDatabaseConfigured: resolvedFirestoreDatabaseId !== '(default)',
       adminEmailsConfigured: Boolean(process.env.ADMIN_EMAILS),
     },
   };
@@ -362,6 +387,15 @@ app.get('/health', (_req: Request, res: Response) => {
 app.get('/api/health', (_req: Request, res: Response) => {
   res.status(200).json(getHealthPayload());
 });
+
+// ─── Authenticated Diagnostic Endpoint ───────────────────────────────────────
+// Zero-data auth probe used by deploy smoke tests. Protected by the standard
+// Firebase token middleware; returns only an authenticated flag. No Firestore
+// or Gemini calls, no token/claim echo, no secrets.
+export const authVerifyHandler = (_req: Request, res: Response): void => {
+  res.json({ authenticated: true });
+};
+app.get('/api/auth/verify', verifyFirebaseToken, authVerifyHandler);
 
 // ─── Gemini Reflection Endpoint ──────────────────────────────────────────────
 
@@ -584,7 +618,7 @@ app.get('/api/admin/users', verifyFirebaseToken, requireAdmin, async (req: Authe
     }
 
     // Query Firestore for all user documents
-    const firestoreUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE_ID}/documents/users`;
+    const firestoreUrl = buildFirestoreDocumentPath(projectId, FIRESTORE_DATABASE_ID, 'users');
     const fsResp = await fetch(firestoreUrl, {
       headers: { Authorization: `Bearer ${authToken}` },
     });
@@ -684,10 +718,10 @@ app.get('/api/notifications/settings', verifyFirebaseToken, async (req: Authenti
 
     const projectId = FIREBASE_PROJECT_ID;
     const authToken = req.headers.authorization?.slice(7);
-    const docPath = `projects/${projectId}/databases/${FIRESTORE_DATABASE_ID}/documents/${uid}/settings/notifications`;
+    const docPath = buildFirestoreDocumentPath(projectId, FIRESTORE_DATABASE_ID, `${uid}/settings/notifications`);
 
     const fsResp = await fetch(
-      `https://firestore.googleapis.com/v1/${docPath}`,
+      `${docPath}`,
       { headers: { Authorization: `Bearer ${authToken}` } }
     );
 
@@ -721,9 +755,9 @@ app.put('/api/notifications/settings', verifyFirebaseToken, async (req: Authenti
     const authToken = req.headers.authorization?.slice(7);
 
     // Ensure parent document exists
-    const parentPath = `projects/${projectId}/databases/${FIRESTORE_DATABASE_ID}/documents/${uid}`;
+    const parentPath = buildFirestoreDocumentPath(projectId, FIRESTORE_DATABASE_ID, uid);
     await fetch(
-      `https://firestore.googleapis.com/v1/${parentPath}`,
+      `${parentPath}`,
       {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
@@ -731,9 +765,9 @@ app.put('/api/notifications/settings', verifyFirebaseToken, async (req: Authenti
       }
     );
 
-    const settingsPath = `projects/${projectId}/databases/${FIRESTORE_DATABASE_ID}/documents/${uid}/settings/notifications`;
+    const settingsPath = buildFirestoreDocumentPath(projectId, FIRESTORE_DATABASE_ID, `${uid}/settings/notifications`, '?currentDocument.exists=true');
     const fsResp = await fetch(
-      `https://firestore.googleapis.com/v1/${settingsPath}?currentDocument.exists=true`,
+      `${settingsPath}`,
       {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
@@ -755,7 +789,7 @@ app.put('/api/notifications/settings', verifyFirebaseToken, async (req: Authenti
     if (!fsResp.ok) {
       // Create new doc
       await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${FIRESTORE_DATABASE_ID}/documents/${uid}/settings?documentId=notifications`,
+        buildFirestoreDocumentPath(projectId, FIRESTORE_DATABASE_ID, `${uid}/settings`, '?documentId=notifications'),
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
@@ -867,7 +901,11 @@ async function startServer() {
   process.on('SIGINT', () => handleShutdown('SIGINT'));
 }
 
-startServer().catch((err) => {
-  logCloudFormat('ERROR', `Fatal server startup error: ${err?.message || err}`, { error: err });
-  process.exit(1);
-});
+// Start the server unless running under vitest (unit tests import server.ts for
+// route handlers / auth coverage; we must not bind ports or boot Vite there).
+if (!process.env.VITEST) {
+  startServer().catch((err) => {
+    logCloudFormat('ERROR', `Fatal server startup error: ${err?.message || err}`, { error: err });
+    process.exit(1);
+  });
+}

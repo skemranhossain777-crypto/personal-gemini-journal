@@ -20,12 +20,11 @@ The system provides an emotionally intelligent, private, and resilient reflectio
 ## 3. Resilience, Rate Limiting & Execution Engine
 
 ### Model Fallback Ladder
-To ensure reliability during peak AI Studio / Gemini API demand, the system utilizes a 5-tier fallback ladder:
-1. `gemini-3.7-flash` (Primary stable frontier model)
-2. `gemini-3.6-flash`
-3. `gemini-3.6-flash`
-4. `gemini-flash-latest`
-5. `gemini-3.1-flash-lite`
+To ensure reliability during peak AI Studio / Gemini API demand, the system utilizes a 4-tier fallback ladder:
+1. `gemini-3.6-flash` (Primary)
+2. `gemini-3.1-flash-lite`
+3. `gemini-flash-latest`
+4. `gemini-3.7-flash`
 
 ### Retry Policy & Timeout Handling
 - **Hard Timeout Deadline**: Every AI request is wrapped in a hard deadline (`30,000ms`). Requests exceeding this deadline reject with a `TIMEOUT` error (`504 Gateway Timeout`).

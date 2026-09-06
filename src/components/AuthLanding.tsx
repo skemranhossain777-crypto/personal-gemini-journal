@@ -38,7 +38,7 @@ const signatureExperiences = [
     iconColor: 'text-amber-400',
     title: '3. AI Reflection Loop',
     description:
-      'Real-time thought partner with Gemini 3.6 Flash, perspective reframing, and theme extraction.',
+      'Real-time thought partner powered by Gemini, with perspective reframing and theme extraction.',
   },
 ];
 
@@ -90,11 +90,11 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
             variants={fadeUp}
             className="font-serif text-3xl font-bold leading-tight tracking-tight text-[#EEF4FF] sm:text-4xl lg:text-5xl"
           >
-            Your lifelong personal wisdom engine powered by Gemini 3.6 Flash
+            Your lifelong personal wisdom engine powered by Gemini
           </motion.h1>
 
           <motion.p variants={fadeUp} className="text-base leading-relaxed text-[#9FB0D4] sm:text-lg">
-            Turn daily reflections into a structured personal knowledge graph. Extract structured memories, ask natural questions about your past, and reflect deeper with zero risk of prompt injection.
+            Turn daily reflections into a structured personal knowledge graph. Extract structured memories, ask natural questions about your past, and reflect deeper with defenses designed to reduce prompt-injection risk.
           </motion.p>
 
           {/* Authentication Action Box */}
@@ -208,7 +208,7 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
                   <p className="text-xs leading-relaxed text-[#888]">{f.description}</p>
                 </div>
                 <div className="pt-4 border-t border-[#1C2C5E] mt-4 flex items-center justify-between text-[11px] font-semibold text-sky-400">
-                  <span>Gemini 3.6 Flash Powered</span>
+                  <span>Gemini Powered</span>
                   <Compass className="h-3.5 w-3.5" />
                 </div>
               </motion.div>
@@ -226,7 +226,7 @@ export const AuthLanding: React.FC<AuthLandingProps> = ({
               <Lock className="h-4 w-4 text-emerald-400" />
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-[#EEF4FF]">OWASP OWASP-Compliant Data Security</h4>
+              <h4 className="text-sm font-semibold text-[#EEF4FF]">OWASP-Aligned Security Controls</h4>
               <p className="text-xs text-[#888]">
                 Path-isolated Firestore rules (`/users/{'{uid}'}/*`), server token validation, and untrusted payload wrapping.
               </p>

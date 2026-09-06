@@ -69,7 +69,7 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
     expect(await screen.findByText(/Your Life Timeline/i, {}, { timeout: 4000 })).toBeInTheDocument();
 
     // Click Profile tab
-    const profileNavBtns = screen.getAllByRole('button', { name: /Profile/i });
+    const profileNavBtns = screen.getAllByRole('button', { name: /Privacy/i });
     await user.click(profileNavBtns[0]);
     expect(await screen.findByText(/Privacy & Data Governance Center/i, {}, { timeout: 4000 })).toBeInTheDocument();
   }, 15000);
@@ -93,5 +93,31 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
       expect(btn.className).toContain('min-h-[44px]');
       expect(btn.className).toContain('min-w-[44px]');
     });
+  });
+
+  it('renders all six primary nav tabs and hides dev/experimental surfaces', () => {
+    render(
+      <ResponsiveNavigationShell
+        currentUserId="user1"
+        entries={[mockEntry]}
+        memories={[]}
+        goals={[]}
+        timelineEvents={[]}
+      />
+    );
+
+    const desktopNav = screen.getByRole('navigation', { name: /Desktop Primary Navigation/i });
+    const tabs = desktopNav.querySelectorAll('button');
+    expect(tabs.length).toBe(6);
+
+    const labels = Array.from(tabs).map((b) => b.textContent ?? '');
+    expect(labels).toEqual(
+      expect.arrayContaining(['Home', 'Journal', 'Memories', 'Timeline', 'Ask My Life', 'Privacy']),
+    );
+
+    // Dev/experimental surfaces must not be reachable from the primary nav.
+    expect(screen.queryByText(/Design System/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/On This Day/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Voice Journal/i)).not.toBeInTheDocument();
   });
 });

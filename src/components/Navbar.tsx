@@ -70,13 +70,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-serif text-lg font-bold tracking-tight text-[#EEF4FF]">
-                Gemini Reflections
+                JOURNAL∞
               </span>
               <span
                 className="hidden items-center rounded-md border border-[#223056] bg-[#17254F] px-2 py-0.5 text-[10px] font-medium text-sky-400 sm:inline-flex"
-                title="Gemini 3.6 Flash Engine"
+                title="Gemini powered"
               >
-                Gemini 3.x Flash
+                Gemini Engine
               </span>
               {isDemo && (
                 <span className="inline-flex items-center rounded-md border border-blue-800/60 bg-blue-950/50 px-2 py-0.5 text-[10px] font-medium text-sky-300">

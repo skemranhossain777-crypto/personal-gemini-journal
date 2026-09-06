@@ -107,7 +107,7 @@ export const ThreatModelModal: React.FC<ThreatModelModalProps> = ({ isOpen, onCl
                     Model outages, 429 quota exhaustion, or 503 service downtime breaking app state.
                   </td>
                   <td className="p-3 text-[#9FB0D4]">
-                    Automated four-model fallback ladder Ladder (gemini-3.7-flash &rarr; 3.6-flash &rarr; 3.5-flash &rarr; flash-latest &rarr; 3.1-flash-lite).
+                    Automated four-model fallback ladder (gemini-3.6-flash &rarr; gemini-3.1-flash-lite &rarr; gemini-flash-latest &rarr; gemini-3.7-flash).
                   </td>
                   <td className="p-3 font-medium text-emerald-400">Tested & active</td>
                 </tr>
