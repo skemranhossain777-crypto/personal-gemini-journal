@@ -895,10 +895,15 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (_req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.use('*', (_req: Request, res: Response) => {
+      res.sendFile(path.join(distPath, 'index.html'), (err) => {
+        if (err && !res.headersSent) {
+          console.error('[Server SPA Route Error]', err);
+          res.status(500).send('Error loading SPA index.html');
+        }
+      });
     });
   }
 
