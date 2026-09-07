@@ -75,7 +75,7 @@ Empirical verification executed via external HTTP client (`scripts/smoke-test.mj
 
 ## 5. Production Isolation Confirmation
 
-- **Production Service**: `gemini-journal` (URL: `https://gemini-journal-production-618285014094.us-central1.run.app`).
+- **Production Service**: `gemini-journal` (URL: `https://gemini-journal-s7hw7hui2q-uc.a.run.app`).
 - **Production Status**: Production environment was **NOT** modified or deployed during this staging pass. Production deployment remains gated behind manual approval in accordance with `/docs/DEPLOYMENT.md`.
 
 ---

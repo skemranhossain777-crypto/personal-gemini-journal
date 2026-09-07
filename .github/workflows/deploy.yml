@@ -73,14 +73,14 @@ jobs:
         with:
           context: .
           load: true
-          tags: gcr.io/journal-staging-app/journal-app:${{ github.sha }}
+          tags: journal-app:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: 10. Container Vulnerability Scan (Trivy)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: gcr.io/journal-staging-app/journal-app:${{ github.sha }}
+          image-ref: journal-app:${{ github.sha }}
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
@@ -112,20 +112,31 @@ jobs:
 
       - name: Build & Push Container to Staging Registry
         run: |
-          docker build -t gcr.io/${{ secrets.GCP_PROJECT_STAGING }}/journal-app:${{ github.sha }} .
-          docker push gcr.io/${{ secrets.GCP_PROJECT_STAGING }}/journal-app:${{ github.sha }}
+          docker build -t gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }} .
+          docker push gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }}
 
       - name: 11. Deploy Container to Cloud Run (Staging)
         run: |
           gcloud run deploy gemini-journal-staging \
-            --image="gcr.io/${{ secrets.GCP_PROJECT_STAGING }}/journal-app:${{ github.sha }}" \
+            --image="gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }}" \
+            --project="gen-lang-client-0345619653" \
             --region="us-central1" \
             --platform="managed" \
-            --service-account="journal-staging-sa@${{ secrets.GCP_PROJECT_STAGING }}.iam.gserviceaccount.com" \
+            --port="8080" \
+            --service-account="journal-staging-sa@gen-lang-client-0345619653.iam.gserviceaccount.com" \
             --allow-unauthenticated \
             --labels="dev-tutorial=cloud-run-ai-challenge" \
-            --set-env-vars=FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653,"NODE_ENV=production,APP_URL=${{ secrets.STAGING_APP_URL }}" \
+            --set-env-vars="FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653,NODE_ENV=production,APP_URL=${{ secrets.STAGING_APP_URL }}" \
             --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:latest,GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,ADMIN_EMAILS=journal-admin-emails:latest,FIREBASE_SERVICE_ACCOUNT_JSON=journal-firebase-sa-json:latest"
+
+      - name: 11b. Verify Staging Revision Ready & 100% Traffic
+        run: |
+          gcloud run services describe gemini-journal-staging \
+            --project=gen-lang-client-0345619653 --region=us-central1 \
+            --format='value(status.latestReadyRevisionName)' | grep -q 'gemini-journal-staging-'
+          gcloud run services describe gemini-journal-staging \
+            --project=gen-lang-client-0345619653 --region=us-central1 \
+            --format='json' | python3 -c "import json,sys; t=json.load(sys.stdin)['status']['traffic']; assert any(x.get('percent')==100 and x.get('latestRevision') for x in t), 'traffic is not 100% latest'; print('revision ready + 100% traffic OK')"
 
       - name: 12. Execute Automated Staging Smoke Tests
         env:
@@ -159,21 +170,31 @@ jobs:
 
       - name: Tag & Push Container to Production Registry
         run: |
-          docker build -t gcr.io/${{ secrets.GCP_PROJECT_PROD }}/journal-app:${{ github.sha }} -t gcr.io/${{ secrets.GCP_PROJECT_PROD }}/journal-app:latest .
-          docker push gcr.io/${{ secrets.GCP_PROJECT_PROD }}/journal-app:${{ github.sha }}
-          docker push gcr.io/${{ secrets.GCP_PROJECT_PROD }}/journal-app:latest
+          docker build -t gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }} -t gcr.io/gen-lang-client-0345619653/journal-app:latest .
+          docker push gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }}
+          docker push gcr.io/gen-lang-client-0345619653/journal-app:latest
 
       - name: 13. Deploy Container to Cloud Run (Production)
         run: |
-          gcloud run deploy gemini-journal-production \
-            --image="gcr.io/${{ secrets.GCP_PROJECT_PROD }}/journal-app:${{ github.sha }}" \
+          gcloud run deploy gemini-journal \
+            --image="gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }}" \
+            --project="gen-lang-client-0345619653" \
             --region="us-central1" \
             --platform="managed" \
-            --service-account="journal-app-sa@${{ secrets.GCP_PROJECT_PROD }}.iam.gserviceaccount.com" \
+            --port="3000" \
             --allow-unauthenticated \
             --labels="dev-tutorial=cloud-run-ai-challenge" \
-            --set-env-vars=FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653,"NODE_ENV=production,APP_URL=${{ secrets.PROD_APP_URL }}" \
+            --set-env-vars="FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653,NODE_ENV=production,APP_URL=${{ secrets.PROD_APP_URL }}" \
             --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:latest,GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,ADMIN_EMAILS=journal-admin-emails:latest,FIREBASE_SERVICE_ACCOUNT_JSON=journal-firebase-sa-json:latest"
+
+      - name: 13b. Verify Production Revision Ready & 100% Traffic
+        run: |
+          gcloud run services describe gemini-journal \
+            --project=gen-lang-client-0345619653 --region=us-central1 \
+            --format='value(status.latestReadyRevisionName)' | grep -q 'gemini-journal-'
+          gcloud run services describe gemini-journal \
+            --project=gen-lang-client-0345619653 --region=us-central1 \
+            --format='json' | python3 -c "import json,sys; t=json.load(sys.stdin)['status']['traffic']; assert any(x.get('percent')==100 and x.get('latestRevision') for x in t), 'traffic is not 100% latest'; print('revision ready + 100% traffic OK')"
 
       - name: Production Smoke Tests
         env:

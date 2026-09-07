@@ -102,10 +102,10 @@ firebase deploy --only firestore:rules
 ### Cloud Run
 ```bash
 gcloud services enable run.googleapis.com secretmanager.googleapis.com firestore.googleapis.com
-gcloud run deploy gemini-journal-reflections \
+gcloud run deploy gemini-journal \
   --source . --platform managed --region us-central1 --allow-unauthenticated \
-  --set-secrets="GEMINI_API_KEY=GEMINI_API_KEY:latest" --port 3000
-gcloud run services update gemini-journal-reflections \
+  --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:latest" --port 3000
+gcloud run services update gemini-journal \
   --update-labels=dev-tutorial=cloud-run-ai-challenge --region=us-central1
 ```
 

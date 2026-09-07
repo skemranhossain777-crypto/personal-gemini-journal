@@ -103,8 +103,26 @@ async function runSmokeTests() {
     } else {
       console.log('✅ GET /api/health OK');
     }
-  } catch (err) {
+} catch (err) {
     console.error(`❌ API Health check exception: ${err.message}`);
+    failed = true;
+  }
+
+  // 2b. Invalid-token rejection on the authenticated endpoint. A live deploy
+  // must REJECT bad credentials (401/400). Success (200) here is a security failure.
+  try {
+    console.log('[Smoke Test] Testing GET /api/auth/verify with invalid token ...');
+    const res = await fetchUrl('/api/auth/verify', {
+      headers: { Authorization: 'Bearer invalid.token.garbage' },
+    });
+    if (res.statusCode !== 401 && res.statusCode !== 400) {
+      console.error(`❌ Invalid-token rejection check failed with HTTP ${res.statusCode} (expected 401/400)`);
+      failed = true;
+    } else {
+      console.log(`✅ GET /api/auth/verify rejected invalid token (HTTP ${res.statusCode})`);
+    }
+  } catch (err) {
+    console.error(`❌ Invalid-token rejection check exception: ${err.message}`);
     failed = true;
   }
 
@@ -115,7 +133,7 @@ async function runSmokeTests() {
     if (res.statusCode !== 200) {
       console.error(`❌ Root URL failed with HTTP ${res.statusCode}`);
       failed = true;
-    } else if (!res.data.includes('<html') && !res.data.includes('JOURNAL')) {
+} else if (!res.data.includes('<html') && !res.data.includes('JOURNAL')) {
       console.error('❌ Root URL did not return expected HTML document');
       failed = true;
     } else {
@@ -123,6 +141,33 @@ async function runSmokeTests() {
     }
   } catch (err) {
     console.error(`❌ Root URL exception: ${err.message}`);
+    failed = true;
+  }
+
+  // 3b. Bundled static assets must all return HTTP 200 (catches missing/hashed-asset 404s).
+  try {
+    console.log('[Smoke Test] Verifying static asset bundles ...');
+    const root = await fetchUrl('/');
+    const assetPaths = [
+      ...(root.data.match(/(?:src|href)="([^"]+\.(?:js|css))"/g) || []),
+    ].map((m) => m.replace(/(?:src|href)="([^"]+\.(?:js|css))"/, '$1'));
+
+    const unique = [...new Set(assetPaths)];
+    if (unique.length === 0) {
+      console.error('❌ No static asset references found in root HTML');
+      failed = true;
+    }
+    for (const p of unique) {
+      const res = await fetchUrl(p);
+      if (res.statusCode !== 200) {
+        console.error(`❌ Asset ${p} returned HTTP ${res.statusCode}`);
+        failed = true;
+      } else {
+        console.log(`✅ Asset ${p} HTTP 200`);
+      }
+    }
+  } catch (err) {
+    console.error(`❌ Static asset check exception: ${err.message}`);
     failed = true;
   }
 

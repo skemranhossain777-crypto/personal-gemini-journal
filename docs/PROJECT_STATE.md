@@ -31,7 +31,7 @@ Browser (React 19 SPA, static assets)
 
 - Hosting live site: `https://gen-lang-client-0345619653.web.app`
 - Cloud Run service `gemini-journal`, region `us-central1`
-  - Canonical URL (from `gcloud`): `https://gemini-journal-production-618285014094.us-central1.run.app` (HTTP 200 verified)
+  - Canonical URL (from `gcloud`): `https://gemini-journal-s7hw7hui2q-uc.a.run.app` (HTTP 200 verified)
   - Regional URL also serves: `https://gemini-journal-618285014094.us-central1.run.app` (HTTP 200 verified)
   - Latest live revision: `gemini-journal-00005-czm`
   - Env injected at runtime: `GEMINI_API_KEY` (Secret Manager, key name `GEMINI_API_KEY`, version `latest`) and `VITE_FIREBASE_PROJECT_ID`. All other `VITE_*` config is baked at build time / falls back to the committed client config (see 1.4).

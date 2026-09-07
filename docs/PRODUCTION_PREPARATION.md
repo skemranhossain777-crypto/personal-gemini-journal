@@ -27,12 +27,12 @@ JOURNAL∞ operates across three isolated deployment tiers:
                 │
                 ▼ (Git Branch: main -> PR)
        ┌────────────────────────┐
-       │     STAGING (stg)      │ ──► GCP Project: journal-staging-app
+       │     STAGING (stg)      │ ──► GCP Project: gen-lang-client-0345619653
        └────────────────────────┘     Isolated Staging Firestore / Storage
                 │                     Staging Cloud Run Service
                 ▼ (Tagged Release / Prod Branch)
        ┌────────────────────────┐
-       │    PRODUCTION (prod)   │ ──► GCP Project: journal-prod-app
+       │    PRODUCTION (prod)   │ ──► GCP Project: gen-lang-client-0345619653
        └────────────────────────┘     Production Firestore & Multi-Region GCS
                                       Secret Manager Injected Keys
                                       Enforced HTTPS & Strict HSTS
@@ -147,27 +147,27 @@ Run the following commands to provision secrets in GCP and deploy to Cloud Run:
 
 ```bash
 # 1. Enable Secret Manager API
-gcloud services enable secretmanager.googleapis.com --project=journal-prod-app
+gcloud services enable secretmanager.googleapis.com --project=gen-lang-client-0345619653
 
 # 2. Provision Production Secrets
-echo -n "YOUR_GEMINI_API_KEY" | gcloud secrets create journal-gemini-api-key --data-file=- --project=journal-prod-app
-echo -n "YOUR_MAPS_API_KEY" | gcloud secrets create journal-maps-api-key --data-file=- --project=journal-prod-app
-echo -n "admin@domain.com" | gcloud secrets create journal-admin-emails --data-file=- --project=journal-prod-app
-gcloud secrets create journal-firebase-sa-json --data-file="./sa-keys/firebase-admin.json" --project=journal-prod-app
+echo -n "YOUR_GEMINI_API_KEY" | gcloud secrets create journal-gemini-api-key --data-file=- --project=gen-lang-client-0345619653
+echo -n "YOUR_MAPS_API_KEY" | gcloud secrets create journal-maps-api-key --data-file=- --project=gen-lang-client-0345619653
+echo -n "admin@domain.com" | gcloud secrets create journal-admin-emails --data-file=- --project=gen-lang-client-0345619653
+gcloud secrets create journal-firebase-sa-json --data-file="./sa-keys/firebase-admin.json" --project=gen-lang-client-0345619653
 
 # 3. Grant IAM Secret Accessor Role to Cloud Run Service Account
-gcloud projects add-iam-policy-binding journal-prod-app \
-  --member="serviceAccount:journal-app-sa@journal-prod-app.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding gen-lang-client-0345619653 \
+  --member="serviceAccount:journal-app-sa@gen-lang-client-0345619653.iam.gserviceaccount.com" \
   --role="roles/secretmanager.secretAccessor"
 
 # 4. Deploy Container to Cloud Run
-gcloud run deploy gemini-journal-production \
-  --image="gcr.io/journal-prod-app/journal-app:latest" \
+gcloud run deploy gemini-journal \
+  --image="gcr.io/gen-lang-client-0345619653/journal-app:latest" \
   --region="us-central1" \
   --platform="managed" \
-  --service-account="journal-app-sa@journal-prod-app.iam.gserviceaccount.com" \
+  --service-account="journal-app-sa@gen-lang-client-0345619653.iam.gserviceaccount.com" \
   --allow-unauthenticated \
-  --set-env-vars="NODE_ENV=production,APP_URL=https://journal.yourdomain.com,VITE_FIREBASE_PROJECT_ID=journal-prod-app" \
+  --set-env-vars="NODE_ENV=production,APP_URL=https://journal.yourdomain.com,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653" \
   --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:latest,\
 GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,\
 ADMIN_EMAILS=journal-admin-emails:latest,\

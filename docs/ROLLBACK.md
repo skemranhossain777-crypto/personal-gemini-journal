@@ -1,6 +1,6 @@
 # PRODUCTION ROLLBACK & DISASTER RECOVERY PLAYBOOK 🔄
 
-> **Target Service:** `gemini-journal-staging` / `gemini-journal-prod`  
+> **Target Service:** `gemini-journal` / `gemini-journal-staging`
 > **Platform:** Google Cloud Run + Google Cloud Secret Manager + Cloud Firestore  
 > **Goal:** Zero-downtime, 1-command rollback capability to previous healthy container revisions without database corruption or data loss.
 
@@ -43,7 +43,20 @@ Shift 100% of user traffic to the previous healthy revision ID (`gemini-journal-
 ```bash
 gcloud run services update-traffic gemini-journal-staging \
   --to-revisions gemini-journal-staging-00042-abc=100 \
-  --region us-central1
+  --region us-central1 \
+  --project gen-lang-client-0345619653
+```
+
+### Step 2b: Production Rollback (same mechanism, authoritative service `gemini-journal`)
+```bash
+# List revisions
+gcloud run revisions list --service gemini-journal --region us-central1
+
+# Shift 100% back to the previous healthy production revision
+gcloud run services update-traffic gemini-journal \
+  --to-revisions gemini-journal-00004-rws=100 \
+  --region us-central1 \
+  --project gen-lang-client-0345619653
 ```
 
 ### Step 3: Canary Traffic Splitting (Optional Gradual Rollback)

@@ -1,6 +1,6 @@
 # PRODUCTION OPERATIONS, MONITORING, & ALERTING PLAYBOOK 🚨
 
-> **Target Service:** `gemini-journal-staging` / `gemini-journal-prod`  
+> **Target Service:** `gemini-journal` / `gemini-journal-staging`
 > **Platform:** Google Cloud Run + Google Cloud Logging + Google Cloud Monitoring  
 > **Privacy Mandate:** **Zero Unnecessary PII Logging**. Journal entry content, body text, and session tokens MUST NEVER be printed to application stdout/stderr or log sinks.
 

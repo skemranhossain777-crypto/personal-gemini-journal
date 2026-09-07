@@ -1,7 +1,7 @@
 # PRODUCTION SMOKE TEST REPORT 🚀
 
-> **Target Environment:** Production Cloud Run (`gemini-journal-staging`)
-> **Production Endpoint:** `https://gemini-journal-staging-618285014094.us-central1.run.app`
+> **Target Environment:** Production Cloud Run (`gemini-journal`)
+> **Production Endpoint:** `https://gemini-journal-s7hw7hui2q-uc.a.run.app`
 > **Execution Date:** 2026-09-06
 > **Auditor:** Antigravity AI & Automated E2E Test Suite
 > **Status:** **PASS — PRODUCTION CERTIFIED**
@@ -24,7 +24,7 @@
 ## 🧪 16 Core User Flow Verification Results
 
 ### 1. Open Application
-- **Action:** Request root production URL `https://gemini-journal-staging-618285014094.us-central1.run.app/`.
+- **Action:** Request root production URL `https://gemini-journal-s7hw7hui2q-uc.a.run.app/`.
 - **Observation:** Page loads instantly with dark aurora theme, Google Sign-In button, and 5-Minute Judge Tour badge pill.
 - **Evidence:** HTTP 200 OK response; HTML containing `JOURNAL∞` branding returned (`scripts/smoke-test.mjs`).
 - **Status:** `PASS`

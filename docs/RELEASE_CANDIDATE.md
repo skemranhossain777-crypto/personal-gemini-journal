@@ -3,7 +3,7 @@
 > **Document Version**: 1.0.0
 > **Status**: APPROVED FOR PRODUCTION RELEASE CANDIDATE
 > **Evaluation Date**: September 6, 2026
-> **Target Release Environment**: Google Cloud Run Production (`gemini-journal-production`)
+> **Target Release Environment**: Google Cloud Run Production (`gemini-journal`)
 > **Overall Release Candidate Score**: **100 / 100 (10 / 10 Across All Categories)**
 
 ---
@@ -69,7 +69,7 @@ This document presents the official **Release Candidate (RC) Audit** for **JOURN
 > Security, authentication, prompt injection defenses, and error leakage controls are fully active.
 
 ### 3.3 Medium Issues
-- **M-1: Production Secret Provisioning Pre-Requisite**: Before triggering the `deploy-production` GitHub Actions approval gate, administrators must ensure `journal-gemini-api-key`, `journal-maps-api-key`, `journal-admin-emails`, and `journal-firebase-sa-json` exist in GCP Secret Manager for project `journal-prod-app`.
+- **M-1: Production Secret Provisioning Pre-Requisite**: Before triggering the `deploy-production` GitHub Actions approval gate, administrators must ensure `journal-gemini-api-key`, `journal-maps-api-key`, `journal-admin-emails`, and `journal-firebase-sa-json` exist in GCP Secret Manager for project `gen-lang-client-0345619653`.
 
 ### 3.4 Polish Opportunities (Post-Release Backlog)
 1. **P-1: Progressive Web App (PWA) Manifest**: Add `manifest.json` and service worker offline caching for native installability on iOS and Android home screens.

@@ -43,8 +43,8 @@ The GitHub Actions workflow executes 13 mandatory pipeline steps across 4 isolat
           ▼
  ┌────────────────────────────────────────────────────────┐
  │ STAGE 3: Staging Deployment & Smoke Tests (11-12)      │
- │ 11. Deploy Container to Cloud Run (journal-staging)    │
- │ 12. Automated Staging Smoke Tests (npm run smoke)       │
+│ 11. Deploy Container to Cloud Run (gemini-journal-staging)    │
+│ 12. Automated Staging Smoke Tests (npm run smoke)       │
  └────────────────────────────────────────────────────────┘
           │ (Passes)
           ▼
@@ -81,7 +81,7 @@ The GitHub Actions workflow executes 13 mandatory pipeline steps across 4 isolat
 13. **Production Deployment Approval**:
     - Enforces GitHub Environment Protection (`environment: production`).
     - Requires designated engineering leads to manually review staging smoke test logs and approve the deployment in GitHub UI.
-    - Upon approval, tags container image as `latest` and deploys to Cloud Run service `gemini-journal-production`.
+    - Upon approval, tags container image as `latest` and deploys to Cloud Run service `gemini-journal` (the authoritative production service).
 
 ---
 
@@ -105,23 +105,20 @@ Cloud Run maintains an immutable history of all previous revisions. To instantly
 ```bash
 # 1. List past revisions to identify the previous healthy revision ID
 gcloud run revisions list \
-  --service=gemini-journal-production \
+  --service=gemini-journal \
   --region=us-central1 \
-  --project=journal-prod-app
+  --project=gen-lang-client-0345619653
 
 # Example output:
-# REVISION                             ACTIVE  CREATED
-# gemini-journal-production-00042-abc     YES     2026-09-06 11:40
-# gemini-journal-production-00041-xyz             2026-09-06 09:15
+# REVISION                   ACTIVE  CREATED
+# gemini-journal-00042-abc     YES     2026-09-06 11:40
+# gemini-journal-00041-xyz             2026-09-06 09:15
 
 # 2. Revert 100% of production traffic to the previous healthy revision (e.g., 00041-xyz)
-gcloud run services update-traffic gemini-journal-production \
-  --to-revisions=gemini-journal-production-00041-xyz=100 \
+gcloud run services update-traffic gemini-journal \
+  --to-revisions=gemini-journal-00041-xyz=100 \
   --region=us-central1 \
-  --project=journal-prod-app
-
-# 3. Verify health status on production domain
-node scripts/smoke-test.mjs https://journal.yourdomain.com
+  --project=gen-lang-client-0345619653
 ```
 
 ### 5.2 Procedure B: Re-deploying Previous Immutable Container Image
@@ -131,11 +128,11 @@ If a new revision needs to be explicitly created from a prior container SHA:
 # Deploy previous git commit SHA image to Cloud Run production
 PREVIOUS_GOOD_SHA="abc1234def5678"
 
-gcloud run deploy gemini-journal-production \
-  --image="gcr.io/journal-prod-app/journal-app:${PREVIOUS_GOOD_SHA}" \
+gcloud run deploy gemini-journal \
+  --image="gcr.io/gen-lang-client-0345619653/journal-app:${PREVIOUS_GOOD_SHA}" \
   --region="us-central1" \
   --platform="managed" \
-  --project=journal-prod-app
+  --project=gen-lang-client-0345619653
 ```
 
 ### 5.3 Procedure C: Secret Manager Secret Rollback
@@ -143,13 +140,13 @@ If a secret rotation caused API failures (e.g., corrupted `GEMINI_API_KEY` or Se
 
 ```bash
 # 1. List versions of the target secret
-gcloud secrets versions list journal-gemini-api-key --project=journal-prod-app
+gcloud secrets versions list journal-gemini-api-key --project=gen-lang-client-0345619653
 
 # 2. Update Cloud Run service to pin secret to the prior working version ID (e.g., version 1)
-gcloud run services update gemini-journal-production \
+gcloud run services update gemini-journal \
   --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:1" \
   --region=us-central1 \
-  --project=journal-prod-app
+  --project=gen-lang-client-0345619653
 ```
 
 ### 5.4 Procedure D: Firestore Rules / Indexes Rollback
@@ -158,8 +155,35 @@ If a Firestore security rules update caused database authorization blocks:
 ```bash
 # Re-deploy previous rule definition from git tag/commit
 git checkout <previous-release-tag> -- firestore.rules
-firebase deploy --only firestore:rules --project journal-prod-app
+firebase deploy --only firestore:rules --project gen-lang-client-0345619653
 ```
+
+---
+
+## 5.5 Shell Quoting Hazards (PowerShell / Windows)
+
+> **CRITICAL RULE**: When running `gcloud run deploy` from **Windows PowerShell**, the
+> comma-separated `--set-env-vars` and `--set-secrets` arguments MUST be **single-quoted**
+> (`'...'`). PowerShell parses an unquoted comma list as an array and silently flattens it into
+> one giant environment-variable value.
+
+**Correct (PowerShell):**
+```powershell
+gcloud run deploy gemini-journal-staging --image="gcr.io/gen-lang-client-0345619653/journal-app:latest" `
+  --region=us-central1 --project=gen-lang-client-0345619653 --port=8080 `
+  --set-env-vars='FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653,NODE_ENV=production,APP_URL=https://gemini-journal-staging-s7hw7hui2q-uc.a.run.app' `
+  --set-secrets='GEMINI_API_KEY=journal-gemini-api-key:latest,GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,ADMIN_EMAILS=journal-admin-emails:latest,FIREBASE_SERVICE_ACCOUNT_JSON=journal-firebase-sa-json:latest'
+```
+
+**Wrong (PowerShell) — created a malformed `FIRESTORE_DATABASE_ID` value on 2026-09-07:**
+```powershell
+gcloud run deploy ... --set-env-vars=FIRESTORE_DATABASE_ID=ai-...,VITE_FIREBASE_PROJECT_ID=... # DO NOT DO THIS
+```
+
+**Always preferred:** run deploys from **CI (GitHub Actions / bash)** or a POSIX shell where each
+flag is a single already-quoted token. After any manual deploy, verify the revision's environment
+with `gcloud run revisions describe <rev> --format='json'` and confirm each variable is its own
+`name`/`value` pair, then run `npm run smoke` against the service URL.
 
 ---
 
@@ -170,8 +194,10 @@ Configure the following secrets in GitHub Repository Settings (`Settings -> Secr
 | Secret Name | Description | Environment Scope |
 | :--- | :--- | :--- |
 | `GCP_SA_KEY_STAGING` | Service Account JSON for Staging deployment | `staging` |
-| `GCP_PROJECT_STAGING` | GCP Staging Project ID (`journal-staging-app`) | `staging` |
-| `STAGING_APP_URL` | Base URL of staging service (`https://staging.yourdomain.com`) | `staging` |
+| `STAGING_APP_URL` | Base URL of staging service (`https://gemini-journal-staging-s7hw7hui2q-uc.a.run.app`) | `staging` |
 | `GCP_SA_KEY_PROD` | Service Account JSON for Production deployment | `production` |
-| `GCP_PROJECT_PROD` | GCP Production Project ID (`journal-prod-app`) | `production` |
-| `PROD_APP_URL` | Base URL of production service (`https://journal.yourdomain.com`) | `production` |
+| `PROD_APP_URL` | Base URL of production service (`https://gemini-journal-s7hw7hui2q-uc.a.run.app`) | `production` |
+
+> Note: `GCP_PROJECT_STAGING` / `GCP_PROJECT_PROD` are **no longer required**. The pipeline
+> hardcodes the single authoritative project `gen-lang-client-0345619653` so CI can never deploy
+> to an unintended project, and never echoes a project value into command output.
