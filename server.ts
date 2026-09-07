@@ -282,7 +282,13 @@ class NotificationService {
   static async sendSlack(webhookUrl: string, title: string, summary: string, mode: string): Promise<boolean> {
     if (!this.isAllowedWebhookUrl(webhookUrl)) return false;
     try {
-      const resp = await fetch(webhookUrl, {
+      const parsed = new URL(webhookUrl);
+      if (parsed.protocol !== 'https:') return false;
+      if (parsed.hostname !== 'hooks.slack.com') return false;
+      if (!parsed.pathname.startsWith('/services/')) return false;
+
+      const safeWebhookUrl = parsed.toString();
+      const resp = await fetch(safeWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -308,7 +314,13 @@ class NotificationService {
   static async sendDiscord(webhookUrl: string, title: string, summary: string, mode: string): Promise<boolean> {
     if (!this.isAllowedWebhookUrl(webhookUrl)) return false;
     try {
-      const resp = await fetch(webhookUrl, {
+      const parsed = new URL(webhookUrl);
+      if (parsed.protocol !== 'https:') return false;
+      if (parsed.hostname !== 'discord.com') return false;
+      if (!parsed.pathname.startsWith('/api/webhooks/')) return false;
+
+      const safeWebhookUrl = parsed.toString();
+      const resp = await fetch(safeWebhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
