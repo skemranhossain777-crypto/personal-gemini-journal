@@ -437,15 +437,21 @@ function AppShell() {
     <RequireAuth>
       <ResponsiveNavigationShell
         currentUserId={currentUser.uid}
+        user={{
+          uid: currentUser.uid,
+          displayName: currentUser.source?.displayName ?? currentUser.displayName,
+          email: currentUser.source?.email ?? currentUser.email,
+          photoURL: currentUser.source?.photoURL ?? currentUser.photoURL,
+          providerData: currentUser.source?.providerData ?? [],
+        }}
         entries={shellEntries}
         memories={shellMemories}
         goals={shellGoals}
         timelineEvents={shellTimelineEvents}
         insights={shellInsights}
         onSignOut={() => void signOut()}
-        onUpdateEntries={(entries) => setShellEntries(entries)}
-        onUpdateMemories={(memories) => setShellMemories(memories)}
-        onUpdateGoals={(goals) => setShellGoals(goals)}
+        isDemo={currentUser.isDemo}
+        aiSessions={interactions}
         initialTab={initialShellTab.tab}
         initialEntryId={initialShellTab.entryId}
         initialComposerNew={initialShellTab.isNew}

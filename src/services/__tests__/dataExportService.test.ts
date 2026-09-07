@@ -10,6 +10,7 @@ import {
   ExportError,
 } from '../dataExportService';
 import type { JournalEntry, Memory, Goal } from '../../data/models';
+import type { JournalInteraction } from '../../types';
 
 describe('dataExportService multi-format export & security rules', () => {
   const mockEntry1: JournalEntry = {
@@ -176,5 +177,97 @@ describe('dataExportService multi-format export & security rules', () => {
       currentUserId: 'user1',
     });
     expect(verifyExportIntegrity(csv, 'csv')).toBe(true);
+  });
+
+  it('includes the owner\'s AI conversations in JSON export and never foreign sessions', () => {
+    const myConv: JournalInteraction = {
+      id: 'conv_1',
+      userId: 'user1',
+      title: 'Career Reflection',
+      mode: 'reflect',
+      messages: [],
+      summary: 'Reflected on career options',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const foreignConv: JournalInteraction = { ...myConv, id: 'conv_2', userId: 'user2' };
+
+    const jsonStr = generateJsonExport({
+      entries: [],
+      memories: [],
+      goals: [],
+      habits: [],
+      interactions: [myConv, foreignConv],
+      currentUserId: 'user1',
+    });
+
+    const parsed = JSON.parse(jsonStr);
+    expect(parsed.counts.aiConversations).toBe(1);
+    expect(parsed.aiConversations.some((c: any) => c.id === 'conv_2')).toBe(false);
+    expect(parsed.aiConversations[0].userId).toBeUndefined();
+    expect(parsed.aiConversations[0].summary).toBe('Reflected on career options');
+  });
+
+  it('renders an AI Conversations section in Markdown export', () => {
+    const conv: JournalInteraction = {
+      id: 'conv_1',
+      userId: 'user1',
+      title: 'Evening Reflection',
+      mode: 'reflect',
+      messages: [],
+      summary: 'Calm wrap-up of the day',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    const md = generateMarkdownExport({
+      entries: [mockEntry1],
+      memories: [],
+      goals: [],
+      interactions: [conv, { ...conv, userId: 'user2' }],
+      currentUserId: 'user1',
+    });
+
+    expect(md).toContain('## 💬 AI Conversations');
+    expect(md).toContain('**Evening Reflection**');
+    expect(md).not.toContain('user2');
+  });
+
+  it('rejects exports with an empty currentUserId (UNAUTHORIZED)', async () => {
+    await expect(
+      exportJournalDataAsync({ entries: [mockEntry1], currentUserId: '', format: 'json' })
+    ).rejects.toBeInstanceOf(ExportError);
+    await expect(
+      exportJournalDataAsync({ entries: [mockEntry1], currentUserId: '', format: 'json' })
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+
+  it('rejects unsupported export formats (INVALID_FORMAT)', async () => {
+    await expect(
+      exportJournalDataAsync({ entries: [mockEntry1], currentUserId: 'user1', format: 'xml' as any })
+    ).rejects.toMatchObject({ code: 'INVALID_FORMAT' });
+  });
+
+  it('reports itemCount across every included collection, not just entries', async () => {
+    const conv: JournalInteraction = {
+      id: 'conv_1',
+      userId: 'user1',
+      title: 'Evening Reflection',
+      mode: 'reflect',
+      messages: [],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    const result = await exportJournalDataAsync({
+      entries: [mockEntry1],
+      memories: [mockMemory],
+      goals: [mockGoal],
+      interactions: [conv],
+      currentUserId: 'user1',
+      format: 'json',
+    });
+
+    expect(result.itemCount).toBe(4);
   });
 });

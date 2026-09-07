@@ -1,13 +1,4 @@
-import type {
-  JournalEntry,
-  Memory,
-  Goal,
-  Habit,
-  TimelineEvent,
-  Insight,
-  AiInteraction,
-  UserPreferences,
-} from '../data/models';
+import type { JournalEntry, Memory, Goal, AiInteraction } from '../data/models';
 import { askMyLifeQuery } from './askMyLife';
 
 export interface PrivacyMetrics {
@@ -17,14 +8,6 @@ export interface PrivacyMetrics {
   goalsCount: number;
   aiInteractionsCount: number;
   voiceDataCount: number;
-}
-
-export interface UserAiControls {
-  enableAiAssistance: boolean;
-  enableMemorySuggestions: boolean;
-  enableHistoricalContext: boolean;
-  enableContextualReflections: boolean;
-  excludePrivateEntriesFromAi: boolean;
 }
 
 export class PrivacyActionError extends Error {
@@ -78,125 +61,11 @@ export function getPrivacyMetrics(params: {
 }
 
 /**
- * Generates a complete, structured JSON export payload of all user data.
- */
-export function exportUserDataPayload(params: {
-  entries: JournalEntry[];
-  memories: Memory[];
-  goals: Goal[];
-  habits?: Habit[];
-  preferences?: UserPreferences;
-  currentUserId: string;
-}) {
-  const { entries, memories, goals, habits = [], preferences, currentUserId } = params;
-
-  if (!currentUserId) {
-    throw new PrivacyActionError('Security Violation: Unauthorized export attempt.', 'UNAUTHORIZED');
-  }
-
-  const userEntries = entries.filter((e) => (e as any).uid === currentUserId);
-  const userMemories = memories.filter((m) => (m as any).uid === currentUserId);
-  const userGoals = goals.filter((g) => (g as any).uid === currentUserId);
-  const userHabits = habits.filter((h) => (h as any).uid === currentUserId);
-
-  return {
-    exportVersion: '1.0',
-    exportedAt: new Date().toISOString(),
-    userId: currentUserId,
-    summary: {
-      totalEntries: userEntries.length,
-      totalMemories: userMemories.length,
-      totalGoals: userGoals.length,
-      totalHabits: userHabits.length,
-    },
-    journalEntries: userEntries,
-    memories: userMemories,
-    goals: userGoals,
-    habits: userHabits,
-    preferences: preferences || null,
-  };
-}
-
-/**
- * Deletes AI Memories for a user. Returns remaining memories array.
- */
-export function deleteUserMemories(params: {
-  memories: Memory[];
-  currentUserId: string;
-  confirmed: boolean;
-}): Memory[] {
-  const { memories, currentUserId, confirmed } = params;
-
-  if (!currentUserId) {
-    throw new PrivacyActionError('Security Violation: Unauthorized memory deletion attempt.', 'UNAUTHORIZED');
-  }
-
-  if (!confirmed) {
-    throw new PrivacyActionError('Explicit confirmation required to delete memories.', 'CONFIRMATION_REQUIRED');
-  }
-
-  // Filter out memories belonging to currentUserId
-  return memories.filter((m) => (m as any).uid !== currentUserId);
-}
-
-/**
- * Deletes Journal Entries for a user. Returns remaining entries array.
- */
-export function deleteUserJournalData(params: {
-  entries: JournalEntry[];
-  currentUserId: string;
-  confirmed: boolean;
-}): JournalEntry[] {
-  const { entries, currentUserId, confirmed } = params;
-
-  if (!currentUserId) {
-    throw new PrivacyActionError('Security Violation: Unauthorized journal deletion attempt.', 'UNAUTHORIZED');
-  }
-
-  if (!confirmed) {
-    throw new PrivacyActionError('Explicit confirmation required to delete journal data.', 'CONFIRMATION_REQUIRED');
-  }
-
-  // Filter out entries belonging to currentUserId
-  return entries.filter((e) => (e as any).uid !== currentUserId);
-}
-
-/**
- * Complete Account Deletion. Purges all user data across collections.
- */
-export function deleteUserAccountData(params: {
-  entries: JournalEntry[];
-  memories: Memory[];
-  goals: Goal[];
-  habits: Habit[];
-  currentUserId: string;
-  confirmed: boolean;
-}): {
-  remainingEntries: JournalEntry[];
-  remainingMemories: Memory[];
-  remainingGoals: Goal[];
-  remainingHabits: Habit[];
-} {
-  const { entries, memories, goals, habits, currentUserId, confirmed } = params;
-
-  if (!currentUserId) {
-    throw new PrivacyActionError('Security Violation: Unauthorized account deletion attempt.', 'UNAUTHORIZED');
-  }
-
-  if (!confirmed) {
-    throw new PrivacyActionError('Explicit confirmation required for full account deletion.', 'CONFIRMATION_REQUIRED');
-  }
-
-  return {
-    remainingEntries: entries.filter((e) => (e as any).uid !== currentUserId),
-    remainingMemories: memories.filter((m) => (m as any).uid !== currentUserId),
-    remainingGoals: goals.filter((g) => (g as any).uid !== currentUserId),
-    remainingHabits: habits.filter((h) => (h as any).uid !== currentUserId),
-  };
-}
-
-/**
  * Verifies that purged/deleted information is NO LONGER RETRIEVABLE by Ask My Life system.
+ *
+ * NOTE: Deletion itself is a REAL Firestore operation and lives in
+ * `privacyGovernance.ts`. This helper runs an AI-level purge check against the
+ * remaining in-memory payload any viewer passes it.
  */
 export async function verifyDeletionFromAskMyLife(params: {
   query: string;

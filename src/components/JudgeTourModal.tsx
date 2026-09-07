@@ -276,8 +276,8 @@ export const JudgeTourModal: React.FC<JudgeTourModalProps> = ({
                     <p className="text-[#888]">Retrieved journal text is wrapped in explicit <code>&lt;RETRIEVED_CONTENT&gt;</code> XML tags and marked untrusted to reduce instruction-hijack risk.</p>
                   </div>
                   <div className="rounded-xl border border-[#223056] bg-[#0E1730] p-4 space-y-1.5">
-                    <div className="font-semibold text-[#EEF4FF]">1-Click Data Wipe & Export</div>
-                    <p className="text-[#888]">Users can download complete JSON/Markdown archives or trigger full account data deletion anytime.</p>
+                    <div className="font-semibold text-[#EEF4FF]">Data Export & Permanent Deletion</div>
+                    <p className="text-[#888]">Sign in to export JSON/Markdown/CSV archives or permanently delete your journal, memories, or all stored data from the Privacy Center. Deleting data never deletes your Google login.</p>
                   </div>
                 </div>
               </div>

@@ -10,6 +10,14 @@ import {
   LogOut,
 } from 'lucide-react';
 import type { JournalEntry, Memory, Goal, TimelineEvent, Insight } from '../../data/models';
+import type { JournalInteraction } from '../../types';
+import {
+  type UserIdentity,
+  buildInitials,
+  resolveDisplayName,
+  resolveEmail,
+  resolvePhotoURL,
+} from './identity';
 import { CalmDashboardView } from '../dashboard/CalmDashboardView';
 import { JournalWorkspace } from '../../pages/journal/JournalWorkspace';
 import { LoadingState } from '../ui/LoadingState';
@@ -31,15 +39,18 @@ export type NavTab = 'home' | 'journal' | 'memories' | 'timeline' | 'ask-my-life
 
 export interface ResponsiveNavigationShellProps {
   currentUserId: string;
+  /** Real Firebase user identity for display. Falls back to non-UID defaults. */
+  user?: UserIdentity;
   entries: JournalEntry[];
   memories: Memory[];
   goals: Goal[];
   timelineEvents: TimelineEvent[];
   insights?: Insight[];
   onSignOut?: () => void;
-  onUpdateEntries?: (entries: JournalEntry[]) => void;
-  onUpdateMemories?: (memories: Memory[]) => void;
-  onUpdateGoals?: (goals: Goal[]) => void;
+  /** Demo (guest) sessions must not see export or destructive data actions. */
+  isDemo?: boolean;
+  /** AI companion session history — feeds the Privacy Center AI Conversations metric. */
+  aiSessions?: JournalInteraction[];
   initialTab?: NavTab;
   initialEntryId?: string | null;
   initialComposerNew?: boolean;
@@ -49,15 +60,15 @@ export interface ResponsiveNavigationShellProps {
 
 export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps> = ({
   currentUserId,
+  user,
   entries,
   memories,
   goals,
   timelineEvents,
   insights = [],
   onSignOut,
-  onUpdateEntries,
-  onUpdateMemories,
-  onUpdateGoals,
+  isDemo = false,
+  aiSessions = [],
   initialTab,
   initialEntryId = null,
   initialComposerNew = false,
@@ -68,6 +79,17 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
   const [editingEntryId, setEditingEntryId] = useState<string | null>(initialEntryId ?? null);
   const [isComposerNew, setIsComposerNew] = useState(initialComposerNew ?? false);
   const [journalSubview, setJournalSubview] = useState<'journal' | 'companion'>(initialJournalSubview ?? 'journal');
+
+  // Presentation-only identity resolution. `currentUserId` (uid) remains the
+  // ownership key for Firestore data; it is never shown as the visible name.
+  const identity = user ?? { uid: currentUserId };
+  const displayName = resolveDisplayName(identity);
+  const email = resolveEmail(identity);
+  const photoURL = resolvePhotoURL(identity);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [photoURL]);
 
   const NAV_ITEMS: { id: NavTab; label: string; icon: React.ReactNode }[] = [
     { id: 'home', label: 'Home', icon: <Home className="w-5 h-5" /> },
@@ -195,11 +217,24 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
 
         {/* User Footer */}
         <div className="pt-4 border-t border-slate-900 flex items-center justify-between">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-300 font-bold text-xs shrink-0" aria-hidden="true">
-              {currentUserId.slice(0, 2).toUpperCase()}
+          <div className="flex items-center gap-2 min-w-0">
+            {photoURL && !avatarFailed ? (
+              <img
+                src={photoURL}
+                alt={`${displayName} profile photo`}
+                referrerPolicy="no-referrer"
+                onError={() => setAvatarFailed(true)}
+                className="w-8 h-8 rounded-full object-cover shrink-0 bg-slate-800"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-300 font-bold text-xs shrink-0" aria-hidden="true">
+                {buildInitials(displayName, email, currentUserId)}
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="text-xs text-slate-300 truncate font-medium">{displayName}</div>
+              {email && <div className="text-[10px] text-slate-500 truncate">{email}</div>}
             </div>
-            <div className="text-xs text-slate-300 truncate font-medium">{currentUserId}</div>
           </div>
           {onSignOut && (
             <button
@@ -216,11 +251,14 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
 
       {/* ── Mobile Top Header (hidden on desktop >= 768px) ── */}
       <header className="md:hidden sticky top-0 z-30 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm" aria-hidden="true">
             ∞
           </div>
-          <span className="text-sm font-bold text-white tracking-wide">JOURNAL∞</span>
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-white tracking-wide">JOURNAL∞</div>
+            <div className="text-[10px] text-slate-400 truncate max-w-[10rem]">{displayName}{email ? ` · ${email}` : ''}</div>
+          </div>
         </div>
 
         <button
@@ -334,9 +372,8 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
                 memories={memories}
                 goals={goals}
                 currentUserId={currentUserId}
-                onUpdateEntries={onUpdateEntries}
-                onUpdateMemories={onUpdateMemories}
-                onUpdateGoals={onUpdateGoals}
+                isDemo={isDemo}
+                aiSessions={aiSessions}
               />
             )}
           </React.Suspense>

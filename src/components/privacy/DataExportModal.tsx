@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Download, FileCode, FileText, Table, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import type { JournalEntry, Memory, Goal, Habit } from '../../data/models';
+import type { JournalInteraction } from '../../types';
 import {
   exportJournalDataAsync,
   verifyExportIntegrity,
@@ -17,6 +18,8 @@ export interface DataExportModalProps {
   memories?: Memory[];
   goals?: Goal[];
   habits?: Habit[];
+  /** Legacy AI session records (`/users/{uid}/interactions`). */
+  interactions?: JournalInteraction[];
   currentUserId: string;
 }
 
@@ -27,6 +30,7 @@ export const DataExportModal: React.FC<DataExportModalProps> = ({
   memories = [],
   goals = [],
   habits = [],
+  interactions = [],
   currentUserId,
 }) => {
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>('json');
@@ -49,6 +53,7 @@ export const DataExportModal: React.FC<DataExportModalProps> = ({
         memories,
         goals,
         habits,
+        interactions,
         currentUserId,
         format: selectedFormat,
         onProgress: (pct) => setProgressPercent(pct),
@@ -59,14 +64,18 @@ export const DataExportModal: React.FC<DataExportModalProps> = ({
       setIsVerified(valid);
       setExportResult(result);
 
-      // Trigger browser download
+      // Trigger browser download. The anchor must be in the DOM and the object
+      // URL kept alive briefly; revoking immediately can abort the download in
+      // some browsers (notably Firefox).
       const blob = new Blob([result.content], { type: result.mimeType });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = result.filename;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (err: any) {
       setErrorMsg(err.message || 'Export failed.');
     } finally {
@@ -125,7 +134,7 @@ export const DataExportModal: React.FC<DataExportModalProps> = ({
               <FileCode className="mb-2 h-5 w-5 text-emerald-400" />
               <div>
                 <div className="text-xs font-bold">JSON</div>
-                <div className="text-[10px] text-slate-400">Complete Backup</div>
+                <div className="text-[10px] text-slate-400">Full Journal Archive</div>
               </div>
             </button>
 

@@ -1,4 +1,5 @@
 import type { JournalEntry, Memory, Goal, Habit } from '../data/models';
+import type { JournalInteraction } from '../types';
 
 export type ExportFormat = 'json' | 'markdown' | 'csv';
 
@@ -52,9 +53,10 @@ export function generateJsonExport(params: {
   memories: Memory[];
   goals: Goal[];
   habits: Habit[];
+  interactions?: JournalInteraction[];
   currentUserId: string;
 }): string {
-  const { entries, memories, goals, habits, currentUserId } = params;
+  const { entries, memories, goals, habits, interactions = [], currentUserId } = params;
 
   // Strict user ownership check & strip secrets
   const cleanEntries = entries
@@ -73,6 +75,10 @@ export function generateJsonExport(params: {
     .filter((h) => (h as any).uid === currentUserId)
     .map(({ uid, ...rest }) => rest);
 
+  const cleanConversations = interactions
+    .filter((c) => (c as any).userId === currentUserId)
+    .map(({ userId, ...rest }) => rest);
+
   const payload = {
     schemaVersion: '1.0',
     exportPolicy: 'User-Scoped Private Export — Contains no infrastructure credentials or foreign user records.',
@@ -83,11 +89,13 @@ export function generateJsonExport(params: {
       memories: cleanMemories.length,
       goals: cleanGoals.length,
       habits: cleanHabits.length,
+      aiConversations: cleanConversations.length,
     },
     journalEntries: cleanEntries,
     memories: cleanMemories,
     goals: cleanGoals,
     habits: cleanHabits,
+    aiConversations: cleanConversations,
   };
 
   return JSON.stringify(payload, null, 2);
@@ -100,13 +108,15 @@ export function generateMarkdownExport(params: {
   entries: JournalEntry[];
   memories: Memory[];
   goals: Goal[];
+  interactions?: JournalInteraction[];
   currentUserId: string;
 }): string {
-  const { entries, memories, goals, currentUserId } = params;
+  const { entries, memories, goals, interactions = [], currentUserId } = params;
 
   const userEntries = entries.filter((e) => (e as any).uid === currentUserId);
   const userMemories = memories.filter((m) => (m as any).uid === currentUserId);
   const userGoals = goals.filter((g) => (g as any).uid === currentUserId);
+  const userConversations = interactions.filter((c) => (c as any).userId === currentUserId);
 
   let md = `# JOURNAL∞ Personal Life Archive\n`;
   md += `**Exported At:** ${new Date().toLocaleString()}\n`;
@@ -142,7 +152,17 @@ export function generateMarkdownExport(params: {
     userGoals.forEach((g) => {
       md += `- **${g.title}:** ${g.description} — Status: ${g.status} (${g.progress}% complete)\n`;
     });
-    md += `\n`;
+    md += `\n---\n\n`;
+  }
+
+  if (userConversations.length > 0) {
+    md += `## 💬 AI Conversations\n\n`;
+    userConversations.forEach((c) => {
+      const when = c.createdAt ? new Date(c.createdAt).toLocaleString() : 'Undated';
+      const title = c.title || 'AI Conversation';
+      md += `- **${title}** (${c.mode ?? 'companion'}, ${when}): ${c.summary || 'No summary available.'}\n`;
+    });
+    md += `\n---\n\n`;
   }
 
   return md;
@@ -192,6 +212,7 @@ export async function exportJournalDataAsync(params: {
   memories?: Memory[];
   goals?: Goal[];
   habits?: Habit[];
+  interactions?: JournalInteraction[];
   currentUserId: string;
   format: ExportFormat;
   onProgress?: (progressPercent: number) => void;
@@ -201,6 +222,7 @@ export async function exportJournalDataAsync(params: {
     memories = [],
     goals = [],
     habits = [],
+    interactions = [],
     currentUserId,
     format,
     onProgress,
@@ -211,13 +233,23 @@ export async function exportJournalDataAsync(params: {
   }
 
   const userEntries = entries.filter((e) => (e as any).uid === currentUserId);
-  const totalItems = userEntries.length;
+  const userMemories = memories.filter((m) => (m as any).uid === currentUserId);
+  const userGoals = goals.filter((g) => (g as any).uid === currentUserId);
+  const userHabits = habits.filter((h) => (h as any).uid === currentUserId);
+  const userConversations = interactions.filter((c) => (c as any).userId === currentUserId);
+  const totalItems =
+    userEntries.length +
+    userMemories.length +
+    userGoals.length +
+    userHabits.length +
+    userConversations.length;
 
-  // Simulate chunked streaming for large journals (> 50 items)
+  // Progress pacing follows the journal-entry stream (the largest tenant);
+  // the reported itemCount covers every included collection.
   const chunkSize = 25;
-  for (let i = 0; i < totalItems; i += chunkSize) {
+  for (let i = 0; i < userEntries.length; i += chunkSize) {
     if (onProgress) {
-      const pct = Math.min(100, Math.round(((i + chunkSize) / Math.max(1, totalItems)) * 100));
+      const pct = Math.min(100, Math.round(((i + chunkSize) / Math.max(1, userEntries.length)) * 100));
       onProgress(pct);
     }
     // Yield execution frame for UI responsiveness
@@ -232,11 +264,11 @@ export async function exportJournalDataAsync(params: {
   let mimeType = '';
 
   if (format === 'json') {
-    content = generateJsonExport({ entries, memories, goals, habits, currentUserId });
+    content = generateJsonExport({ entries, memories, goals, habits, interactions, currentUserId });
     filename = `JOURNAL_LIFE_EXPORT_${dateTag}.json`;
     mimeType = 'application/json';
   } else if (format === 'markdown') {
-    content = generateMarkdownExport({ entries, memories, goals, currentUserId });
+    content = generateMarkdownExport({ entries, memories, goals, interactions, currentUserId });
     filename = `JOURNAL_LIFE_EXPORT_${dateTag}.md`;
     mimeType = 'text/markdown';
   } else if (format === 'csv') {

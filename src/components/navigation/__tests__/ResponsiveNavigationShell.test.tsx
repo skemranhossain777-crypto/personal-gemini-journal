@@ -120,4 +120,112 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
     expect(screen.queryByText(/On This Day/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Voice Journal/i)).not.toBeInTheDocument();
   });
+
+  it('renders the real user name and email in the sidebar footer, never the UID', () => {
+    render(
+      <ResponsiveNavigationShell
+        currentUserId="firebase-uid-123"
+        user={{
+          uid: 'firebase-uid-123',
+          displayName: 'Sheikh Emran Hossain',
+          email: 'skemranhossain777@gmail.com',
+          photoURL: null,
+          providerData: [],
+        }}
+        entries={[]}
+        memories={[]}
+        goals={[]}
+        timelineEvents={[]}
+      />
+    );
+
+    expect(screen.getByText('Sheikh Emran Hossain')).toBeInTheDocument();
+    expect(screen.getByText('skemranhossain777@gmail.com')).toBeInTheDocument();
+    expect(screen.queryByText('firebase-uid-123')).not.toBeInTheDocument();
+  });
+
+  it('renders the Google profile photo as the avatar with no-referrer policy', () => {
+    render(
+      <ResponsiveNavigationShell
+        currentUserId="firebase-uid-123"
+        user={{
+          uid: 'firebase-uid-123',
+          displayName: 'Sheikh Emran Hossain',
+          email: 'skemranhossain777@gmail.com',
+          photoURL: 'https://lh3.googleusercontent.com/photo.jpg',
+          providerData: [],
+        }}
+        entries={[]}
+        memories={[]}
+        goals={[]}
+        timelineEvents={[]}
+      />
+    );
+
+    const avatar = screen.getByAltText('Sheikh Emran Hossain profile photo');
+    expect(avatar).toBeInTheDocument();
+    expect(avatar.getAttribute('referrerpolicy')).toBe('no-referrer');
+  });
+
+  it('falls back to initials from the Google provider displayName when top-level profile is missing', () => {
+    render(
+      <ResponsiveNavigationShell
+        currentUserId="firebase-uid-123"
+        user={{
+          uid: 'firebase-uid-123',
+          displayName: null,
+          email: null,
+          photoURL: null,
+          providerData: [
+            { providerId: 'google.com', displayName: 'Sheikh Emran Hossain', email: 'skemranhossain777@gmail.com', photoURL: null },
+          ],
+        }}
+        entries={[]}
+        memories={[]}
+        goals={[]}
+        timelineEvents={[]}
+      />
+    );
+
+    expect(screen.getByText('Sheikh Emran Hossain')).toBeInTheDocument();
+    expect(screen.getByText('skemranhossain777@gmail.com')).toBeInTheDocument();
+    expect(screen.queryByText('firebase-uid-123')).not.toBeInTheDocument();
+  });
+
+  it('shows a readable email-derived identity and not the UID for minimal profiles', () => {
+    render(
+      <ResponsiveNavigationShell
+        currentUserId="firebase-uid-123"
+        user={{ uid: 'firebase-uid-123', displayName: null, email: 'skemranhossain777@gmail.com', photoURL: null }}
+        entries={[]}
+        memories={[]}
+        goals={[]}
+        timelineEvents={[]}
+      />
+    );
+
+    expect(screen.getByText('skemranhossain777')).toBeInTheDocument();
+    expect(screen.getByText('skemranhossain777@gmail.com')).toBeInTheDocument();
+    expect(screen.queryByText('firebase-uid-123')).not.toBeInTheDocument();
+  });
+
+  it('triggers the sign-out handler from the sidebar identity footer', async () => {
+    const user = userEvent.setup();
+    const handleSignOut = vi.fn();
+
+    render(
+      <ResponsiveNavigationShell
+        currentUserId="firebase-uid-123"
+        user={{ uid: 'firebase-uid-123', displayName: 'Sheikh Emran Hossain', email: 'skemranhossain777@gmail.com', photoURL: null }}
+        entries={[]}
+        memories={[]}
+        goals={[]}
+        timelineEvents={[]}
+        onSignOut={handleSignOut}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /Sign Out/i }));
+    expect(handleSignOut).toHaveBeenCalledTimes(1);
+  });
 });
