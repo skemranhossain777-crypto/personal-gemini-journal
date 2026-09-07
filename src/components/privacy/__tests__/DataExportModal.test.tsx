@@ -76,7 +76,7 @@ describe('DataExportModal component', () => {
     const downloadBtn = screen.getByRole('button', { name: /Generate & Download/i });
     await user.click(downloadBtn);
 
-    expect(screen.getByText(/Verified Data Integrity/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Verified Data Integrity/i)).toBeInTheDocument();
   });
 
   it('surfaces failures with an inline alert instead of a silent download', async () => {
