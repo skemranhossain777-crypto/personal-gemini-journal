@@ -1,10 +1,78 @@
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { VoiceJournalView } from '../VoiceJournalView';
 
+vi.mock('../../../services/auth', () => ({
+  authService: {
+    currentUser: {},
+    getIdToken: vi.fn(async () => 'id-token-abc'),
+  },
+}));
+
+function installMediaMocks() {
+  const availableHandler = vi.fn((e) => {
+    e.data = new Blob(['sample-voice-bytes'], { type: 'audio/webm' });
+  });
+  (window as any).MediaRecorder = class {
+    static isTypeSupported() {
+      return true;
+    }
+    mimeType = 'audio/webm';
+    state: 'inactive' | 'recording' | 'paused' = 'inactive';
+    ondataavailable: ((e: any) => void) | null = null;
+    onstop: ((e: any) => void) | null = null;
+    start() {
+      this.state = 'recording';
+      if (this.ondataavailable) availableHandler(this);
+      this.ondataavailable?.({ data: new Blob(['sample-voice-bytes'], { type: 'audio/webm' }) });
+    }
+    pause() {
+      this.state = 'paused';
+    }
+    resume() {
+      this.state = 'recording';
+    }
+    stop() {
+      this.state = 'inactive';
+      if (this.onstop) (this.onstop as any)({});
+    }
+  };
+  Object.defineProperty(navigator, 'mediaDevices', {
+    configurable: true,
+    value: {
+      getUserMedia: vi.fn(async () => ({ getTracks: () => [{ stop: vi.fn() }] })),
+    },
+  });
+}
+
 describe('VoiceJournalView component', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          result: {
+            transcript: 'Today I took a long walk through the park and reflected on my goals.',
+            body: 'Today I took a long walk through the park and reflected on my goals.',
+            summary: 'A peaceful reflection.',
+            tags: ['nature'],
+            emotion: 'Peaceful',
+          },
+        }),
+      }))
+    );
+    installMediaMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('renders idle state with start recording button', () => {
     render(<VoiceJournalView />);
 
@@ -18,7 +86,7 @@ describe('VoiceJournalView component', () => {
 
     render(<VoiceJournalView onSaveDraft={onSaveDraft} />);
 
-    // 1. Click start recording
+    // 1. Click start recording (uses real MediaRecorder mock)
     const startBtn = screen.getByRole('button', { name: /Start Voice Recording/i });
     await user.click(startBtn);
 
@@ -49,6 +117,14 @@ describe('VoiceJournalView component', () => {
       expect.objectContaining({
         body: 'Updated transcript note.',
         keepAudioAttachment: true,
+        aiMetadata: expect.objectContaining({
+          modality: 'voice',
+          transcript: 'Today I took a long walk through the park and reflected on my goals.',
+          summary: 'A peaceful reflection.',
+          emotion: 'Peaceful',
+          suggestedTags: ['nature'],
+          modelUsed: 'gemini',
+        }),
       })
     );
   }, 15000);

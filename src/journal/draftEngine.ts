@@ -290,6 +290,10 @@ export class DraftEngine {
       if (!raw) return null;
       const parsed = JSON.parse(raw) as DraftRecord;
       if (parsed?.version !== 1 || typeof parsed?.fields !== 'object') return null;
+      // Forward-compat: older persisted drafts may lack aiMetadata. Default it
+      // to null so recovery validation (which requires null | object) still passes.
+      const fields = parsed.fields as JournalDraft;
+      if (fields.aiMetadata === undefined) fields.aiMetadata = null;
       return parsed;
     } catch {
       return null;
@@ -395,5 +399,5 @@ export class DraftEngine {
 }
 
 function empty(): JournalDraft {
-  return { title: '', body: '', mode: 'free-write', mood: null, energy: null, tags: [], location: null, attachments: [], favorite: false, archived: false, private: false };
+  return { title: '', body: '', mode: 'free-write', mood: null, energy: null, tags: [], location: null, attachments: [], favorite: false, archived: false, private: false, aiMetadata: null };
 }

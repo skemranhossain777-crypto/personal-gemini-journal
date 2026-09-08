@@ -46,10 +46,10 @@ function normalizeInput(draft: JournalDraft): Record<string, unknown> {
     favorite: draft.favorite,
     archived: draft.archived,
     private: draft.private,
-    // `aiMetadata` must be present as null: rules evaluate the missing field as
+    // `aiMetadata` must always be present: rules evaluate a missing field as
     // `undefined`, and `undefined == null` is FALSE in the rules language, so
     // omitting the key would deny every journal write.
-    aiMetadata: null,
+    aiMetadata: draft.aiMetadata ?? null,
   };
 }
 
@@ -121,7 +121,7 @@ export function createDemoJournalStore(uid: string): JournalStore {
       favorite: draft.favorite,
       archived: draft.archived,
       private: draft.private,
-      aiMetadata: null,
+      aiMetadata: draft.aiMetadata ?? null,
       createdAt: now as JournalEntry['createdAt'],
       updatedAt: now as JournalEntry['updatedAt'],
     };

@@ -128,6 +128,7 @@ export const JournalWorkspace: React.FC<JournalWorkspaceProps> = ({
           favorite: patch.favorite ?? entry.favorite,
           archived: patch.archived ?? entry.archived,
           private: entry.private,
+          aiMetadata: entry.aiMetadata ? { ...entry.aiMetadata } : null,
         });
         setEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, ...patch } : e)));
       } catch (err) {
@@ -175,6 +176,7 @@ export const JournalWorkspace: React.FC<JournalWorkspaceProps> = ({
       onToggleCollection={toggleCollection}
       onNavigateHome={onNavigateHome}
       onDeleted={handleDeleted}
+      currentUserId={uid}
     />
   ) : (
     <JournalHome

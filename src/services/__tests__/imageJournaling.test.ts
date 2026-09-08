@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   validateImageFile,
   uploadImageAttachment,
@@ -8,11 +8,46 @@ import {
   MAX_IMAGE_SIZE_BYTES,
 } from '../imageJournaling';
 
+vi.mock('../auth', () => ({
+  authService: {
+    currentUser: {},
+    getIdToken: vi.fn(async () => 'id-token-abc'),
+  },
+}));
+
 describe('imageJournaling service', () => {
   const createMockFile = (name: string, sizeBytes: number, type: string): File => {
     const blob = new Blob([new ArrayBuffer(sizeBytes)], { type });
     return new File([blob], name, { type });
   };
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          result: {
+            body: 'A reflective entry.',
+            summary: 'Summary.',
+            tags: ['nature', 'travel'],
+            emotion: 'Calm',
+            visualAnalysis: {
+              observed: ['A sunset skyline is visible.'],
+              userProvided: ['User Caption: "Taken during my trip to Japan"'],
+              aiInferred: ['The image supports a calm reflective mood.'],
+            },
+          },
+        }),
+      }))
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
   it('validates valid image files (JPG, PNG, WEBP, GIF, HEIC, AVIF)', () => {
     const validJpg = createMockFile('photo.jpg', 2 * 1024 * 1024, 'image/jpeg');
@@ -74,8 +109,10 @@ describe('imageJournaling service', () => {
     expect(attachment.url).toBeDefined();
   });
 
-  it('handles Gemini image context analysis while strictly preventing fabrication', () => {
-    const context = analyzeImageContext({
+  it('handles Gemini image context analysis while strictly preventing fabrication', async () => {
+    const file = createMockFile('sunset.jpg', 1 * 1024 * 1024, 'image/jpeg');
+    const context = await analyzeImageContext({
+      file,
       imageName: 'Kyoto Sunset',
       userCaption: 'Taken during my trip to Japan',
       currentUserId: 'user1',
@@ -84,7 +121,20 @@ describe('imageJournaling service', () => {
     expect(context.observed.length).toBeGreaterThan(0);
     expect(context.userProvided).toContain('User Caption: "Taken during my trip to Japan"');
     expect(context.aiInferred.length).toBeGreaterThan(0);
+    expect(context.body).toBe('A reflective entry.');
+    expect(context.summary).toBe('Summary.');
+    expect(context.tags).toContain('nature');
+    expect(context.emotion).toBe('Calm');
+    expect(context.modelUsed).toBe('gemini');
     expect(context.disclaimer).toMatch(/Gemini never fabricates names of people/);
+    expect(fetch).toHaveBeenCalledWith('/api/gemini/analyze-image', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('rejects analysis for an empty or missing file', async () => {
+    const emptyFile = createMockFile('empty.jpg', 0, 'image/jpeg');
+    await expect(
+      analyzeImageContext({ file: emptyFile, imageName: 'x', currentUserId: 'user1' })
+    ).rejects.toThrow(ImageValidationError);
   });
 
   it('verifies attachment path ownership boundaries', () => {

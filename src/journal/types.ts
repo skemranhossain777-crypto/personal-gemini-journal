@@ -1,4 +1,4 @@
-import type { Attachment, JournalEntry, JournalLocation, ReflectionMode } from '../data';
+import type { AiMetadata, Attachment, JournalEntry, JournalLocation, ReflectionMode } from '../data';
 
 /**
  * Journal engine — core types for the autosave-driven free-writing experience.
@@ -34,6 +34,8 @@ export interface JournalDraft {
   favorite: boolean;
   archived: boolean;
   private: boolean;
+  /** AI-generated metadata captured from a multimodal (image/voice) analysis. */
+  aiMetadata: AiMetadata | null;
 }
 
 export const DEFAULT_MODE: ReflectionMode = 'free-write';
@@ -51,6 +53,7 @@ export function emptyDraft(): JournalDraft {
     favorite: false,
     archived: false,
     private: false,
+    aiMetadata: null,
   };
 }
 
@@ -67,6 +70,7 @@ export function draftFromEntry(entry: JournalEntry): JournalDraft {
     favorite: entry.favorite,
     archived: entry.archived,
     private: entry.private,
+    aiMetadata: entry.aiMetadata ? { ...entry.aiMetadata } : null,
   };
 }
 

@@ -98,6 +98,78 @@ export function extractJsonFromText(rawText: string): any {
   throw new GeminiError('Failed to parse structured JSON from AI output.', 'MALFORMED_RESPONSE', 500);
 }
 
+export const ALLOWED_IMAGE_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/heic',
+  'image/avif',
+] as const;
+
+export const ALLOWED_AUDIO_MIME_TYPES = [
+  'audio/webm',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/wav',
+  'audio/ogg',
+  'audio/x-wav',
+  'audio/mpeg3',
+] as const;
+
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+export const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB
+
+export type AllowedImageMimeType = (typeof ALLOWED_IMAGE_MIME_TYPES)[number];
+export type AllowedAudioMimeType = (typeof ALLOWED_AUDIO_MIME_TYPES)[number];
+
+/** Validates multimodal media metadata (MIME + size) before it reaches Gemini. */
+export function validateMultimodalMedia(input: {
+  mimeType: string;
+  buffer?: Buffer;
+  size?: number;
+  modality: 'image' | 'voice';
+}): { allowedMime: (string)[] } {
+  const { mimeType, modality } = input;
+  const size = input.buffer?.length ?? input.size ?? 0;
+
+  const mimeLower = (mimeType || '').toLowerCase();
+
+  if (modality === 'image') {
+    if (!(ALLOWED_IMAGE_MIME_TYPES as readonly string[]).includes(mimeLower)) {
+      throw new GeminiError(
+        `Invalid image type "${mimeType || 'unknown'}". Allowed: JPG, PNG, WEBP, GIF, HEIC, AVIF.`,
+        'INVALID_INPUT',
+        400
+      );
+    }
+    if (size > MAX_IMAGE_BYTES) {
+      throw new GeminiError(
+        `Image exceeds the ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))}MB limit (received ${Math.round(size / (1024 * 1024) * 10) / 10}MB).`,
+        'OVERSIZED_INPUT',
+        400
+      );
+    }
+    return { allowedMime: ALLOWED_IMAGE_MIME_TYPES as unknown as string[] };
+  }
+
+  if (!(ALLOWED_AUDIO_MIME_TYPES as readonly string[]).includes(mimeLower)) {
+    throw new GeminiError(
+      `Invalid audio type "${mimeType || 'unknown'}". Allowed: WebM, MP4, MP3, WAV, OGG.`,
+      'INVALID_INPUT',
+      400
+    );
+  }
+  if (size > MAX_AUDIO_BYTES) {
+    throw new GeminiError(
+      `Audio exceeds the ${Math.round(MAX_AUDIO_BYTES / (1024 * 1024))}MB limit (received ${Math.round(size / (1024 * 1024) * 10) / 10}MB).`,
+      'OVERSIZED_INPUT',
+      400
+    );
+  }
+  return { allowedMime: ALLOWED_AUDIO_MIME_TYPES as unknown as string[] };
+}
+
 /** Validates and parses structured JSON output with fallback safety. */
 export function parseAndValidateJson<T>(
   rawText: string,

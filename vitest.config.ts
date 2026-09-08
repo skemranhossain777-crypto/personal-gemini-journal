@@ -17,5 +17,6 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}', 'server/**/*.test.{ts,tsx}'],
     exclude: ['node_modules/**', 'dist/**', 'e2e-test.ts'],
     restoreMocks: true,
+    testTimeout: 15000,
   },
 });

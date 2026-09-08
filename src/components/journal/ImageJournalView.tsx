@@ -22,14 +22,26 @@ import {
   analyzeImageContext,
   MAX_IMAGE_SIZE_BYTES,
   ALLOWED_IMAGE_MIME_TYPES,
+  ImageValidationError,
   type ImageContextOutput,
 } from '../../services/imageJournaling';
+
+export interface ImageDraftPayload {
+  body: string;
+  caption?: string;
+  summary?: string;
+  emotion?: string;
+  tags?: string[];
+  suggestedTags?: string[];
+  modelUsed?: string;
+}
 
 export interface ImageJournalViewProps {
   attachments: Attachment[];
   currentUserId: string;
   onAddAttachment?: (attachment: Attachment) => void;
   onRemoveAttachment?: (attachmentId: string) => void;
+  onUseDraft?: (draft: ImageDraftPayload) => void;
   disabled?: boolean;
   className?: string;
 }
@@ -39,6 +51,7 @@ export const ImageJournalView: React.FC<ImageJournalViewProps> = ({
   currentUserId,
   onAddAttachment,
   onRemoveAttachment,
+  onUseDraft,
   disabled = false,
   className = '',
 }) => {
@@ -49,6 +62,8 @@ export const ImageJournalView: React.FC<ImageJournalViewProps> = ({
   const [lightboxImage, setLightboxImage] = useState<Attachment | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<ImageContextOutput | null>(null);
   const [analyzingImageId, setAnalyzingImageId] = useState<string | null>(null);
+  const [analyzingImageCaption, setAnalyzingImageCaption] = useState<string>('');
+  const [localFiles, setLocalFiles] = useState<Record<string, File>>({});
 
   const imageAttachments = attachments.filter((att) => att.kind === 'image');
 
@@ -79,6 +94,7 @@ export const ImageJournalView: React.FC<ImageJournalViewProps> = ({
         currentUserId,
         mockFailure,
       });
+      setLocalFiles((prev) => ({ ...prev, [newAtt.id]: file }));
       onAddAttachment?.(newAtt);
     } catch (err) {
       setUploadError((err as Error).message || 'Upload failed.');
@@ -97,20 +113,43 @@ export const ImageJournalView: React.FC<ImageJournalViewProps> = ({
   };
 
   // Gemini AI Image Context Analysis Handler
-  const handleAnalyzeImage = (att: Attachment) => {
+  const handleAnalyzeImage = async (att: Attachment) => {
+    const file = localFiles[att.id];
+    if (!file) {
+      setUploadError('The original image is no longer available for analysis. Re-upload it first.');
+      return;
+    }
     setAnalyzingImageId(att.id);
+    setUploadError(null);
     try {
-      const result = analyzeImageContext({
+      const result = await analyzeImageContext({
+        file,
         imageName: att.caption || 'Journal Photo',
         userCaption: att.caption,
         currentUserId,
       });
       setAiAnalysis(result);
+      setAnalyzingImageCaption(att.caption || 'Journal Photo');
     } catch (err) {
-      setUploadError((err as Error).message);
+      const message = (err as Error).message || 'Visual analysis failed.';
+      if (err instanceof ImageValidationError) {
+        setAnalyzingImageId(null);
+        setUploadError(message);
+        return;
+      }
+      setUploadError(message);
     } finally {
       setAnalyzingImageId(null);
     }
+  };
+
+  const handleRemoveAttachment = (attId: string) => {
+    setLocalFiles((prev) => {
+      const next = { ...prev };
+      delete next[attId];
+      return next;
+    });
+    onRemoveAttachment?.(attId);
   };
 
   return (
@@ -153,10 +192,10 @@ export const ImageJournalView: React.FC<ImageJournalViewProps> = ({
             <Upload className="w-5 h-5" />
           </div>
           <div className="text-xs font-semibold text-slate-200">
-            {uploading ? 'Encrypting & Uploading Image...' : 'Click or drop an image here to attach'}
+            {uploading ? 'Uploading Image...' : 'Click or drop an image here to attach'}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            Private & secure storage under your user account
+            Stored privately under your user account; analyzed in-flight with your authorized Gemini session
           </div>
         </div>
 
@@ -222,7 +261,7 @@ export const ImageJournalView: React.FC<ImageJournalViewProps> = ({
 
                   {onRemoveAttachment && (
                     <button
-                      onClick={() => onRemoveAttachment(att.id)}
+                      onClick={() => handleRemoveAttachment(att.id)}
                       className="p-2 rounded-lg bg-slate-800/90 text-rose-400 hover:bg-rose-600 hover:text-white transition"
                       title="Remove Attachment"
                     >
@@ -303,6 +342,71 @@ export const ImageJournalView: React.FC<ImageJournalViewProps> = ({
               <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
               <span>{aiAnalysis.disclaimer}</span>
             </div>
+
+            {/* Gemini reflection — review then apply as journal draft */}
+            {aiAnalysis.body?.trim() && (
+              <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-300">
+                    <FileText className="w-3.5 h-3.5 text-purple-400" />
+                    <span>GEMINI REFLECTION</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {aiAnalysis.emotion && (
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-[11px] text-slate-300 border border-slate-700">
+                        {aiAnalysis.emotion}
+                      </span>
+                    )}
+                    {aiAnalysis.modelUsed && (
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-500 border border-slate-800">
+                        {aiAnalysis.modelUsed}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-300 leading-relaxed">{aiAnalysis.body}</p>
+
+                {aiAnalysis.summary && (
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <span className="font-semibold text-slate-300">Summary:</span> {aiAnalysis.summary}
+                  </p>
+                )}
+
+                {aiAnalysis.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {aiAnalysis.tags.map((t) => (
+                      <span key={t} className="px-2 py-0.5 rounded bg-slate-800 text-[11px] text-slate-300 border border-slate-700">
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() =>
+                      onUseDraft?.({
+                        body: aiAnalysis.body,
+                        caption: analyzingImageCaption,
+                        summary: aiAnalysis.summary,
+                        emotion: aiAnalysis.emotion,
+                        suggestedTags: aiAnalysis.tags,
+                        modelUsed: aiAnalysis.modelUsed,
+                      })
+                    }
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-lg shadow-amber-600/30 transition"
+                    title="Open an editable entry pre-filled with this AI reflection"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Use as Journal Draft</span>
+                  </button>
+                  <span className="text-[11px] text-slate-500">
+                    Opens an editable draft — nothing is published until you save it.
+                  </span>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

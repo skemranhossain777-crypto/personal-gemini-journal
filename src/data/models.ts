@@ -36,7 +36,9 @@ export type CompanionSkill =
   | 'connect'
   | 'reframe'
   | 'celebrate'
-  | 'ask-my-life';
+  | 'ask-my-life'
+  | 'image-journal'
+  | 'voice-journal';
 
 export type MemoryType =
   | 'person'
@@ -92,6 +94,12 @@ export interface AiMetadata {
   suggestedTags?: string[];
   emotion?: string;
   generatedBy?: string;
+  /** Multimodal modality that produced this entry: image or voice. */
+  modality?: 'image' | 'voice';
+  /** Verbatim transcript for voice-journal entries. */
+  transcript?: string;
+  /** Gemini model identifier that produced the analysis, when known. */
+  modelUsed?: string;
 }
 
 export interface ConversationMessage {
@@ -297,6 +305,8 @@ export const COMPANION_SKILLS: readonly CompanionSkill[] = [
   'reframe',
   'celebrate',
   'ask-my-life',
+  'image-journal',
+  'voice-journal',
 ];
 
 export const MEMORY_TYPES: readonly MemoryType[] = [

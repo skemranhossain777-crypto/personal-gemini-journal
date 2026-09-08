@@ -16,7 +16,8 @@ export type GeminiErrorCode =
   | 'API_ERROR'
   | 'MALFORMED_RESPONSE'
   | 'RATE_LIMITED'
-  | 'EMPTY_RESPONSE';
+  | 'EMPTY_RESPONSE'
+  | 'MODEL_MODALITY_UNSUPPORTED';
 
 export class GeminiError extends Error {
   constructor(
@@ -183,3 +184,51 @@ export interface AskMyLifeOutput {
   hasSufficientEvidence: boolean;
   modelUsed: string;
 }
+
+// ─── Multimodal (Image / Voice journaling) ──────────────────────────────────
+
+export type MultimodalModality = 'image' | 'voice';
+
+export interface MultimodalMedia {
+  /** MIME type of the uploaded media (e.g. image/jpeg, audio/webm). */
+  mimeType: string;
+  /** Raw media bytes. */
+  buffer: Buffer;
+  /** Original filename (already sanitized by the caller); informational only. */
+  filename?: string;
+  /** Optional user-provided caption/context for images. */
+  caption?: string;
+}
+
+export interface ImageJournalInput extends MultimodalMedia {
+  modality: 'image';
+}
+
+export interface VoiceJournalInput extends MultimodalMedia {
+  modality: 'voice';
+  /** Optional language hint, e.g. 'en-US'. */
+  language?: string;
+}
+
+export interface MultimodalJournalOutput {
+  /** Natural language journal body derived from the media. */
+  body: string;
+  /** Short summary suitable for aiMetadata.summary. */
+  summary: string;
+  /** AI-suggested tags. */
+  tags: string[];
+  /** Identified emotional tone. */
+  emotion: string;
+  /** Model identifier used for generation. */
+  modelUsed: string;
+  /** For voice: the raw transcript of the audio. */
+  transcript?: string;
+  /** For image: structured visual analysis. */
+  visualAnalysis?: {
+    observed: string[];
+    userProvided: string[];
+    aiInferred: string[];
+  };
+}
+
+export type MultimodalJournalInput = ImageJournalInput | VoiceJournalInput;

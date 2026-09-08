@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Archive, ArrowLeft, CalendarDays, FolderOpen, Loader2, Trash2 } from 'lucide-react';
+import { Timestamp } from 'firebase/firestore';
+import { Archive, ArrowLeft, CalendarDays, FolderOpen, Image as ImageIcon, Loader2, Trash2, Mic } from 'lucide-react';
 import type { Collection, JournalEntry } from '../../data';
 import { LIMITS } from '../../data';
 import { toast } from '../../services/toast';
@@ -22,6 +23,8 @@ import { getModePlaceholder } from '../../journal';
 import { LocationPicker } from '../../components/LocationPicker';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Button } from '../../components/ui/Button';
+import { ImageJournalView } from '../../components/journal/ImageJournalView';
+import { VoiceJournalView } from '../../components/journal/VoiceJournalView';
 import type { JournalLocation } from '../../types';
 
 interface EntryEditorProps {
@@ -36,6 +39,8 @@ interface EntryEditorProps {
   onNavigateHome: () => void;
   onDeleted: () => void;
   autosaveDebounceMs?: number;
+  /** Optional authenticated uid used by the image journaling view. */
+  currentUserId?: string;
 }
 
 /** Full-screen composer for one journal entry. The entire document surface is
@@ -53,6 +58,7 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
   onNavigateHome,
   onDeleted,
   autosaveDebounceMs,
+  currentUserId = '',
 }) => {
   const {
     draft,
@@ -71,6 +77,8 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [voicePanelOpen, setVoicePanelOpen] = useState(false);
+  const [imagePanelOpen, setImagePanelOpen] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   // Keep focus for the primary writing surface.
@@ -142,6 +150,112 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
     }
   };
 
+  // Adds an image attachment produced by ImageJournalView into the draft.
+  const handleAddImageAttachment = (att: JournalEntry['attachments'][number]) => {
+    if (draft.attachments.length >= LIMITS.attachmentsCount) {
+      toast.error(`You can attach at most ${LIMITS.attachmentsCount} files.`);
+      return;
+    }
+    patch({ attachments: [...draft.attachments, att] });
+    toast.success('Image attached.');
+  };
+
+  // Adds a voice attachment produced by ImageJournalView/voice panel.
+  const handleAddVoiceAttachment = (att: JournalEntry['attachments'][number]) => {
+    if (draft.attachments.length >= LIMITS.attachmentsCount) {
+      toast.error(`You can attach at most ${LIMITS.attachmentsCount} files.`);
+      return;
+    }
+    patch({ attachments: [...draft.attachments, att] });
+  };
+
+  const handleRemoveImageAttachment = (attachmentId: string) => {
+    patch({ attachments: draft.attachments.filter((a) => a.id !== attachmentId) });
+    if (attachmentStore) {
+      const att = draft.attachments.find((a) => a.id === attachmentId);
+      if (att) void attachmentStore.remove(att);
+    }
+  };
+
+  // Applies a transcribed voice draft into the canonical JournalDraft.
+  const handleVoiceDraft = (v: {
+    title: string;
+    body: string;
+    mode: JournalDraft['mode'];
+    tags: string[];
+    keepAudioAttachment: boolean;
+    audioBlob?: Blob;
+    aiMetadata?: {
+      modality: 'voice';
+      transcript: string;
+      summary: string;
+      emotion: string;
+      suggestedTags: string[];
+      modelUsed: string;
+    };
+  }) => {
+    const next: Partial<JournalDraft> = {
+      title: v.title,
+      body: v.body,
+      mode: v.mode,
+      tags: v.tags,
+    };
+    if (v.aiMetadata) {
+      next.aiMetadata = {
+        modality: 'voice',
+        transcript: v.aiMetadata.transcript,
+        summary: v.aiMetadata.summary,
+        emotion: v.aiMetadata.emotion,
+        suggestedTags: v.aiMetadata.suggestedTags,
+        generatedBy: 'gemini',
+        modelUsed: v.aiMetadata.modelUsed,
+      };
+    }
+    if (v.keepAudioAttachment && v.audioBlob) {
+      const id = `voice_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      const audioAttachment: JournalEntry['attachments'][number] = {
+        id,
+        kind: 'voice',
+        url: URL.createObjectURL(v.audioBlob),
+        caption: `Voice note — ${new Date().toLocaleDateString()}`,
+        createdAt: Timestamp.fromDate(new Date()),
+      };
+      next.attachments = [...draft.attachments, audioAttachment];
+    }
+    patch(next);
+    setVoicePanelOpen(false);
+    toast.success('Voice draft applied to your entry.');
+  };
+
+  // Applies a structured image analysis into the canonical JournalDraft.
+  const handleImageDraft = (img: {
+    body: string;
+    caption?: string;
+    summary?: string;
+    emotion?: string;
+    tags?: string[];
+    suggestedTags?: string[];
+    modelUsed?: string;
+  }) => {
+    const title = img.caption?.trim() ? `Image Reflection — ${img.caption.trim()}` : `Image Reflection — ${new Date().toLocaleDateString()}`;
+    const next: Partial<JournalDraft> = {
+      title,
+      body: img.body.trim() || draft.body,
+      tags: Array.from(new Set(['image-journal', ...(img.tags ?? []), ...(img.suggestedTags ?? [])])),
+      aiMetadata: {
+        summary: img.summary ?? '',
+        suggestedTags: Array.from(new Set(img.tags ?? [])),
+        emotion: img.emotion ?? 'Reflective',
+        generatedBy: 'gemini',
+        modality: 'image',
+        modelUsed: img.modelUsed,
+      },
+    };
+    patch(next);
+    setImagePanelOpen(false);
+    toast.success('Image reflection applied to your entry.');
+  };
+
   return (
     <div className="flex min-h-full flex-col">
       {/* Top bar */}
@@ -194,6 +308,44 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
                 onSwitchToFreeWrite={() => patch({ mode: 'free-write' })}
                 className="mb-4"
               />
+            )}
+
+            {/* Voice & Image journaling entry points */}
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <Button
+                variant={voicePanelOpen ? 'primary' : 'ghost'}
+                size="sm"
+                onClick={() => setVoicePanelOpen((o) => !o)}
+                icon={<Mic className="h-4 w-4" aria-hidden="true" />}
+              >
+                {voicePanelOpen ? 'Close Voice Journal' : 'Voice Journal'}
+              </Button>
+              <Button
+                variant={imagePanelOpen ? 'primary' : 'ghost'}
+                size="sm"
+                onClick={() => setImagePanelOpen((o) => !o)}
+                icon={<ImageIcon className="h-4 w-4" aria-hidden="true" />}
+              >
+                {imagePanelOpen ? 'Close Image Journal' : 'Image Journal'}
+              </Button>
+            </div>
+
+            {voicePanelOpen && (
+              <div className="mb-4 rounded-2xl border border-line bg-surface-2 p-4">
+                <VoiceJournalView onSaveDraft={handleVoiceDraft} />
+              </div>
+            )}
+
+            {imagePanelOpen && (
+              <div className="mb-4 rounded-2xl border border-line bg-surface-2 p-4">
+                <ImageJournalView
+                  attachments={draft.attachments}
+                  currentUserId={currentUserId}
+                  onAddAttachment={handleAddImageAttachment}
+                  onRemoveAttachment={handleRemoveImageAttachment}
+                  onUseDraft={handleImageDraft}
+                />
+              </div>
             )}
 
             {/* Free-writing surface (primary) */}

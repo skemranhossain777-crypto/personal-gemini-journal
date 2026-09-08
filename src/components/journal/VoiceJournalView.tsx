@@ -23,20 +23,31 @@ import {
   cleanTranscriptText,
   MAX_RECORDING_DURATION_SECONDS,
   VoiceTranscriptionError,
+  type TranscriptionResult,
 } from '../../services/voiceTranscription';
 import type { JournalEntry, ReflectionMode } from '../../data/models';
 
 export type VoiceState = 'idle' | 'recording' | 'paused' | 'transcribing' | 'review' | 'error';
 
+export interface VoiceDraftPayload {
+  title: string;
+  body: string;
+  mode: ReflectionMode;
+  tags: string[];
+  keepAudioAttachment: boolean;
+  audioBlob?: Blob;
+  aiMetadata?: {
+    modality: 'voice';
+    transcript: string;
+    summary: string;
+    emotion: string;
+    suggestedTags: string[];
+    modelUsed: string;
+  };
+}
+
 export interface VoiceJournalViewProps {
-  onSaveDraft?: (draft: {
-    title: string;
-    body: string;
-    mode: ReflectionMode;
-    tags: string[];
-    keepAudioAttachment: boolean;
-    audioBlob?: Blob;
-  }) => void;
+  onSaveDraft?: (draft: VoiceDraftPayload) => void;
   onCancel?: () => void;
   className?: string;
 }
@@ -57,10 +68,17 @@ export const VoiceJournalView: React.FC<VoiceJournalViewProps> = ({
   const [draftMode, setDraftMode] = useState<ReflectionMode>('free-write');
   const [draftTags, setDraftTags] = useState<string[]>(['voice-journal']);
   const [keepAudioAttachment, setKeepAudioAttachment] = useState<boolean>(false);
-  const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
+  const [voiceResult, setVoiceResult] = useState<TranscriptionResult | null>(null);
+  const [useTranscriptAsBody, setUseTranscriptAsBody] = useState<boolean>(false);
+  const [showTranscript, setShowTranscript] = useState<boolean>(false);
 
   // Recording timer ref
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Real MediaRecorder capture state
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   // Timer logic for active recording
   useEffect(() => {
@@ -81,19 +99,49 @@ export const VoiceJournalView: React.FC<VoiceJournalViewProps> = ({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
-  // Start recording
+  // Clean up media resources on unmount
+  useEffect(() => {
+    return () => {
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+      mediaRecorderRef.current?.state !== 'inactive' && mediaRecorderRef.current?.stop();
+    };
+  }, []);
+
+  // Start recording (real MediaRecorder capture)
   const handleStartRecording = async () => {
     try {
       setErrorMessage('');
       setDurationSeconds(0);
       setAudioBlob(null);
+      recordedChunksRef.current = [];
 
-      // Verify mic permissions if in browser
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : '';
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        const type = recorder.mimeType || 'audio/webm';
+        const blob = new Blob(recordedChunksRef.current, { type });
+        recordedChunksRef.current = [];
+        if (blob.size > 0) setAudioBlob(blob);
+        mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start(250);
 
       setState('recording');
     } catch {
@@ -104,28 +152,69 @@ export const VoiceJournalView: React.FC<VoiceJournalViewProps> = ({
 
   // Pause recording
   const handlePauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+    }
     setState('paused');
   };
 
   // Resume recording
   const handleResumeRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+    }
     setState('recording');
   };
 
   // Stop recording and trigger transcription
-  const handleStopAndTranscribe = async (mockFailure = false) => {
-    setState('transcribing');
-
+  const handleStopAndTranscribe = async () => {
+    const active = mediaRecorderRef.current;
+    let capturedBlob: Blob | null = audioBlob;
     try {
-      // Create audio blob
-      const dummyAudioBlob = new Blob(['simulated-voice-audio-data'], { type: 'audio/webm' });
-      setAudioBlob(dummyAudioBlob);
+      setState('transcribing');
+      setErrorMessage('');
 
-      const result = await transcribeAudioBlob(dummyAudioBlob, { mockFailure });
-      const cleanedText = cleanTranscriptText(result.transcript);
+      // Stop the recorder; capture the produced blob deterministically.
+      if (active && active.state !== 'inactive') {
+        await new Promise<void>((resolve) => {
+          const originalOnStop = active.onstop;
+          active.onstop = ((e: BlobEvent) => {
+            // Build the blob BEFORE the original onstop handler clears the chunks.
+            if (recordedChunksRef.current.length > 0) {
+              capturedBlob = new Blob(recordedChunksRef.current, { type: active.mimeType || 'audio/webm' });
+            }
+            if (originalOnStop) {
+              (originalOnStop as (this: MediaRecorder, ev: BlobEvent) => void).call(active, e);
+            }
+            resolve();
+          }) as ((this: MediaRecorder, ev: BlobEvent) => void);
+          active.stop();
+        });
+      }
 
+      // Fall back to any remaining captured chunks.
+      if ((!capturedBlob || capturedBlob.size === 0) && recordedChunksRef.current.length > 0) {
+        capturedBlob = new Blob(recordedChunksRef.current, { type: active?.mimeType || 'audio/webm' });
+        recordedChunksRef.current = [];
+      }
+      if (capturedBlob && capturedBlob.size > 0) setAudioBlob(capturedBlob);
+
+      if (!capturedBlob || capturedBlob.size === 0) {
+        throw new VoiceTranscriptionError(
+          'No audio was captured. Please ensure your microphone is working and try again.',
+          'empty-audio'
+        );
+      }
+
+      const result = await transcribeAudioBlob(capturedBlob);
+
+      // The reflective body is the canonical review draft; the verbatim
+      // transcript is surfaced separately so the user can switch if preferred.
+      setVoiceResult(result);
+      setUseTranscriptAsBody(false);
       setDraftTitle(`Voice Reflection — ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`);
-      setDraftBody(cleanedText);
+      setDraftBody(result.body);
+      setDraftTags(result.tags.length > 0 ? result.tags : ['voice-journal']);
       setState('review');
     } catch (err) {
       if (err instanceof VoiceTranscriptionError) {
@@ -140,6 +229,17 @@ export const VoiceJournalView: React.FC<VoiceJournalViewProps> = ({
   // Cancel recording and reset
   const handleCancelRecording = () => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+    mediaRecorderRef.current = null;
+    recordedChunksRef.current = [];
     setDurationSeconds(0);
     setAudioBlob(null);
     setDraftTitle('');
@@ -148,16 +248,15 @@ export const VoiceJournalView: React.FC<VoiceJournalViewProps> = ({
     onCancel?.();
   };
 
-  // Optional AI metadata generation for transcript
-  const handleGenerateAiMetadata = () => {
-    setIsGeneratingAi(true);
-    setTimeout(() => {
-      setDraftTags((prev) => Array.from(new Set([...prev, 'reflection', 'mindfulness', 'voice'])));
-      setIsGeneratingAi(false);
-    }, 500);
+  // Swap the editable body between the AI-generated reflection and the raw transcript.
+  const handleBodySourceToggle = () => {
+    if (!voiceResult) return;
+    const next = !useTranscriptAsBody;
+    setUseTranscriptAsBody(next);
+    setDraftBody(next ? cleanTranscriptText(voiceResult.transcript) : voiceResult.body);
   };
 
-  // Save final draft
+  // Save final draft (includes structured AI metadata for aiMetadata on the entry)
   const handleSaveDraft = () => {
     if (!draftBody.trim()) return;
 
@@ -168,6 +267,16 @@ export const VoiceJournalView: React.FC<VoiceJournalViewProps> = ({
       tags: draftTags,
       keepAudioAttachment,
       audioBlob: keepAudioAttachment && audioBlob ? audioBlob : undefined,
+      aiMetadata: voiceResult
+        ? {
+            modality: 'voice',
+            transcript: cleanTranscriptText(voiceResult.transcript),
+            summary: voiceResult.summary || draftBody.trim().slice(0, 500),
+            emotion: voiceResult.emotion || 'Reflective',
+            suggestedTags: draftTags,
+            modelUsed: voiceResult.modelUsed || 'gemini',
+          }
+        : undefined,
     });
   };
 
@@ -335,15 +444,29 @@ export const VoiceJournalView: React.FC<VoiceJournalViewProps> = ({
               <h3 className="text-lg font-bold text-slate-100">Review & Edit Your Voice Entry</h3>
             </div>
 
-            <button
-              onClick={handleGenerateAiMetadata}
-              disabled={isGeneratingAi}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 border border-purple-700/40 text-purple-200 text-xs font-semibold transition"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-              <span>{isGeneratingAi ? 'Analyzing...' : 'Generate AI Tags'}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {voiceResult?.emotion && (
+                <span className="px-2 py-0.5 rounded bg-slate-800 text-[11px] text-slate-300 border border-slate-700">
+                  {voiceResult.emotion}
+                </span>
+              )}
+              <button
+                onClick={handleBodySourceToggle}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 border border-purple-700/40 text-purple-200 text-xs font-semibold transition"
+                title={useTranscriptAsBody ? 'Restore AI-generated reflection' : 'Switch to raw transcript'}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                <span>{useTranscriptAsBody ? 'Use Reflection' : 'Use Transcript'}</span>
+              </button>
+            </div>
           </div>
+
+          {/* Gemini summary banner */}
+          {voiceResult?.summary && (
+            <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-400 leading-relaxed">
+              <span className="font-semibold text-slate-300">Summary:</span> {voiceResult.summary}
+            </div>
+          )}
 
           {/* Editable Title & Body Inputs */}
           <div className="space-y-4 text-xs">
@@ -358,15 +481,34 @@ export const VoiceJournalView: React.FC<VoiceJournalViewProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-400 mb-1">Transcribed Reflection (Editable)</label>
+              <label className="block font-semibold text-slate-400 mb-1">
+                {useTranscriptAsBody ? 'Transcribed Reflection (Editable)' : 'Journal Body (Editable)'}
+              </label>
               <textarea
                 rows={6}
                 value={draftBody}
                 onChange={(e) => setDraftBody(e.target.value)}
-                placeholder="Edit your transcribed voice reflection here..."
+                placeholder="Edit your voice reflection here..."
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 focus:outline-none focus:border-purple-500 leading-relaxed"
               />
             </div>
+
+            {/* Raw Transcript Toggle */}
+            {voiceResult?.transcript && (
+              <div className="space-y-1">
+                <button
+                  onClick={() => setShowTranscript((o) => !o)}
+                  className="text-[11px] font-semibold text-slate-400 hover:text-slate-200 transition"
+                >
+                  {showTranscript ? 'Hide raw transcript' : 'Show raw transcript'}
+                </button>
+                {showTranscript && (
+                  <p className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-400 leading-relaxed whitespace-pre-wrap">
+                    {voiceResult.transcript}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Tags */}
             <div className="flex flex-wrap gap-1.5">

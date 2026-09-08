@@ -1,3 +1,6 @@
+import { authService } from './auth';
+import { AIError, withTimeout } from './ai';
+
 export type VoiceErrorKind =
   | 'mic-denied'
   | 'mic-not-supported'
@@ -15,6 +18,16 @@ export class VoiceTranscriptionError extends Error {
 
 export interface TranscriptionResult {
   transcript: string;
+  /** Gemini-written reflective journal body derived from the audio. */
+  body: string;
+  /** One-line Gemini summary for aiMetadata.summary. */
+  summary: string;
+  /** Gemini-suggested tags. */
+  tags: string[];
+  /** Gemini-identified emotional tone. */
+  emotion: string;
+  /** Gemini model identifier. */
+  modelUsed: string;
   durationSeconds: number;
   confidence: number;
   language: string;
@@ -35,8 +48,15 @@ export function cleanTranscriptText(rawText: string): string {
     .trim();
 }
 
+/** Converts a Blob to a File so it can be uploaded via FormData. */
+function blobToFile(blob: Blob, filename: string, mimeType: string): File {
+  if (typeof File !== 'undefined' && blob instanceof File) return blob as File;
+  return new File([blob], filename, { type: mimeType });
+}
+
 /**
- * Transcribes audio blob using server endpoint or Web Speech API with fallback error handling.
+ * Transcribes audio blob using the server-side Gemini endpoint.
+ * Throws a typed VoiceTranscriptionError on any failure so the UI can react.
  */
 export async function transcribeAudioBlob(
   audioBlob: Blob | null,
@@ -51,6 +71,8 @@ export async function transcribeAudioBlob(
     );
   }
 
+  const estimatedDuration = Math.max(1, Math.min(MAX_RECORDING_DURATION_SECONDS, Math.round(audioBlob.size / 16000)));
+
   if (mockFailure) {
     throw new VoiceTranscriptionError(
       'Transcription service encountered an error while processing audio. Please retry.',
@@ -58,18 +80,90 @@ export async function transcribeAudioBlob(
     );
   }
 
-  // Simulated or server endpoint transcription processing
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Return processed transcript result
-      const estimatedDuration = Math.max(1, Math.min(MAX_RECORDING_DURATION_SECONDS, Math.round(audioBlob.size / 16000)));
-      resolve({
-        transcript: 'Today I took a long walk through the park and reflected on my goals for the upcoming season. Feeling peaceful and grateful.',
-        durationSeconds: estimatedDuration,
-        confidence: 0.94,
-        language,
+  const mimeType = audioBlob.type || 'audio/webm';
+
+  // Demo users get a graceful, clearly-labeled fallback (no live AI without sign-in).
+  if (authService.currentUser?.isDemo) {
+    return {
+      transcript: 'Voice journaling with live transcription requires signing in with Google.',
+      body: 'Voice journaling with live transcription requires signing in with Google.',
+      summary: 'Sign in with Google to enable live voice journaling.',
+      tags: ['voice-journal'],
+      emotion: 'Reflective',
+      modelUsed: 'demo-unavailable',
+      durationSeconds: estimatedDuration,
+      confidence: 0,
+      language,
+    };
+  }
+
+  return withTimeout<TranscriptionResult>(async () => {
+    const token = await authService.getIdToken();
+    const form = new FormData();
+    form.append('audio', blobToFile(audioBlob, `voice-${Date.now()}.webm`, mimeType), `voice-${Date.now()}.webm`);
+    form.append('language', language);
+
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let response: Response;
+    try {
+      response = await fetch('/api/gemini/transcribe-voice', {
+        method: 'POST',
+        headers,
+        body: form,
       });
-    }, 400);
+    } catch {
+      throw new VoiceTranscriptionError(
+        'Could not reach the transcription service. Check your connection and retry.',
+        'network-error'
+      );
+    }
+
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      throw new VoiceTranscriptionError(
+        'Transcription service returned an unreadable response.',
+        'transcription-failed'
+      );
+    }
+
+    if (!response.ok || data.success === false) {
+      const msg = data.error || 'Transcription failed.';
+      if (response.status === 429) {
+        throw new VoiceTranscriptionError(msg, 'duration-exceeded');
+      }
+      throw new VoiceTranscriptionError(msg, 'transcription-failed');
+    }
+
+    const result = data.result || {};
+    const transcript = typeof result.transcript === 'string' ? result.transcript : '';
+    if (!transcript || !transcript.trim()) {
+      throw new VoiceTranscriptionError(
+        'Transcription produced no text. Please try again.',
+        'transcription-failed'
+      );
+    }
+
+    const body = typeof result.body === 'string' && result.body.trim() ? result.body.trim() : cleanTranscriptText(transcript);
+    const summary = typeof result.summary === 'string' && result.summary.trim() ? result.summary.trim() : body.slice(0, 500);
+    const tags = Array.isArray(result.tags)
+      ? result.tags.map(String).filter(Boolean).slice(0, 8)
+      : ['voice-journal'];
+
+    return {
+      transcript: cleanTranscriptText(transcript),
+      body,
+      summary,
+      tags: tags.length > 0 ? tags : ['voice-journal'],
+      emotion: typeof result.emotion === 'string' && result.emotion.trim() ? result.emotion.trim() : 'Reflective',
+      modelUsed: typeof result.modelUsed === 'string' ? result.modelUsed : 'gemini',
+      durationSeconds: estimatedDuration,
+      confidence: 1,
+      language,
+    };
   });
 }
 

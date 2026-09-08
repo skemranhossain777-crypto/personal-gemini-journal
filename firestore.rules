@@ -156,10 +156,12 @@ service cloud.firestore {
     }
     function isAiMetadata(m) {
       return m is map
-        && m.keys().hasOnly(['summary', 'suggestedTags', 'emotion', 'generatedBy'])
+        && m.keys().hasOnly(['summary', 'suggestedTags', 'emotion', 'generatedBy', 'modality', 'transcript'])
         && (!('summary' in m) || (m.summary is string && m.summary.size() <= 50000))
         && (!('emotion' in m) || (m.emotion is string && m.emotion.size() <= 64))
         && (!('generatedBy' in m) || (m.generatedBy is string && m.generatedBy.size() <= 64))
+        && (!('modality' in m) || (m.modality == 'image' || m.modality == 'voice'))
+        && (!('transcript' in m) || (m.transcript is string && m.transcript.size() <= 120000))
         && (!('suggestedTags' in m) || validStringList(m.suggestedTags, 50, 32));
     }
     function isValidJournalEntry(data) {
@@ -235,7 +237,8 @@ service cloud.firestore {
       return hasValidPedigree(data) && hasTimestamps(data)
         && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
         && (data.skill in ['reflect', 'challenge', 'coach', 'summarize', 'explore',
-                           'remember', 'connect', 'reframe', 'celebrate', 'ask-my-life'])
+                           'remember', 'connect', 'reframe', 'celebrate', 'ask-my-life',
+                           'image-journal', 'voice-journal'])
         && boundedList(data.messages, 200)
         && probeMessageAt(data.messages, 0)
         && probeMessageAt(data.messages, 1)
@@ -413,7 +416,8 @@ service cloud.firestore {
     function isValidAiInteraction(data) {
       return hasValidPedigree(data) && hasTimestamps(data)
         && (data.skill in ['reflect', 'challenge', 'coach', 'summarize', 'explore',
-                           'remember', 'connect', 'reframe', 'celebrate', 'ask-my-life'])
+                           'remember', 'connect', 'reframe', 'celebrate', 'ask-my-life',
+                           'image-journal', 'voice-journal'])
         && data.prompt is string && data.prompt.size() >= 1 && data.prompt.size() <= 50000
         && data.response is string && data.response.size() <= 100000
         && validDocRefList(data.contextRefs)

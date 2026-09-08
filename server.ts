@@ -3,7 +3,10 @@ import path from 'path';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
+import multer from 'multer';
 import { GeminiService } from './server/gemini/service';
+import { MAX_IMAGE_BYTES, MAX_AUDIO_BYTES } from './server/gemini/validation';
 
 const geminiService = new GeminiService();
 
@@ -27,7 +30,7 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
   res.setHeader(
     'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+    'camera=(self), microphone=(self), geolocation=(), payment=(), usb=()'
   );
   next();
 });
@@ -74,6 +77,43 @@ setInterval(() => {
     if (now >= hit.resetAt) ipHits.delete(ip);
   }
 }, 5 * 60_000).unref?.();
+
+// ─── Multer in-memory upload for multimodal (image/voice) journaling ─────────
+// Media is held in memory (never written to disk) and forwarded directly to
+// Gemini. Size limits mirror the validation constants (10MB image / 25MB audio).
+// The file filter enforces allowed MIME types at the transport layer, and
+// `verifyFirebaseToken` still authenticates every request before multer stores.
+const MAX_UPLOAD_BYTES = Math.max(MAX_IMAGE_BYTES, MAX_AUDIO_BYTES);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_UPLOAD_BYTES,
+    files: 1,
+    fields: 4,
+  },
+  fileFilter: (_req, file, cb) => {
+    const mime = (file.mimetype || '').toLowerCase();
+    const isImage =
+      mime.startsWith('image/') &&
+      ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/avif'].includes(mime);
+    const isAudio =
+      mime.startsWith('audio/') &&
+      ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/x-wav', 'audio/mpeg3'].includes(mime);
+    if (isImage || isAudio) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error(`Unsupported media type: "${file.mimetype}". Allowed image/audio MIME types only.`) as any);
+  },
+});
+
+/** Sanitizes an uploaded filename to a safe basename (never used as a path). */
+function safeMediaBasename(originalName?: string): string {
+  const name = (originalName || 'media').replace(/[\\/]/g, '_').replace(/[^a-zA-Z0-9._-]/g, '_');
+  return name.slice(0, 200) || 'media';
+}
+
 
 
 // ─── Firebase Token Verification (Lightweight, no Admin SDK) ─────────────────
@@ -144,6 +184,44 @@ function getAdminApp(): Promise<admin.app.App> {
   return adminAppPromise;
 }
 const getAdminFirestore = () => getAdminApp().then((a) => a.firestore());
+
+// ─── AI Interaction Audit Log (multimodal journaling) ────────────────────────
+// Best-effort, server-authorized write into the canonical owner-scoped
+// `users/{uid}/aiInteractions` audit collection (named database — the same one
+// the client rules, Privacy Center wipe, and archive export operate on). The
+// record is purely additive: failures are logged and never fail the multimodal
+// request. It carries only short metadata (skill, prompt marker, one-line
+// summary) — never raw media bytes and never raw transcripts.
+async function logAiInteraction(
+  uid: string,
+  skill: 'image-journal' | 'voice-journal',
+  prompt: string,
+  response: string,
+  modelUsed?: string,
+  durationMs?: number
+): Promise<void> {
+  try {
+    const db = getFirestore(await getAdminApp(), FIRESTORE_DATABASE_ID);
+    const id = `ai_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    const now = admin.firestore.Timestamp.now();
+    await db.collection('users').doc(uid).collection('aiInteractions').doc(id).set({
+      id,
+      uid,
+      skill,
+      prompt: (prompt || '').slice(0, 50000),
+      response: (response || '').slice(0, 100000),
+      contextRefs: [],
+      ...(modelUsed ? { modelUsed: String(modelUsed).slice(0, 128) } : {}),
+      ...(typeof durationMs === 'number' ? { durationMs } : {}),
+      createdAt: now,
+      updatedAt: now,
+    });
+  } catch (err: any) {
+    logCloudFormat('WARNING', 'AI interaction audit log write skipped', {
+      message: err?.message || String(err || ''),
+    });
+  }
+}
 
 // Cache of { kid -> PEM public key }
 let cachedKeys: Record<string, string> | null = null;
@@ -521,6 +599,121 @@ app.post('/api/gemini/ask-my-life', verifyFirebaseToken, rateLimiter, async (req
   }
 });
 
+// ─── Gemini Multimodal Endpoints (Image & Voice journaling) ──────────────────
+// Gated by verifyFirebaseToken + rateLimiter. Media arrives as multipart/form-data
+// and is held in memory, validated, then sent inline to Gemini. The authenticated
+// uid is derived from the verified token (never from client data).
+
+app.post(
+  '/api/gemini/analyze-image',
+  verifyFirebaseToken,
+  rateLimiter,
+  upload.single('image'),
+  async (req: Request, res: Response): Promise<void> => {
+    const startedAt = Date.now();
+    try {
+      const file = (req as any).file;
+      if (!file) {
+        res.status(400).json({ success: false, error: 'No image file received. Send an image field in multipart/form-data.' });
+        return;
+      }
+
+      const caption = typeof req.body?.caption === 'string' ? req.body.caption.slice(0, 1000) : undefined;
+
+      const result = await geminiService.processImageJournal({
+        modality: 'image',
+        mimeType: file.mimetype,
+        buffer: file.buffer,
+        filename: safeMediaBasename(file.originalname),
+        caption,
+      });
+
+      res.json({ success: true, result });
+      const uid = (req as AuthenticatedRequest).auth?.uid;
+      if (uid) {
+        void logAiInteraction(
+          uid,
+          'image-journal',
+          caption ? `[image-journal] ${caption}` : '[image-journal] image analysis without a caption',
+          result.summary,
+          result.modelUsed,
+          Date.now() - startedAt
+        );
+      }
+    } catch (error: any) {
+      logCloudFormat('ERROR', 'Analyze image failed', { message: error?.message || String(error || '') });
+      const status = error?.status || 500;
+      const isModalityUnsupported = error?.code === 'MODEL_MODALITY_UNSUPPORTED';
+      const msg =
+        isModalityUnsupported
+          ? 'The selected Gemini model cannot process this image type. Please try a different image or retry later.'
+          : process.env.NODE_ENV === 'production'
+            ? 'Failed to analyze image'
+            : error?.message;
+      res.status(status).json({
+        success: false,
+        error: msg || 'Failed to analyze image',
+        ...(isModalityUnsupported ? { code: 'MODEL_MODALITY_UNSUPPORTED' } : {}),
+      });
+    }
+  }
+);
+
+app.post(
+  '/api/gemini/transcribe-voice',
+  verifyFirebaseToken,
+  rateLimiter,
+  upload.single('audio'),
+  async (req: Request, res: Response): Promise<void> => {
+    const startedAt = Date.now();
+    try {
+      const file = (req as any).file;
+      if (!file) {
+        res.status(400).json({ success: false, error: 'No audio file received. Send an audio field in multipart/form-data.' });
+        return;
+      }
+
+      const language = typeof req.body?.language === 'string' ? req.body.language : undefined;
+
+      const result = await geminiService.processVoiceJournal({
+        modality: 'voice',
+        mimeType: file.mimetype,
+        buffer: file.buffer,
+        filename: safeMediaBasename(file.originalname),
+        language,
+      });
+
+      res.json({ success: true, result });
+      const uid = (req as AuthenticatedRequest).auth?.uid;
+      if (uid) {
+        void logAiInteraction(
+          uid,
+          'voice-journal',
+          '[voice-journal] voice memo transcription and reflection',
+          result.summary || (result.transcript || '').slice(0, 500),
+          result.modelUsed,
+          Date.now() - startedAt
+        );
+      }
+    } catch (error: any) {
+      logCloudFormat('ERROR', 'Transcribe voice failed', { message: error?.message || String(error || '') });
+      const status = error?.status || 500;
+      const isModalityUnsupported = error?.code === 'MODEL_MODALITY_UNSUPPORTED';
+      const msg =
+        isModalityUnsupported
+          ? 'The selected Gemini model cannot process this audio type. Please try a different recording or retry later.'
+          : process.env.NODE_ENV === 'production'
+            ? 'Failed to transcribe voice'
+            : error?.message;
+      res.status(status).json({
+        success: false,
+        error: msg || 'Failed to transcribe voice',
+        ...(isModalityUnsupported ? { code: 'MODEL_MODALITY_UNSUPPORTED' } : {}),
+      });
+    }
+  }
+);
+
 // ─── Google Places Autocomplete Proxy ────────────────────────────────────────
 
 export const placesAutocompleteHandler = async (req: Request, res: Response): Promise<void> => {
@@ -849,6 +1042,38 @@ app.post('/api/notifications/test', verifyFirebaseToken, async (req: Authenticat
     console.error('Test notification error:', error);
     res.status(500).json({ error: error?.message || 'Failed to send test notification' });
   }
+});
+
+// ─── Centralized error handling (multer / media validation / generic) ────────
+// Multer forwards upload errors (unsupported MIME from the fileFilter, or
+// LIMIT_FILE_SIZE from `limits`) to the next error handler. Without this,
+// Express's default handler returns a 500. We normalize these into structured
+// 4xx responses so the client receives an honest, safe error code.
+app.use((error: any, _req: Request, res: Response, _next: NextFunction): void => {
+  // Multer file-filter rejection (unsupported media type).
+  if (error instanceof Error && error.message?.toLowerCase().includes('unsupported media type')) {
+    res.status(415).json({ success: false, error: error.message });
+    return;
+  }
+  // Multer limit errors (oversized file, too many files/fields).
+  if (error && error.code && String(error.code).startsWith('LIMIT_')) {
+    const msg =
+      error.code === 'LIMIT_FILE_SIZE'
+        ? 'Uploaded media exceeds the allowed size limit.'
+        : 'Upload exceeds allowed limits (files/fields).';
+    res.status(413).json({ success: false, error: msg });
+    return;
+  }
+  // Structured validation errors thrown by the multimodal service.
+  if (error && typeof error.code === 'string' && error.code !== 'MODULE_NOT_FOUND') {
+    res.status(typeof error.status === 'number' ? error.status : 400).json({
+      success: false,
+      error: process.env.NODE_ENV === 'production' ? 'Request could not be processed.' : error.message,
+    });
+    return;
+  }
+  console.error('Unexpected server error:', error?.message || error);
+  res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
 // ─── Cloud Logging & Graceful Shutdown ───────────────────────────────────────

@@ -1,5 +1,7 @@
 import type { Attachment } from '../data/models';
 import { Timestamp } from 'firebase/firestore';
+import { authService } from './auth';
+import { AIError, withTimeout } from './ai';
 
 export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB limit
 export const ALLOWED_IMAGE_MIME_TYPES = [
@@ -25,6 +27,16 @@ export interface ImageContextOutput {
   userProvided: string[];
   aiInferred: string[];
   disclaimer: string;
+  /** Gemini-written reflective journal body derived from the image. */
+  body: string;
+  /** One-line Gemini summary for aiMetadata.summary. */
+  summary: string;
+  /** Gemini-suggested tags. */
+  tags: string[];
+  /** Gemini-identified emotional tone. */
+  emotion: string;
+  /** Gemini model identifier. */
+  modelUsed: string;
 }
 
 /**
@@ -110,45 +122,100 @@ export async function uploadImageAttachment(params: {
 }
 
 /**
- * Gemini AI Image Context Analysis.
+ * Gemini AI Image Context Analysis (server-side multimodal).
  *
  * CRITICAL ANTI-FABRICATION RULE:
- * Never invents people, locations, dates, events, or relationships.
- * Clearly separates Observed visuals, User-provided facts, and AI-inferred reflections.
+ * The server never invents people, locations, dates, events, or relationships.
+ * It clearly separates Observed visuals, User-provided facts, and AI-inferred reflections.
  */
-export function analyzeImageContext(params: {
+export async function analyzeImageContext(params: {
+  file: File;
   imageName: string;
   userCaption?: string;
   currentUserId: string;
-}): ImageContextOutput {
-  const { imageName, userCaption, currentUserId } = params;
+}): Promise<ImageContextOutput> {
+  const { file, imageName, userCaption, currentUserId } = params;
 
   if (!currentUserId) {
     throw new ImageValidationError('Security Violation: Unauthorized AI analysis request.', 'UNAUTHORIZED');
   }
+  if (!file) {
+    throw new ImageValidationError('No image file selected for analysis.', 'INVALID_MIME');
+  }
 
-  const observed: string[] = [
-    `Visual Object: ${imageName || 'Attached Photograph'}`,
-    'Natural lighting and soft ambient focus',
-    'Centered composition with high contrast elements',
-  ];
+  // Client-side pre-validation stays (defense in depth); the server re-validates.
+  const validation = validateImageFile(file, currentUserId);
+  if (!validation.ok) {
+    throw new ImageValidationError(validation.error || 'Invalid image file.', 'INVALID_MIME');
+  }
 
-  const userProvided: string[] = userCaption
-    ? [`User Caption: "${userCaption}"`]
-    : ['No additional user caption provided'];
+  if (authService.currentUser?.isDemo) {
+    return {
+      observed: [`Visual Object: ${imageName || 'Attached Photograph'}`],
+      userProvided: userCaption ? [`User Caption: "${userCaption}"`] : ['No additional user caption provided'],
+      aiInferred: ['Live Gemini visual analysis is available after signing in with Google.'],
+      body: `Image attached: ${imageName || 'Attached Photograph'}. Sign in with Google to analyze images with Gemini.`,
+      summary: 'Image journaling requires sign-in to access Gemini analysis.',
+      tags: ['image-journal'],
+      emotion: 'Reflective',
+      modelUsed: 'demo-unavailable',
+      disclaimer:
+        'AI Context Policy: Observed elements reflect visible imagery. Gemini never fabricates names of people, specific dates, or unprovided location details.',
+    };
+  }
 
-  const aiInferred: string[] = [
-    'Tone: Peaceful and contemplative mood suggested by soft color balance',
-    'Theme: Quiet personal memory or outdoor reflection',
-  ];
+  return withTimeout<ImageContextOutput>(async () => {
+    const token = await authService.getIdToken();
+    const form = new FormData();
+    form.append('image', file, file.name);
+    if (userCaption) form.append('caption', userCaption);
 
-  return {
-    observed,
-    userProvided,
-    aiInferred,
-    disclaimer:
-      'AI Context Policy: Observed elements reflect visible imagery. Gemini never fabricates names of people, specific dates, or unprovided location details.',
-  };
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let response: Response;
+    try {
+      response = await fetch('/api/gemini/analyze-image', {
+        method: 'POST',
+        headers,
+        body: form,
+      });
+    } catch {
+      throw new AIError('Could not reach the server. Are you online?');
+    }
+
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      throw new AIError('Server returned an unreadable response.');
+    }
+
+    if (!response.ok || data.success === false) {
+      throw new AIError(data.error || 'Failed to analyze image.', response.status);
+    }
+
+    const result = data.result || {};
+    const visualAnalysis = result.visualAnalysis || {};
+    const body = typeof result.body === 'string' && result.body.trim() ? result.body.trim() : `Image attached: ${imageName || 'Attached Photograph'}.`;
+    const summary = typeof result.summary === 'string' && result.summary.trim() ? result.summary.trim() : 'Visual journal entry created from an image.';
+    const tags = Array.isArray(result.tags) ? result.tags.map(String).filter(Boolean).slice(0, 8) : ['image-journal'];
+    const emotion = typeof result.emotion === 'string' && result.emotion.trim() ? result.emotion.trim() : 'Reflective';
+    const modelUsed = typeof result.modelUsed === 'string' ? result.modelUsed : 'gemini';
+
+    return {
+      observed: Array.isArray(visualAnalysis.observed) ? visualAnalysis.observed : [],
+      userProvided: Array.isArray(visualAnalysis.userProvided) ? visualAnalysis.userProvided : [],
+      aiInferred: Array.isArray(visualAnalysis.aiInferred) ? visualAnalysis.aiInferred : [],
+      body,
+      summary,
+      tags: tags.length > 0 ? tags : ['image-journal'],
+      emotion,
+      modelUsed,
+      disclaimer:
+        'AI Context Policy: Observed elements reflect visible imagery. Gemini never fabricates names of people, specific dates, or unprovided location details.',
+    };
+  });
 }
 
 /**
