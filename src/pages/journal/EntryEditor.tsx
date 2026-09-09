@@ -6,6 +6,7 @@ import { LIMITS } from '../../data';
 import { toast } from '../../services/toast';
 import {
   useDraftEntry,
+  useMemoryExtraction,
   type AttachmentStore,
   type DraftSnapshot,
   type JournalDraft,
@@ -23,6 +24,7 @@ import { getModePlaceholder } from '../../journal';
 import { LocationPicker } from '../../components/LocationPicker';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Button } from '../../components/ui/Button';
+import { MemoryExtractionBar } from '../../components/journal/MemoryExtractionBar';
 import { ImageJournalView } from '../../components/journal/ImageJournalView';
 import { VoiceJournalView } from '../../components/journal/VoiceJournalView';
 import type { JournalLocation } from '../../types';
@@ -73,6 +75,10 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
     requestedEntryId: entryId,
     debounceMs: autosaveDebounceMs,
   });
+
+  // AI Memory Engine: auto-extract candidates once after a new entry is saved
+  // (never blocking the journal), with manual retry for existing entries.
+  const memoryExtraction = useMemoryExtraction(entry, { autoExtract: entryId === null });
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -309,6 +315,9 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
                 className="mb-4"
               />
             )}
+
+            {/* AI Memory Engine extraction status */}
+            <MemoryExtractionBar {...memoryExtraction} />
 
             {/* Voice & Image journaling entry points */}
             <div className="mb-4 flex flex-wrap items-center gap-2">

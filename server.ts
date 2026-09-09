@@ -195,9 +195,9 @@ const getAdminFirestore = () => getAdminApp().then((a) => a.firestore());
 // record is purely additive: failures are logged and never fail the multimodal
 // request. It carries only short metadata (skill, prompt marker, one-line
 // summary) — never raw media bytes and never raw transcripts.
-async function logAiInteraction(
+export async function logAiInteraction(
   uid: string,
-  skill: 'image-journal' | 'voice-journal',
+  skill: 'image-journal' | 'voice-journal' | 'memory-extraction',
   prompt: string,
   response: string,
   modelUsed?: string,
@@ -225,6 +225,13 @@ async function logAiInteraction(
     });
   }
 }
+
+/**
+ * Audit seam for route-level tests: routes invoke `aiAudit.log(...)` so the
+ * AI interaction audit trail is observable at the HTTP boundary. Wiring the
+ * real `logAiInteraction` keeps production behavior identical.
+ */
+export const aiAudit = { log: logAiInteraction };
 
 // Cache of { kid -> PEM public key }
 let cachedKeys: Record<string, string> | null = null;
@@ -543,9 +550,21 @@ app.post('/api/gemini/extract-themes', verifyFirebaseToken, rateLimiter, async (
 });
 
 app.post('/api/gemini/extract-memories', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+  const startedAt = Date.now();
   try {
     const result = await geminiService.extractMemoryCandidates((req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}));
     res.json({ success: true, result });
+    const uid = (req as AuthenticatedRequest).auth?.uid;
+    if (uid) {
+      void aiAudit.log(
+        uid,
+        'memory-extraction',
+        '[memory-extraction] journal entry memory candidate extraction',
+        `Candidates: ${result.candidates.length}; model: ${result.modelUsed}`,
+        result.modelUsed,
+        Date.now() - startedAt
+      );
+    }
   } catch (error: any) {
     console.error('Extract memories error:', error);
     const status = error.status || 500;

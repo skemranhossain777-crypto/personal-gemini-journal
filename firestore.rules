@@ -239,7 +239,7 @@ service cloud.firestore {
         && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
         && (data.skill in ['reflect', 'challenge', 'coach', 'summarize', 'explore',
                            'remember', 'connect', 'reframe', 'celebrate', 'ask-my-life',
-                           'image-journal', 'voice-journal'])
+                           'image-journal', 'voice-journal', 'memory-extraction'])
         && boundedList(data.messages, 200)
         && probeMessageAt(data.messages, 0)
         && probeMessageAt(data.messages, 1)
@@ -418,7 +418,7 @@ service cloud.firestore {
       return hasValidPedigree(data) && hasTimestamps(data)
         && (data.skill in ['reflect', 'challenge', 'coach', 'summarize', 'explore',
                            'remember', 'connect', 'reframe', 'celebrate', 'ask-my-life',
-                           'image-journal', 'voice-journal'])
+                           'image-journal', 'voice-journal', 'memory-extraction'])
         && data.prompt is string && data.prompt.size() >= 1 && data.prompt.size() <= 50000
         && data.response is string && data.response.size() <= 100000
         && validDocRefList(data.contextRefs)

@@ -38,7 +38,8 @@ export type CompanionSkill =
   | 'celebrate'
   | 'ask-my-life'
   | 'image-journal'
-  | 'voice-journal';
+  | 'voice-journal'
+  | 'memory-extraction';
 
 export type MemoryType =
   | 'person'
@@ -307,6 +308,7 @@ export const COMPANION_SKILLS: readonly CompanionSkill[] = [
   'ask-my-life',
   'image-journal',
   'voice-journal',
+  'memory-extraction',
 ];
 
 export const MEMORY_TYPES: readonly MemoryType[] = [
