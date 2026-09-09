@@ -156,12 +156,13 @@ service cloud.firestore {
     }
     function isAiMetadata(m) {
       return m is map
-        && m.keys().hasOnly(['summary', 'suggestedTags', 'emotion', 'generatedBy', 'modality', 'transcript'])
+        && m.keys().hasOnly(['summary', 'suggestedTags', 'emotion', 'generatedBy', 'modality', 'transcript', 'modelUsed'])
         && (!('summary' in m) || (m.summary is string && m.summary.size() <= 50000))
         && (!('emotion' in m) || (m.emotion is string && m.emotion.size() <= 64))
         && (!('generatedBy' in m) || (m.generatedBy is string && m.generatedBy.size() <= 64))
         && (!('modality' in m) || (m.modality == 'image' || m.modality == 'voice'))
         && (!('transcript' in m) || (m.transcript is string && m.transcript.size() <= 120000))
+        && (!('modelUsed' in m) || (m.modelUsed is string && m.modelUsed.size() <= 128))
         && (!('suggestedTags' in m) || validStringList(m.suggestedTags, 50, 32));
     }
     function isValidJournalEntry(data) {

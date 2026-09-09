@@ -152,9 +152,12 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.tr
 // defaulting to the local ./sa-keys/firebase-admin.json (never committed).
 let adminAppPromise: Promise<admin.app.App> | null = null;
 function getAdminApp(): Promise<admin.app.App> {
-  if (admin.apps.length) return Promise.resolve(admin.app());
   if (!adminAppPromise) {
     adminAppPromise = (async () => {
+      // Reuse an app this process already created (named, tied to the PID) so we
+      // never call admin.app() (the *default* app), which throws if uninitialized.
+      const existing = admin.apps.find((a) => a.name.startsWith('journal-'));
+      if (existing) return existing;
       let credentials: any;
       if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
         try {

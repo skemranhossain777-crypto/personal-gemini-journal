@@ -210,16 +210,17 @@ export function validateJournalEntryInput(input: unknown): ValidationResult {
   if (input.aiMetadata !== null && input.aiMetadata !== undefined) {
     if (
       !isRecord(input.aiMetadata) ||
-      !hasOnlyKeys(input.aiMetadata, ['summary', 'suggestedTags', 'emotion', 'generatedBy', 'modality', 'transcript']) ||
+      !hasOnlyKeys(input.aiMetadata, ['summary', 'suggestedTags', 'emotion', 'generatedBy', 'modality', 'transcript', 'modelUsed']) ||
       !optionalString(input.aiMetadata.summary, LIMITS.summary) ||
       !optionalString(input.aiMetadata.emotion, 64) ||
       !optionalString(input.aiMetadata.generatedBy, 64) ||
       !(input.aiMetadata.modality === undefined || input.aiMetadata.modality === 'image' || input.aiMetadata.modality === 'voice') ||
       !(input.aiMetadata.transcript === undefined || optionalString(input.aiMetadata.transcript, 120000)) ||
+      !(input.aiMetadata.modelUsed === undefined || optionalString(input.aiMetadata.modelUsed, 128)) ||
       !(input.aiMetadata.suggestedTags === undefined || stringList(input.aiMetadata.suggestedTags, LIMITS.tagsCount, LIMITS.tagLength))
     ) {
       return fail(
-        'aiMetadata must be null or { summary?, suggestedTags?, emotion?, generatedBy?, modality?, transcript? }.'
+        'aiMetadata must be null or { summary?, suggestedTags?, emotion?, generatedBy?, modality?, transcript?, modelUsed? }.'
       );
     }
   }

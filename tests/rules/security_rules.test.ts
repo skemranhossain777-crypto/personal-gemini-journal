@@ -53,7 +53,15 @@ const FIXTURES: Fixture[] = [
       favorite: false,
       archived: false,
       private: false,
-      aiMetadata: null,
+      aiMetadata: {
+        summary: 'Reflecting on a quiet morning.',
+        suggestedTags: ['morning'],
+        emotion: 'calm',
+        generatedBy: 'gemini',
+        modality: 'image',
+        transcript: '',
+        modelUsed: 'gemini-3.6-flash',
+      },
     }),
     patch: () => ({ title: 'A revised morning' }),
   },
@@ -424,6 +432,32 @@ it('rejects a document id containing a path separator (path escape)', async () =
       await assertFails(
         setDoc(doc(ownerDb, 'users', OWNER, 'journalEntries', f.docId, 'child', 'y'), f.build(OWNER)),
       );
+    });
+  });
+
+  describe('journalEntries — aiMetadata field rigor (multimodal saves)', () => {
+    const entryRef = () => doc(ownerDb, 'users', OWNER, 'journalEntries', 'meta-1');
+
+    it('allows a full aiMetadata map incl. modelUsed (client multimodal save shape)', async () => {
+      await assertSucceeds(setDoc(entryRef(), FIXTURES[0].build(OWNER)));
+    });
+
+    it('rejects aiMetadata with an injected extra key (hasOnly enforcement)', async () => {
+      const data = FIXTURES[0].build(OWNER);
+      data.aiMetadata = { ...(data.aiMetadata as Record<string, unknown>), adminFlag: true };
+      await assertFails(setDoc(entryRef(), data));
+    });
+
+    it('rejects aiMetadata when modelUsed is not a string (type bound)', async () => {
+      const data = FIXTURES[0].build(OWNER);
+      data.aiMetadata = { ...(data.aiMetadata as Record<string, unknown>), modelUsed: 12345 };
+      await assertFails(setDoc(entryRef(), data));
+    });
+
+    it('rejects aiMetadata transcript over the size bound', async () => {
+      const data = FIXTURES[0].build(OWNER);
+      data.aiMetadata = { ...(data.aiMetadata as Record<string, unknown>), transcript: 'x'.repeat(120001) };
+      await assertFails(setDoc(entryRef(), data));
     });
   });
 

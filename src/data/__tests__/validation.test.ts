@@ -64,6 +64,8 @@ describe('validation — journalEntries', () => {
   });
   it('validates aiMetadata bundle', () => {
     expect(validateJournalEntryInput({ ...journalOk, aiMetadata: { summary: 's', suggestedTags: ['a'], emotion: 'calm' } }).ok).toBe(true);
+    expect(validateJournalEntryInput({ ...journalOk, aiMetadata: { summary: 's', modality: 'image', transcript: 't', generatedBy: 'gemini', modelUsed: 'gemini-3.6-flash' } }).ok).toBe(true);
+    expect(validateJournalEntryInput({ ...journalOk, aiMetadata: { summary: 's', modelUsed: 42 } }).ok).toBe(false);
     expect(validateJournalEntryInput({ ...journalOk, aiMetadata: { unknownKey: true } }).ok).toBe(false);
   });
 });
