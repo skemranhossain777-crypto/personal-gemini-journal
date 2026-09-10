@@ -59,17 +59,13 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 
-# Build args for public Vite configuration
-ARG VITE_FIREBASE_PROJECT_ID
-ARG VITE_FIREBASE_APP_ID
-ARG VITE_FIREBASE_API_KEY
-ARG VITE_FIREBASE_AUTH_DOMAIN
-ARG VITE_FIREBASE_FIRESTORE_DATABASE_ID
-ARG VITE_FIREBASE_STORAGE_BUCKET
-ARG VITE_FIREBASE_MESSAGING_SENDER_ID
-ARG VITE_FIREBASE_OAUTH_CLIENT_ID
-ARG VITE_GOOGLE_MAPS_CLIENT_ID
-
+# Public Firebase/Maps client configuration is sourced at build time from the
+# committed firebase-applet-config.json (imported by src/services/firebase.ts)
+# and baked into the Vite browser bundle. It is deliberately NOT declared here
+# as ARG/ENV: no build args are passed in CI and the key names trip Docker's
+# SecretsUsedInArgOrEnv check. Server-side secrets (Gemini/Maps API keys, admin
+# emails, service-account JSON) are runtime-only process.env values injected via
+# Cloud Run Secret Manager and never enter this Dockerfile.
 RUN npm run build
 
 # Runtime stage

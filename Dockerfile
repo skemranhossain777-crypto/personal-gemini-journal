@@ -9,28 +9,14 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build args for public Vite configuration (VITE_ prefixed)
-ARG VITE_FIREBASE_PROJECT_ID
-ARG VITE_FIREBASE_APP_ID
-ARG VITE_FIREBASE_API_KEY
-ARG VITE_FIREBASE_AUTH_DOMAIN
-ARG VITE_FIREBASE_FIRESTORE_DATABASE_ID
-ARG VITE_FIREBASE_STORAGE_BUCKET
-ARG VITE_FIREBASE_MESSAGING_SENDER_ID
-ARG VITE_FIREBASE_OAUTH_CLIENT_ID
-ARG VITE_GOOGLE_MAPS_CLIENT_ID
-
-ENV VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID \
-    VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID \
-    VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY \
-    VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN \
-    VITE_FIREBASE_FIRESTORE_DATABASE_ID=$VITE_FIREBASE_FIRESTORE_DATABASE_ID \
-    VITE_FIREBASE_STORAGE_BUCKET=$VITE_FIREBASE_STORAGE_BUCKET \
-    VITE_FIREBASE_MESSAGING_SENDER_ID=$VITE_FIREBASE_MESSAGING_SENDER_ID \
-    VITE_FIREBASE_OAUTH_CLIENT_ID=$VITE_FIREBASE_OAUTH_CLIENT_ID \
-    VITE_GOOGLE_MAPS_CLIENT_ID=$VITE_GOOGLE_MAPS_CLIENT_ID
-
-# Compile TypeScript server & build Vite production bundle
+# Public Firebase/Maps client configuration is sourced at build time from the
+# committed firebase-applet-config.json (imported by src/services/firebase.ts)
+# and baked into the Vite browser bundle. It is deliberately NOT declared here
+# as ARG/ENV: those vary nothing on any current build path (no build args are
+# passed in CI) and the key names trip Docker's SecretsUsedInArgOrEnv check.
+# Server-side secrets are none of these - they are runtime-only process.env
+# values injected via Cloud Run Secret Manager (Gemini/Maps API keys, admin
+# emails, service-account JSON) and never enter this Dockerfile.
 RUN npm run build
 
 # Runtime stage
