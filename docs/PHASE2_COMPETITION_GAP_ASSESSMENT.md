@@ -15,9 +15,23 @@
 > only — no application source-code change; see
 > `PHASE2A_MEMORY_ENGINE_IMPLEMENTATION.md` §7b/§8/§12). Live QA passed in a real
 > authenticated browser (Microsoft Edge + Google account). **G1 is therefore
-> RESOLVED.** The full historical assessment below is preserved as-written; **G2**
-> (mount the 5 orphaned views), **G3** (keyword-scoring → embedding RAG), **G4–G9**,
-> and the observed deployment-path behavior remain **open proposals** for later phases.
+> RESOLVED.**
+>
+> **STATUS UPDATE (2026-09-10) — Phase 2B-1 (G2) CLOSED.** All five previously
+> orphaned views are now mounted and reachable in production:
+> - **On This Day** — dashboard card in `CalmDashboardView`
+> - **Reflection Reports** — dashboard card + Memories → Reports sub-view
+> - **Semantic Search** — global overlay via sidebar/header search buttons
+> - **Habits** — Growth tab (default sub-view), with `habitsApi.subscribe()` wired
+> - **Goals** — Growth tab (secondary sub-view)
+>
+> Commit `6a1d530`, CI run `34493291542` (4/4 jobs success), production revision
+> `gemini-journal-00023-k7d` @ 100% traffic. 422/422 tests, typecheck clean, build
+> clean, 135/135 Firestore rules. See `PHASE2B1_VIEW_ACTIVATION.md` for full
+> verification evidence. **G2 is therefore RESOLVED.** The full historical assessment
+> below is preserved as-written; **G3** (keyword-scoring → embedding RAG), **G4** (now
+> partially resolved — Habits and Goals views are mounted), **G5–G9**, and the
+> observed deployment-path behavior remain **open proposals** for later phases.
 
 ---
 
@@ -97,15 +111,15 @@ However, the **competitive surface area is smaller than the engineering surface 
 | Ask My Life | `AskMyLifeView` | Live — evidence-cited answers, confidence gating, sample questions |
 | Privacy | `PrivacyCenterView` | Live — exports (JSON/MD), wipe, AI-session metric, OWASP checklist |
 
-**Orphaned (built + tested, ZERO mounts):**
+**Orphaned (built + tested, ZERO mounts) — RESOLVED 2026-09-10:**
 
-| View | Purpose | Why it loses points |
+| View | Purpose | Phase 2B-1 Mount Point |
 |---|---|---|
-| `OnThisDayView` | "On this day in your life" nostalgia | Judges never see it |
-| `ReflectionReportsView` | Weekly/monthly AI life reports | Champion wow feature hidden |
-| `SemanticSearchView` | NL search w/ 8 filters + relevance explanations | "Find where I felt proud" is a headline demo, hidden |
-| `HabitsEngineView` | Habit & mood correlation insights | Data-layer-ready, hidden |
-| `GoalsEngineView` | Goal progress + pattern insights | Hidden |
+| `OnThisDayView` | "On this day in your life" nostalgia | Dashboard card in `CalmDashboardView` |
+| `ReflectionReportsView` | Weekly/monthly AI life reports | Dashboard card + Memories → Reports sub-view |
+| `SemanticSearchView` | NL search w/ 8 filters + relevance explanations | Global overlay via sidebar/header search buttons |
+| `HabitsEngineView` | Habit & mood correlation insights | Growth tab (default sub-view) |
+| `GoalsEngineView` | Goal progress + pattern insights | Growth tab (secondary sub-view) |
 
 **UX quality:** calm dark "Personal Sanctuary" theme, skip-to-content link, focus-visible rings, 44px touch targets, reduced-motion respect, responsive mobile bottom-nav, offline banner, command palette (Ctrl+K), `AuthLanding` with 3 signature experiences + JudgeTour modal + Instant Demo. This is a **7/10** execution — but the information architecture hides the best material, and pairing scores are capped because judges can't reach the deep features from the nav.
 
@@ -182,9 +196,9 @@ However, the **competitive surface area is smaller than the engineering surface 
 | ID | Gap | Current Evidence | Why It Matters | Competition Impact | User Impact | Technical Complexity | Risk | Effort |
 |---|---|---|---|---|---|---|---|---|
 | **G1 (P1) — RESOLVED 2026-09-10** | **~~Memory Engine candidate creation is dormant~~ → wired & verified live** | Was: `extractMemoryCandidates` (ai.ts:103) + server route had **zero callers**; `memoriesApi.create` only in tests; demo seeds 2 sample memories to mask it. Now: `memoryPipeline.ts` trigger in journal save flow → candidates → review UI → approval (`candidate → saved`) → Ask My Life cites MEMORY + ENTRY (verified in production, 2026-09-10) | #1 signature experience ("Personal Memory Engine") is now live and provable for real users; Ask My Life / On This Day / Reports now accumulate a real memory corpus | High — this is our stated differentiator, now verifiable live | High — "AI keeps my life story" now happens | Medium (trigger + server endpoint both existed) | Low-Med | Committed (Phase 2A) |
-| **G2 (P1)** | **5 built views orphaned** | No imports of `OnThisDayView`, `ReflectionReportsView`, `SemanticSearchView`, `HabitsEngineView`, `GoalsEngineView` outside own files/tests; `ResponsiveNavigationShell` mounts only 6 tabs | Advertised intelligence unreachable → judges and users score what they can't see | High | High (semantic search & reports are prized) | Low (mount + wire props) | Low | 1 day |
+| **G2 (P1) — RESOLVED 2026-09-10** | **~~5 built views orphaned~~ → all five mounted and verified in production** | Was: No imports of `OnThisDayView`, `ReflectionReportsView`, `SemanticSearchView`, `HabitsEngineView`, `GoalsEngineView` outside own files/tests; `ResponsiveNavigationShell` mounts only 6 tabs. Now: all five views wired into navigation — On This Day (dashboard card), Reflection Reports (dashboard + Memories sub-view), Semantic Search (global overlay), Habits + Goals (Growth tab). Commit `6a1d530`, CI `34493291542`, production `gemini-journal-00023-k7d` @ 100%. | Advertised intelligence now reachable by judges and users | High → Delivered | High → Delivered | Low (mount + wire props) | Low | Committed (Phase 2B-1) |
 | **G3 (P1)** | **Retrieval is keyword scoring, not semantic RAG** | `askMyLife.ts` / `semanticSearch.ts` use regex intent + term scoring; `firestore.indexes.json` has **zero** entries | "RAG + 1M-token context" claims overstate reality; competitor semantic/vector search beats us on hard queries | Medium | Medium | Medium-High (embeddings + index) | Medium | 2–3 days |
-| **G4 (P2)** | Habits/Goals engines exist but unused | `habitsEngine.ts`, `goalsEngine.ts` + tests exist; views orphaned | Unrealized insight surface (mood×habit correlations) | Medium | Medium | Low | Low | 0.5 day |
+| **G4 (P2) — PARTIALLY RESOLVED** | **~~Habits/Goals engines exist but unused~~ → Habits and Goals views are now mounted in Growth tab** | Was: `habitsEngine.ts`, `goalsEngine.ts` + tests exist; views orphaned. Now: both views mounted as Growth sub-views in production (commit `6a1d530`). | Insight surface now reachable; mood×habit correlations visible | Medium → Partially Delivered | Medium → Partially Delivered | Low | Low | Partially committed (Phase 2B-1) |
 | **G5 (P2)** | No observable "life intelligence" aggregation | Dashboard shows static cards only; reports engine unused | 10X opportunity hidden (see §13) | High | High | Medium | Low-Med | 2 days |
 | **G6 (P2)** | Deployment pipeline lacks path filter | `deploy.yml` runs full pipeline on docs-only pushes (observed at `3f5e309`) | Unnecessary prod rollouts, wasted compute, risk surface | Low | None | Low | Low | 0.5 day |
 | **G7 (P3)** | `interactions` update rule not immutable | Rules pin only `id`, not `updatedAt` | Self-owned tamper window; audit integrity nuance | Low | None | Low | Low | 0.5 day |
@@ -200,9 +214,9 @@ However, the **competitive surface area is smaller than the engineering surface 
 | Item | Impact (1–10) | Effort (1–10) | Risk (1–10) | Competition ROI |
 |---|---|---|---|---|
 | G1 — Wire memory candidate lifecycle (PHASE 2A) — **DONE, verified live 2026-09-10** | 9 | 3 | 3 | ★★★★★ (delivered) |
-| G2 — Mount On This Day, Reports, Semantic Search, Habits, Goals | 8 | 2 | 2 | ★★★★★ |
+| G2 — Mount On This Day, Reports, Semantic Search, Habits, Goals — **DONE, verified live 2026-09-10** | 8 | 2 | 2 | ★★★★★ (delivered) |
 | G3 — True semantic retrieval (embeddings) | 7 | 6 | 5 | ★★★★☆ |
-| G4 — Habits/Goals engine reach | 6 | 2 | 2 | ★★★☆☆ |
+| G4 — Habits/Goals engine reach — **PARTIALLY DONE** (views mounted, lifecycle refinement pending) | 6 | 2 | 2 | ★★★☆☆ |
 | G5 — Life intelligence aggregation on Home | 8 | 4 | 3 | ★★★★☆ |
 | G6 — Path-filter CI | 3 | 1 | 1 | ★★☆☆☆ |
 | G7 — Immutable interactions rule | 3 | 1 | 1 | ★★☆☆☆ |
@@ -212,8 +226,8 @@ However, the **competitive surface area is smaller than the engineering surface 
 ### Classification
 
 - **P0 — Critical:** NONE. No genuine security vulnerability found in this pass.
-- **P1 — High (do next):** G1 (memory lifecycle), G2 (mount orphaned views), G3 (true semantic retrieval).
-- **P2 — Medium:** G4 (habits/goals reach), G5 (life intelligence aggregation), G6 (path-filter CI).
+- **P1 — High (do next):** ~~G1 (memory lifecycle)~~ DONE, ~~G2 (mount orphaned views)~~ DONE. G3 (true semantic retrieval) remains the next P1.
+- **P2 — Medium:** G4 (partially done — Habits/Goals mounted; lifecycle refinement pending), G5 (life intelligence aggregation), G6 (path-filter CI).
 - **P3 — Polish:** G7 (interactions immutability), G8 (docs/README), G9 (onboarding).
 
 ---
@@ -323,6 +337,10 @@ G1 is the **keystone**: G2's On This Day/Reports mount, G3's embeddings, and G5'
 ## 18. Conclusion
 
 JOURNAL∞ is already a **7.4/10 competition contender** on engineering, security, and multimodal originality. Its ceiling is being held back not by technology but by **deliverable-ness**: the flagship Memory Engine is dormant, five intelligence features are orphaned, and "RAG" is keyword scoring. The single most valuable next step is **PHASE 2A: wire the AI Memory Engine lifecycle end-to-end** — it is cheap, low-risk, touches no schema or security surface, reuses two already-built-and-tested components, and converts the stated product vision into a live, unscripted demo. Phase 2B then mounts the orphaned intelligence views onto the now-accumulating memory corpus; Phase 2C upgrades retrieval to true embeddings.
+
+---
+
+**UPDATE (2026-09-10):** Phase 2A (G1) and Phase 2B-1 (G2) are now **CLOSED**. The Memory Engine lifecycle is live and verified; all five orphaned views are mounted and reachable in production. The remaining P1 gap is G3 (true semantic RAG with embeddings). See `PHASE2A_MEMORY_ENGINE_IMPLEMENTATION.md` and `PHASE2B1_VIEW_ACTIVATION.md` for verification evidence.
 
 ---
 
