@@ -59,7 +59,7 @@ Two residual items are honestly noted:
 
 ## Firestore Reconciliation — CANONICAL AND CONSISTENT
 
-The authoritative database is **`ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6`**
+The authoritative database is **`gemini-journal`**
 (us-west1, `FIRESTORE_NATIVE`, created 2026-09-02) — the **only** Firestore DB in the project.
 
 - GCP → Firebase project: `gen-lang-client-0345619653` (`.firebaserc`, admin SA, applet config) ✓

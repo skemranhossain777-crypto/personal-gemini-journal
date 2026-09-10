@@ -171,7 +171,7 @@ firebase deploy --only firestore:rules --project gen-lang-client-0345619653
 ```powershell
 gcloud run deploy gemini-journal-staging --image="gcr.io/gen-lang-client-0345619653/journal-app:latest" `
   --region=us-central1 --project=gen-lang-client-0345619653 --port=8080 `
-  --set-env-vars='FIRESTORE_DATABASE_ID=ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653,NODE_ENV=production,APP_URL=https://gemini-journal-staging-s7hw7hui2q-uc.a.run.app' `
+  --set-env-vars='FIRESTORE_DATABASE_ID=gemini-journal,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653,NODE_ENV=production,APP_URL=https://gemini-journal-staging-s7hw7hui2q-uc.a.run.app' `
   --set-secrets='GEMINI_API_KEY=journal-gemini-api-key:latest,GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,ADMIN_EMAILS=journal-admin-emails:latest,FIREBASE_SERVICE_ACCOUNT_JSON=journal-firebase-sa-json:latest'
 ```
 

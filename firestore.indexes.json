@@ -1,4 +1,26 @@
 {
   "indexes": [],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    { "collectionGroup": "journalEntries", "fieldPath": "body", "indexes": [] },
+    { "collectionGroup": "journalEntries", "fieldPath": "aiMetadata.summary", "indexes": [] },
+    { "collectionGroup": "journalEntries", "fieldPath": "aiMetadata.transcript", "indexes": [] },
+    { "collectionGroup": "journalEntries", "fieldPath": "attachments", "indexes": [] },
+    { "collectionGroup": "journalEntries", "fieldPath": "attachments.url", "indexes": [] },
+    { "collectionGroup": "memories", "fieldPath": "narrative", "indexes": [] },
+    { "collectionGroup": "conversations", "fieldPath": "summary", "indexes": [] },
+    { "collectionGroup": "conversations", "fieldPath": "messages", "indexes": [] },
+    { "collectionGroup": "conversations", "fieldPath": "messages.content", "indexes": [] },
+    { "collectionGroup": "goals", "fieldPath": "description", "indexes": [] },
+    { "collectionGroup": "habits", "fieldPath": "description", "indexes": [] },
+    { "collectionGroup": "collections", "fieldPath": "description", "indexes": [] },
+    { "collectionGroup": "timelineEvents", "fieldPath": "description", "indexes": [] },
+    { "collectionGroup": "insights", "fieldPath": "narrative", "indexes": [] },
+    { "collectionGroup": "insights", "fieldPath": "content", "indexes": [] },
+    { "collectionGroup": "aiInteractions", "fieldPath": "prompt", "indexes": [] },
+    { "collectionGroup": "aiInteractions", "fieldPath": "response", "indexes": [] },
+    { "collectionGroup": "notifications", "fieldPath": "body", "indexes": [] },
+    { "collectionGroup": "interactions", "fieldPath": "summary", "indexes": [] },
+    { "collectionGroup": "interactions", "fieldPath": "messages", "indexes": [] },
+    { "collectionGroup": "interactions", "fieldPath": "messages.content", "indexes": [] }
+  ]
 }

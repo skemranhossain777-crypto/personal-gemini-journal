@@ -3,7 +3,7 @@
   "appId": "1:618285014094:web:025d5fb3757eb874eab71f",
   "apiKey": "AIzaSyDdhq1JOBx4Pv0SEWpSpudiKquUHHnIntE",
   "authDomain": "gen-lang-client-0345619653.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6",
+  "firestoreDatabaseId": "gemini-journal",
   "storageBucket": "gen-lang-client-0345619653.firebasestorage.app",
   "messagingSenderId": "618285014094",
   "measurementId": "",

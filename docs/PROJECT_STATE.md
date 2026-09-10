@@ -68,7 +68,7 @@ Browser (React 19 SPA, static assets)
 ### 1.4 Firebase / Firestore / Auth
 
 - Project: `gen-lang-client-0345619653` (project number 618285014094).
-- Custom Firestore database: `ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6` (not `(default)`).
+- Custom Firestore database: `gemini-journal` (not `(default)`).
 - **Data model:** Phase 3 added an owner-scoped data layer — see `docs/DATA_LAYER.md` and `src/data/`. Live/shipping model remains the single `JournalInteraction` entity (see "Existing Features"); the new `users/{uid}/{journalEntries,conversations,insights,memories,timelineEvents,goals,habits,collections,notifications,aiInteractions,settings}` collections are implemented, type-checked, unit-tested, and security-rule-tested but **not yet wired into the UI**. Legacy `interactions` subcollection preserved and still serving. `roles/{uid}` is read-only for its owner; writes are server-only.
 - Firestore rules (`firestore.rules`, `rules_version = '2'`): owner-scoped — `request.auth.uid == userId` at `/users/{userId}` and descendant `/**`; helper functions `isOwner`, `isMessage`, `isValidInteraction` enforce the bounds above and reject forged `userId`.
 - Auth: Google sign-in only. All reads/writes UID-scoped. Users with `demo-` uid prefix live entirely in localStorage.

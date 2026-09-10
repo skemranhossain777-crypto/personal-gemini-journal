@@ -110,7 +110,7 @@ let listener: { close: () => Promise<void> } | null = null;
 
 beforeAll(async () => {
   process.env.VITE_FIREBASE_PROJECT_ID = CANONICAL_PROJECT;
-  process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID = 'ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6';
+  process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID = 'gemini-journal';
   process.env.GEMINI_API_KEY = 'mock-gemini-key';
   vi.resetModules();
   serverModule = await import('../../../server');

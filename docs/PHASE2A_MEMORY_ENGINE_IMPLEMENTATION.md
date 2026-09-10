@@ -103,15 +103,19 @@ or endpoint:
 - Emulator + **same ruleset** → owner lists **allowed** (135 passing rules tests)
 - Prior deployed ruleset had the same `allow read: if isOwner(userId)` structure → **pre-existing**
 
-### Root cause (assessment)
-Not the rules. The named database
+### Root cause (assessment, 2026-09-10 refined)
+The gating layer is the **Firestore Enterprise edition** of the named database
 `ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6`
-(Firestore Native, ENTERPRISE, `enhancedTextSearchQueryMode: ENHANCED_QUERY_MODE_ENABLED`,
-`realtimeUpdatesMode: REALTIME_UPDATES_MODE_ENABLED`, us-west1) is the **only**
-database in the project (no `(default)`; verified via `gcloud firestore databases list`
-and a `(default)` probe that 404s cleanly). The gate is a **GCP console / Firestore
-configuration level** restriction (e.g. Firebase console → Firestore → data-access /
-API-key-query settings for the app's web API key), not editable from code or rules.
+(`enhancedTextSearchQueryMode: ENHANCED_QUERY_MODE_ENABLED`,
+`realtimeUpdatesMode: REALTIME_UPDATES_MODE_ENABLED`, us-west1). With identical
+rules and an identical live Firebase ID token, REST `ListDocuments` on a nested
+collection returns **200 on a Standard-edition database and 403 PERMISSION_DENIED on
+this Enterprise database** — a reproducible, transport-level (REST) difference for
+authenticated client collection scans. The Web SDK (gRPC) `Listen` path additionally
+failed with `NOT_FOUND(5)` on the original stack (since fixed by the API key +
+explicit-databaseId remediation below). Rules themselves are exonerated: the emulator
+with the same ruleset allows every op (135/135), and point reads/writes/server IAM
+work on Enterprise.
 
 ### Production impact
 - Memory Engine candidates cannot be **listed** in the UI; Ask My Life memory context
@@ -156,18 +160,90 @@ are unchanged).
 ### Conclusion of the attempt
 The console change did **not** open the query path on the web API key for this named
 database. The §8 browser pass therefore remains blocked by the same environment gate.
-Next action still requires a GCP-side change (or a Cloud Run revision that proxies
-server-side reads / region-resolves the named DB for the web SDK); this repo cannot
-self-heal the gate from code, and no code/rule change is justified by this retest.
+Next action requires a GCP-side change (or a Cloud Run revision that proxies
+server-side reads); this repo cannot self-heal the gate from code.
 
 ---
 
-## 8. Not Yet Verified (blocked by §7 / §7a)
+## 7b. RESOLUTION — Database Migration (Enterprise → Standard, 2026-09-10)
+
+Because the gate sits at the **database edition** layer, the client LIST/QUERY path was
+restored by migrating the live data to a **new Standard-edition** database and re-pointing
+every consumer at it.
+
+### 1. New database
+- Id **`gemini-journal`** (us-west1, firestore-native, **STANDARD** edition,
+  `DELETE_PROTECTION_DISABLED`, realtime updates + enhanced text search enabled,
+  instance uid `93966c4c-703f-4ce5-9bca-68d0711304fb`).
+- Created with `gcloud firestore databases create ... --edition=standard --no-delete-protection`.
+
+### 2. Backup & import attempts
+- Export of the old Enterprise DB → `gs://gcj-firestore-migration/enterprise-backup-20260910-105550`
+  (7 docs, 6.6 KiB) — kept as the rollback artifact.
+- `gcloud firestore import` into `gemini-journal` **failed twice** with
+  `The value of property "content" is longer than 1500 bytes.` even after deploying
+  fieldOverrides exemptions — **Standard import hard-rejects documents containing any
+  value > 1500 B; exemptions only apply to SDK/REST writes, not to import/export.**
+
+### 3. Data migration (exemption-enabled REST copy)
+- 7/9 production docs copied with an owner OAuth access token
+  (`gcloud auth print-access-token`) via REST `documents.create`:
+  - 6 `journalEntries` under `users/LQlecDDBdqTigmqnaeqV6WmyrCh1/journalEntries/`
+    (`TdzFoXzstMNbChGsdgvy`, `BkIS7OxNWEfdwDt2iq37`, `AMkh0zkTZSLWaeDqBlfa`,
+    `TAP9TOfZfyZuONEBdevc`, `ezqRZDAZHu75dqQNW1wW`, `aBmmD2rV2Q9uRWLIAwlw`)
+  - 1 `interaction` `users/jCsXQKAF7JWTvPcm4qn0tsBzNBC2/interactions/entry_1788797036026_evnbq`
+    — includes an oversized `messages[].1.content` (2678 B); wrote cleanly (exemptions apply).
+  - The 2 bare `users/...` docs (empty `{}`, phantom parents) were skipped — no data loss.
+- Referential integrity: parent `users/...` docs do not exist in either database
+  (collections are owned by the `uid` string; the rules only require `uid` matches).
+
+### 4. Exemptions (`firestore.indexes.json`)
+`"indexes": []` (none — Standard auto single-field indexes include the `__name__`
+tiebreak, so the app's `orderBy(createdAt DESC)` + `__name__ DESC` queries need no
+composite). Deployed `fieldOverrides` for every long-value field that exists in the data:
+`journalEntries.body`, `aiMetadata.summary`, `aiMetadata.transcript`, `attachments`,
+`attachments.url`; `memories.narrative`; `conversations.summary`, `messages`,
+`messages.content`; `goals/habits/collections/timelineEvents.description`;
+`insights.narrative`, `content`; `aiInteractions.prompt`, `response`;
+`notifications.body`; `interactions.summary`, `messages`, `messages.content`.
+
+### 5. Re-points
+`firebase-applet-config.json` (line 6), `firebase.json` (line 7), `.env.example` (17),
+`.env.local` (5), `.github/workflows/deploy.yml` (129 & 187), server tests
+(`server/gemini/__tests__/{authVerification,extractMemoryRoutes,firestoreConfig,multimodalRoutes}.test.ts`),
+and docs all now reference `gemini-journal`.
+`scripts/test-rules.mjs` boots the emulators with a throwaway `(default)` firestore
+config, since the rules suite targets `(default)` while `firebase.json` deploys to the
+named database.
+
+### 6. Verification (2026-09-10, live)
+| Check | Result |
+|---|---|
+| REST `ListDocuments` w/ ID token, **`gemini-journal`** (Standard) | ✅ **200** |
+| REST `ListDocuments` w/ ID token, old Enterprise DB (same token/rules) | ❌ **403** — reproducible edition difference |
+| Web SDK `@firebase/firestore` on `gemini-journal`: `setDoc`, `getDocs(list)`, `getDocs(orderBy createdAt DESC, __name__ DESC)`, `getDoc(point)` | ✅ all OK |
+| Oversized interaction `messages[].1.content` (2678 B) read-back on `gemini-journal` | ✅ present |
+| `npm test` / `test:rules` / `build` / `typecheck` | ✅ 411/411 / 135/135 / clean / clean |
+| Cloud Run prod+staging container rebuilt with client config baked (`gemini-journal`) | ✅ deployed (deploy.yml step 13) |
+
+### 7. Residual notes
+- The old Enterprise database, the two diagnostic databases, and the backup bucket are
+  retained for the rollback window; deletion is scheduled after sign-off.
+- Genuine **REST** client lists were the persistent, reproducible failure surface on
+  Enterprise; **gRPC** (Web SDK) also failed in the original stack (stale API key +
+  implicit DB resolution) and was remediated by the API key correction + explicit
+  `getFirestore(app, firestoreDatabaseId)`.
+
+---
+
+## 8. Not Yet Verified (2026-09-10, after §7b migration)
 
 - Browser pass (Google sign-in): extraction indicator states, Candidates tab
   surfacing, Approve/Forget actions, Ask My Life citing an approved memory.
-- Emulator parity for client list reads against production (requires §7 fix).
-- Re-verified 2026-09-10 after a GCP console remediation attempt: **still blocked**.
+  Client transport listed/queried successfully against the new database in Node
+  (Web SDK + REST); a real-browser pass still requires browser automation, which is
+  not present in this environment.
+- Cloud Run smoke run (`npm run smoke` across prod + staging after the §13 deploy).
 
 ---
 
@@ -180,14 +256,18 @@ self-heal the gate from code, and no code/rule change is justified by this retes
 
 ---
 
-## 10. Files Touched (commit `993ca69`)
+## 10. Files Touched
 
-`server.ts`, `server/gemini/index.ts`, `server/gemini/service.ts`,
-`server/gemini/types.ts`, `server/gemini/validation.ts`,
+Phase 2A engine (commit `993ca69`): `server.ts`, `server/gemini/index.ts`,
+`server/gemini/service.ts`, `server/gemini/types.ts`, `server/gemini/validation.ts`,
 `server/gemini/__tests__/extractMemoryRoutes.test.ts`, `src/services/memoryPipeline.ts`,
 `src/services/__tests__/memoryPipeline.test.ts`,
 `src/data/__tests__/memoryPipelineFirestore.test.ts`, `src/data/__tests__/memoriesFirestore.test.ts`,
 `firestore.rules`, `firebase.json`.
+
+Migration (§7b): `firebase-applet-config.json`, `firebase.json`, `firestore.indexes.json`
+(exemptions), `.env.example`, `.env.local`, `.github/workflows/deploy.yml`,
+`scripts/test-rules.mjs`, `server/gemini/__tests__/{authVerification,extractMemoryRoutes,firestoreConfig,multimodalRoutes}.test.ts`.
 
 ---
 
@@ -197,5 +277,9 @@ self-heal the gate from code, and no code/rule change is justified by this retes
 - Deleted the 3 disposable Firebase Auth accounts created for verification.
 - 2026-09-10 re-run: `trio1` evidence doc deleted (REST 200); admin-confirmed **0 docs**
   for the fresh probe user; probe auth account deleted (`accounts:delete` 200).
+- Verify-probe writes on both databases were deleted after the §7b run.
+- **Pending (rollback window):** delete diagnostic databases `diag-std-17383` /
+  `diag-ent-92453`, the old Enterprise database `ai-studio-…`, and backup bucket
+  `gcj-firestore-migration` after production sign-off.
 - No repo artifacts left behind; `git status` clean except pre-existing untracked
   `docs/PHASE2_COMPETITION_GAP_ASSESSMENT.md`.

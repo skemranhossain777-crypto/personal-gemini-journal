@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync, unlinkSync } from 'node:fs';
 import { join, resolve, dirname, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
+const tmp = resolve(process.env.TEMP ?? join(root, '.tmp'), `firebase-rules-test-${process.pid}.json`);
 
 const javaCandidates = [
   process.env.TEST_JRE_DIR,
@@ -22,12 +23,31 @@ if (bundledJava) {
   process.env.PATH = join(bundledJava, 'bin') + delimiter + (process.env.PATH ?? '');
 }
 
+// The emulator suite connects to the `(default)` database. `firebase.json`
+// deploys to the named production database `gemini-journal`, so we hand the
+// emulators a throwaway config pointing at `(default)` to keep the rules tests
+// hermetic (namespace `demo-firestore-rules` is never touched in production).
+writeFileSync(
+  tmp,
+  JSON.stringify({
+    firestore: [{ database: '(default)', rules: join(root, 'firestore.rules') }],
+    emulators: {
+      firestore: { host: '127.0.0.1', port: 8080 },
+      auth: { host: '127.0.0.1', port: 9099 },
+      ui: { enabled: false },
+      singleProjectMode: true,
+    },
+  }),
+);
+
 const firebaseBin = resolve(root, 'node_modules', 'firebase-tools', 'lib', 'bin', 'firebase.js');
 const suite = resolve(root, 'scripts', 'run-rules-suite.mjs');
 
 const args = [
   firebaseBin,
   'emulators:exec',
+  '--config',
+  tmp,
   '--only',
   'firestore,auth',
   '--project',
@@ -40,4 +60,9 @@ const res = spawnSync(process.execPath, args, {
   stdio: 'inherit',
   env: process.env,
 });
+try {
+  unlinkSync(tmp);
+} catch {
+  // best-effort cleanup
+}
 process.exit(res.status ?? 1);

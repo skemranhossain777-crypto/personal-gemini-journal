@@ -131,7 +131,7 @@ adminEmailsConfigured: true
 Authoritative database confirmed unchanged:
 
 ```
-Name:  ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6
+Name:  gemini-journal
 Type:  FIRESTORE_NATIVE
 Region: us-west1
 ```

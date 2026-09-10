@@ -6,7 +6,7 @@ import {
   getHealthPayload,
 } from '../../../server';
 
-const CANONICAL_DB = 'ai-studio-geminijournalref-07d208be-ffdc-41ac-9ad4-a205122972b6';
+const CANONICAL_DB = 'gemini-journal';
 
 afterEach(() => {
   vi.unstubAllEnvs();
