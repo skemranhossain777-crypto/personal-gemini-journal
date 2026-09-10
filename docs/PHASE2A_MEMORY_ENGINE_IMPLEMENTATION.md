@@ -222,9 +222,11 @@ named database.
 | REST `ListDocuments` w/ ID token, **`gemini-journal`** (Standard) | ✅ **200** |
 | REST `ListDocuments` w/ ID token, old Enterprise DB (same token/rules) | ❌ **403** — reproducible edition difference |
 | Web SDK `@firebase/firestore` on `gemini-journal`: `setDoc`, `getDocs(list)`, `getDocs(orderBy createdAt DESC, __name__ DESC)`, `getDoc(point)` | ✅ all OK |
-| Oversized interaction `messages[].1.content` (2678 B) read-back on `gemini-journal` | ✅ present |
+| Oversized interaction `messages[].1.content` (~2670 B) read-back on `gemini-journal` (server credential) | ✅ present |
+| Server `/health` on prod + staging | ✅ `firestoreDatabaseConfigured:true`, `firestoreNamedDatabaseConfigured:true` |
+| Server credential (`journal-firebase-sa-json`): read migrated data + marker write/read/delete on `gemini-journal` | ✅ OK |
 | `npm test` / `test:rules` / `build` / `typecheck` | ✅ 411/411 / 135/135 / clean / clean |
-| Cloud Run prod+staging container rebuilt with client config baked (`gemini-journal`) | ✅ deployed (deploy.yml step 13) |
+| Cloud Run prod + staging rebuilt (client config baked `gemini-journal`, env `FIRESTORE_DATABASE_ID=gemini-journal`) + `npm run smoke` both URLs | ✅ deployed (deploy.yml step 13); ALL SMOKE TESTS PASSED |
 
 ### 7. Residual notes
 - The old Enterprise database, the two diagnostic databases, and the backup bucket are
@@ -243,7 +245,8 @@ named database.
   Client transport listed/queried successfully against the new database in Node
   (Web SDK + REST); a real-browser pass still requires browser automation, which is
   not present in this environment.
-- Cloud Run smoke run (`npm run smoke` across prod + staging after the §13 deploy).
+- Cloud Run smoke run across prod + staging: **PASSED** (health, /api/health,
+  invalid-token 401, SPA, static bundles) on both URLs.
 
 ---
 
