@@ -18,10 +18,11 @@ import {
   journalEntriesApi,
   memoriesApi,
   goalsApi,
+  habitsApi,
   timelineEventsApi,
   insightsApi,
 } from './data';
-import type { JournalEntry, Memory, Goal, TimelineEvent, Insight } from './data/models';
+import type { JournalEntry, Memory, Goal, Habit, TimelineEvent, Insight } from './data/models';
 
 const ThreatModelModal = React.lazy(() =>
   import('./components/ThreatModelModal').then((m) => ({ default: m.ThreatModelModal })),
@@ -106,6 +107,7 @@ function AppShell() {
   const [shellEntries, setShellEntries] = useState<JournalEntry[]>([]);
   const [shellMemories, setShellMemories] = useState<Memory[]>([]);
   const [shellGoals, setShellGoals] = useState<Goal[]>([]);
+  const [shellHabits, setShellHabits] = useState<Habit[]>([]);
   const [shellTimelineEvents, setShellTimelineEvents] = useState<TimelineEvent[]>([]);
   const [shellInsights, setShellInsights] = useState<Insight[]>([]);
 
@@ -217,6 +219,7 @@ function AppShell() {
       setShellEntries([]);
       setShellMemories([]);
       setShellGoals([]);
+      setShellHabits([]);
       setShellTimelineEvents([]);
       setShellInsights([]);
       return;
@@ -233,6 +236,10 @@ function AppShell() {
       goalsApi.subscribe(
         (items) => setShellGoals(items),
         (err) => console.warn('[shell] goals subscription failed:', err),
+      ),
+      habitsApi.subscribe(
+        (items) => setShellHabits(items),
+        (err) => console.warn('[shell] habits subscription failed:', err),
       ),
       timelineEventsApi.subscribe(
         (items) => setShellTimelineEvents(items),
@@ -447,6 +454,7 @@ function AppShell() {
         entries={shellEntries}
         memories={shellMemories}
         goals={shellGoals}
+        habits={shellHabits}
         timelineEvents={shellTimelineEvents}
         insights={shellInsights}
         onSignOut={() => void signOut()}

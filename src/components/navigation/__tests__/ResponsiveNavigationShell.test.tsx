@@ -33,6 +33,7 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
         entries={[mockEntry]}
         memories={[]}
         goals={[]}
+        habits={[]}
         timelineEvents={[]}
       />
     );
@@ -42,7 +43,7 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
     expect(screen.getByRole('navigation', { name: /Mobile Bottom Navigation/i })).toBeInTheDocument();
   });
 
-  it('switches tabs smoothly between Home, Journal, Memories, Timeline, Ask My Life, and Profile', async () => {
+  it('switches tabs smoothly between Home, Journal, Memories, Growth, Timeline, Ask My Life, and Profile', async () => {
     const user = userEvent.setup();
 
     render(
@@ -51,6 +52,7 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
         entries={[mockEntry]}
         memories={[]}
         goals={[]}
+        habits={[]}
         timelineEvents={[]}
       />
     );
@@ -62,6 +64,11 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
     const memoriesNavBtns = screen.getAllByRole('button', { name: /Memories/i });
     await user.click(memoriesNavBtns[0]);
     expect(await screen.findByText(/Personal Memory Engine/i, {}, { timeout: 4000 })).toBeInTheDocument();
+
+    // Click Growth tab
+    const growthNavBtns = screen.getAllByRole('button', { name: /Growth/i });
+    await user.click(growthNavBtns[0]);
+    expect(await screen.findByText(/Habits & Reflective Rhythms/i, {}, { timeout: 4000 })).toBeInTheDocument();
 
     // Click Timeline tab
     const timelineNavBtns = screen.getAllByRole('button', { name: /Timeline/i });
@@ -81,6 +88,7 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
         entries={[mockEntry]}
         memories={[]}
         goals={[]}
+        habits={[]}
         timelineEvents={[]}
       />
     );
@@ -88,36 +96,36 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
     const mobileNav = screen.getByRole('navigation', { name: /Mobile Bottom Navigation/i });
     const buttons = mobileNav.querySelectorAll('button');
 
-    expect(buttons.length).toBe(6);
+    expect(buttons.length).toBe(7);
     buttons.forEach((btn) => {
       expect(btn.className).toContain('min-h-[44px]');
       expect(btn.className).toContain('min-w-[44px]');
     });
   });
 
-  it('renders all six primary nav tabs and hides dev/experimental surfaces', () => {
+  it('renders all seven primary nav tabs and hides dev/experimental surfaces', () => {
     render(
       <ResponsiveNavigationShell
         currentUserId="user1"
         entries={[mockEntry]}
         memories={[]}
         goals={[]}
+        habits={[]}
         timelineEvents={[]}
       />
     );
 
     const desktopNav = screen.getByRole('navigation', { name: /Desktop Primary Navigation/i });
     const tabs = desktopNav.querySelectorAll('button');
-    expect(tabs.length).toBe(6);
+    expect(tabs.length).toBe(7);
 
     const labels = Array.from(tabs).map((b) => b.textContent ?? '');
     expect(labels).toEqual(
-      expect.arrayContaining(['Home', 'Journal', 'Memories', 'Timeline', 'Ask My Life', 'Privacy']),
+      expect.arrayContaining(['Home', 'Journal', 'Memories', 'Growth', 'Timeline', 'Ask My Life', 'Privacy']),
     );
 
     // Dev/experimental surfaces must not be reachable from the primary nav.
     expect(screen.queryByText(/Design System/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/On This Day/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Voice Journal/i)).not.toBeInTheDocument();
   });
 
@@ -135,6 +143,7 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
         entries={[]}
         memories={[]}
         goals={[]}
+        habits={[]}
         timelineEvents={[]}
       />
     );
@@ -158,6 +167,7 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
         entries={[]}
         memories={[]}
         goals={[]}
+        habits={[]}
         timelineEvents={[]}
       />
     );
@@ -183,6 +193,7 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
         entries={[]}
         memories={[]}
         goals={[]}
+        habits={[]}
         timelineEvents={[]}
       />
     );
@@ -200,6 +211,7 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
         entries={[]}
         memories={[]}
         goals={[]}
+        habits={[]}
         timelineEvents={[]}
       />
     );
@@ -220,6 +232,7 @@ describe('ResponsiveNavigationShell component & UX responsiveness', () => {
         entries={[]}
         memories={[]}
         goals={[]}
+        habits={[]}
         timelineEvents={[]}
         onSignOut={handleSignOut}
       />

@@ -8,8 +8,11 @@ import {
   Shield,
   Plus,
   LogOut,
+  Target,
+  Search,
+  X,
 } from 'lucide-react';
-import type { JournalEntry, Memory, Goal, TimelineEvent, Insight } from '../../data/models';
+import type { JournalEntry, Memory, Goal, Habit, TimelineEvent, Insight } from '../../data/models';
 import type { JournalInteraction } from '../../types';
 import {
   type UserIdentity,
@@ -34,8 +37,20 @@ const AskMyLifeView = React.lazy(() =>
 const PrivacyCenterView = React.lazy(() =>
   import('../privacy/PrivacyCenterView').then((m) => ({ default: m.PrivacyCenterView })),
 );
+const HabitsEngineView = React.lazy(() =>
+  import('../journal/HabitsEngineView').then((m) => ({ default: m.HabitsEngineView })),
+);
+const GoalsEngineView = React.lazy(() =>
+  import('../journal/GoalsEngineView').then((m) => ({ default: m.GoalsEngineView })),
+);
+const ReflectionReportsView = React.lazy(() =>
+  import('../journal/ReflectionReportsView').then((m) => ({ default: m.ReflectionReportsView })),
+);
+const SemanticSearchView = React.lazy(() =>
+  import('../journal/SemanticSearchView').then((m) => ({ default: m.SemanticSearchView })),
+);
 
-export type NavTab = 'home' | 'journal' | 'memories' | 'timeline' | 'ask-my-life' | 'profile';
+export type NavTab = 'home' | 'journal' | 'memories' | 'growth' | 'timeline' | 'ask-my-life' | 'profile';
 
 export interface ResponsiveNavigationShellProps {
   currentUserId: string;
@@ -44,6 +59,7 @@ export interface ResponsiveNavigationShellProps {
   entries: JournalEntry[];
   memories: Memory[];
   goals: Goal[];
+  habits: Habit[];
   timelineEvents: TimelineEvent[];
   insights?: Insight[];
   onSignOut?: () => void;
@@ -64,6 +80,7 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
   entries,
   memories,
   goals,
+  habits,
   timelineEvents,
   insights = [],
   onSignOut,
@@ -79,6 +96,9 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
   const [editingEntryId, setEditingEntryId] = useState<string | null>(initialEntryId ?? null);
   const [isComposerNew, setIsComposerNew] = useState(initialComposerNew ?? false);
   const [journalSubview, setJournalSubview] = useState<'journal' | 'companion'>(initialJournalSubview ?? 'journal');
+  const [growthSubview, setGrowthSubview] = useState<'habits' | 'goals'>('habits');
+  const [memoriesSubview, setMemoriesSubview] = useState<'memories' | 'reports'>('memories');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Presentation-only identity resolution. `currentUserId` (uid) remains the
   // ownership key for Firestore data; it is never shown as the visible name.
@@ -95,6 +115,7 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
     { id: 'home', label: 'Home', icon: <Home className="w-5 h-5" /> },
     { id: 'journal', label: 'Journal', icon: <BookOpen className="w-5 h-5" /> },
     { id: 'memories', label: 'Memories', icon: <Brain className="w-5 h-5" /> },
+    { id: 'growth', label: 'Growth', icon: <Target className="w-5 h-5" /> },
     { id: 'timeline', label: 'Timeline', icon: <Calendar className="w-5 h-5" /> },
     { id: 'ask-my-life', label: 'Ask My Life', icon: <Sparkles className="w-5 h-5" /> },
     { id: 'profile', label: 'Privacy', icon: <Shield className="w-5 h-5" /> },
@@ -118,6 +139,11 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
     if (NAV_ITEMS.some((n) => n.id === tabId)) {
       setActiveTab(tabId as NavTab);
     }
+  };
+
+  const handleOpenReflectionReports = () => {
+    setActiveTab('memories');
+    setMemoriesSubview('reports');
   };
 
   // Sync composer/companion state from hash routes (#/journal, #/journal/new,
@@ -146,6 +172,22 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
           setIsComposerNew(false);
           setEditingEntryId(id);
         }
+        return;
+      }
+      if (hash === '#/growth' || hash.startsWith('#/growth/')) {
+        setActiveTab('growth');
+        const sub = hash.replace(/^#\/growth\/?/, '');
+        if (sub === 'goals') {
+          setGrowthSubview('goals');
+        } else {
+          setGrowthSubview('habits');
+        }
+        return;
+      }
+      if (hash === '#/memories/reports') {
+        setActiveTab('memories');
+        setMemoriesSubview('reports');
+        return;
       }
     };
     window.addEventListener('hashchange', onNav);
@@ -184,6 +226,16 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
           >
             <Plus className="w-4 h-4" aria-hidden="true" />
             <span>New Reflection</span>
+          </button>
+
+          {/* Search */}
+          <button
+            onClick={() => setIsSearchOpen(true)}
+            aria-label="Search Journal Entries"
+            className="w-full py-2.5 px-4 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700 font-semibold text-xs flex items-center justify-center gap-2 transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+          >
+            <Search className="w-4 h-4" aria-hidden="true" />
+            <span>Search</span>
           </button>
 
           {/* Navigation Links */}
@@ -261,14 +313,24 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
           </div>
         </div>
 
-        <button
-          onClick={() => handleOpenComposer()}
-          aria-label="Create New Journal Entry"
-          className="p-2 rounded-xl bg-purple-600 text-white min-h-[44px] min-w-[44px] flex items-center justify-center shadow-md active:scale-95 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
-          title="New Journal Entry"
-        >
-          <Plus className="w-5 h-5" aria-hidden="true" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsSearchOpen(true)}
+            aria-label="Search Journal Entries"
+            className="p-2 rounded-xl bg-slate-800 text-slate-300 min-h-[44px] min-w-[44px] flex items-center justify-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+            title="Search"
+          >
+            <Search className="w-5 h-5" aria-hidden="true" />
+          </button>
+          <button
+            onClick={() => handleOpenComposer()}
+            aria-label="Create New Journal Entry"
+            className="p-2 rounded-xl bg-purple-600 text-white min-h-[44px] min-w-[44px] flex items-center justify-center shadow-md active:scale-95 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+            title="New Journal Entry"
+          >
+            <Plus className="w-5 h-5" aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       {/* ── Main Content Area ── */}
@@ -286,6 +348,7 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
                 onOpenComposer={handleOpenComposer}
                 onSelectEntry={handleOpenEntry}
                 onNavigateToTab={handleNavigateToTab}
+                onOpenReflectionReports={handleOpenReflectionReports}
               />
             )}
 
@@ -339,11 +402,103 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
             )}
 
             {activeTab === 'memories' && (
-              <MemoryEngineView
-                userId={currentUserId}
-                memories={memories}
-                onViewSourceEntry={handleOpenEntry}
-              />
+              <div className="space-y-4">
+                <div
+                  className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-900 border border-slate-800 w-fit"
+                  role="tablist"
+                  aria-label="Memories view"
+                >
+                  {(
+                    [
+                      { id: 'memories', label: 'Memories' },
+                      { id: 'reports', label: 'Reports' },
+                    ] as const
+                  ).map((sub) => {
+                    const isActive = memoriesSubview === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        role="tab"
+                        aria-selected={isActive}
+                        onClick={() => setMemoriesSubview(sub.id)}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors min-h-[44px] min-w-[44px] ${
+                          isActive
+                            ? 'bg-purple-950/60 text-purple-200 border border-purple-500/30'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {sub.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {memoriesSubview === 'reports' ? (
+                  <ReflectionReportsView
+                    entries={entries}
+                    memories={memories}
+                    goals={goals}
+                    currentUserId={currentUserId}
+                    onSelectEntry={handleOpenEntry}
+                  />
+                ) : (
+                  <MemoryEngineView
+                    userId={currentUserId}
+                    memories={memories}
+                    onViewSourceEntry={handleOpenEntry}
+                  />
+                )}
+              </div>
+            )}
+
+            {activeTab === 'growth' && (
+              <div className="space-y-4">
+                <div
+                  className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-900 border border-slate-800 w-fit"
+                  role="tablist"
+                  aria-label="Growth view"
+                >
+                  {(
+                    [
+                      { id: 'habits', label: 'Habits' },
+                      { id: 'goals', label: 'Goals' },
+                    ] as const
+                  ).map((sub) => {
+                    const isActive = growthSubview === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        role="tab"
+                        aria-selected={isActive}
+                        onClick={() => setGrowthSubview(sub.id)}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors min-h-[44px] min-w-[44px] ${
+                          isActive
+                            ? 'bg-purple-950/60 text-purple-200 border border-purple-500/30'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {sub.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {growthSubview === 'habits' ? (
+                  <HabitsEngineView
+                    habits={habits}
+                    entries={entries}
+                    currentUserId={currentUserId}
+                    onOpenEntry={handleOpenEntry}
+                  />
+                ) : (
+                  <GoalsEngineView
+                    goals={goals}
+                    entries={entries}
+                    currentUserId={currentUserId}
+                    onOpenEntry={handleOpenEntry}
+                  />
+                )}
+              </div>
             )}
 
             {activeTab === 'timeline' && (
@@ -379,6 +534,32 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
           </React.Suspense>
         </div>
       </main>
+
+      {/* ── Global Search Overlay ── */}
+      {isSearchOpen && (
+        <div className="fixed inset-0 z-50 bg-[#070B16] overflow-y-auto" role="dialog" aria-label="Search Journal">
+          <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-200">Search Your Journal</h2>
+            <button
+              onClick={() => setIsSearchOpen(false)}
+              className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+              aria-label="Close Search"
+            >
+              <X className="w-5 h-5" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+            <React.Suspense fallback={<LoadingState label="Loading search..." />}>
+              <SemanticSearchView
+                entries={entries}
+                memories={memories}
+                goals={goals}
+                onOpenEntry={(id) => { setIsSearchOpen(false); handleOpenEntry(id); }}
+              />
+            </React.Suspense>
+          </div>
+        </div>
+      )}
 
       {/* ── Mobile Bottom Navigation Bar (hidden on desktop >= 768px) ── */}
       <nav

@@ -9,8 +9,11 @@ import {
   Moon,
   Compass,
   Plus,
+  Clock,
+  FileText,
 } from 'lucide-react';
 import type { JournalEntry, Memory, Goal, TimelineEvent, Insight } from '../../data/models';
+import { OnThisDayView } from '../journal/OnThisDayView';
 
 export interface CalmDashboardViewProps {
   entries?: JournalEntry[];
@@ -22,6 +25,7 @@ export interface CalmDashboardViewProps {
   onOpenComposer: (mode?: string, initialText?: string) => void;
   onSelectEntry: (entryId: string) => void;
   onNavigateToTab: (tabId: string) => void;
+  onOpenReflectionReports?: () => void;
 }
 
 export const CalmDashboardView: React.FC<CalmDashboardViewProps> = ({
@@ -34,6 +38,7 @@ export const CalmDashboardView: React.FC<CalmDashboardViewProps> = ({
   onOpenComposer,
   onSelectEntry,
   onNavigateToTab,
+  onOpenReflectionReports,
 }) => {
   const now = new Date();
   const currentHour = now.getHours();
@@ -160,8 +165,22 @@ export const CalmDashboardView: React.FC<CalmDashboardViewProps> = ({
         )}
       </div>
 
-      {/* Grid: Reflection Prompt */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* On This Day */}
+      <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
+        <div className="flex items-center gap-2 text-sky-300">
+          <Clock className="w-5 h-5" />
+          <h3 className="text-sm font-bold tracking-wide">On This Day</h3>
+        </div>
+        <OnThisDayView
+          entries={entries}
+          currentUserId={currentUserId}
+          onOpenEntry={onSelectEntry}
+          className="!bg-transparent !border-0 !p-0 !shadow-none"
+        />
+      </div>
+
+      {/* Grid: Reflection Prompt, Memories, Reports */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* Daily Reflection Prompt */}
         <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-lg flex flex-col justify-between">
           <div className="space-y-3">
@@ -222,6 +241,26 @@ export const CalmDashboardView: React.FC<CalmDashboardViewProps> = ({
               </div>
             </div>
           )}
+        </div>
+
+        {/* Reflection Reports */}
+        <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-lg flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-indigo-300">
+              <FileText className="w-5 h-5" />
+              <h3 className="text-sm font-bold tracking-wide">Reflection Reports</h3>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Structured insights from your journal — daily, weekly, monthly, and yearly patterns.
+            </p>
+          </div>
+          <button
+            onClick={() => onOpenReflectionReports?.()}
+            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-indigo-600/30 hover:border-indigo-500/40 text-indigo-200 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition"
+          >
+            <Sparkles className="w-4 h-4 text-indigo-400" />
+            <span>View Reports</span>
+          </button>
         </div>
       </div>
 
