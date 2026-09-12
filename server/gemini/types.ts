@@ -232,3 +232,82 @@ export interface MultimodalJournalOutput {
 }
 
 export type MultimodalJournalInput = ImageJournalInput | VoiceJournalInput;
+
+// ─── Generative Semantic Retrieval (G3) ─────────────────────────────────────
+
+export type EmbeddingSourceType = 'entry' | 'memory';
+
+export type EmbeddingTaskType = 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY';
+
+export interface EmbeddingTextInput {
+  text: string;
+  title?: string;
+  taskType: EmbeddingTaskType;
+}
+
+export interface EnsureEmbeddingInput {
+  sourceType: EmbeddingSourceType;
+  sourceId: string;
+}
+
+export interface EnsureEmbeddingResult {
+  sourceType: EmbeddingSourceType;
+  sourceId: string;
+  status: 'written' | 'unchanged' | 'skipped' | 'source-not-found' | 'disabled';
+  textHash: string;
+}
+
+export interface RemoveEmbeddingInput {
+  sourceType: EmbeddingSourceType;
+  sourceId: string;
+}
+
+export interface BackfillEmbeddingsInput {
+  limit?: number;
+}
+
+export interface BackfillEmbeddingsResult {
+  processed: number;
+  written: number;
+  unchanged: number;
+  missing: number;
+  sourceCounts: { entries: number; memories: number };
+  modelUsed: string;
+}
+
+export interface SemanticSearchServerFilters {
+  startDate?: string;
+  endDate?: string;
+  tag?: string;
+  mood?: number | { min?: number; max?: number };
+  theme?: string;
+  person?: string;
+  place?: string;
+  goal?: string;
+  collection?: string;
+}
+
+export interface SemanticSearchServerInput {
+  query: string;
+  filters?: SemanticSearchServerFilters;
+}
+
+export interface SemanticSearchHit {
+  entryId: string;
+  score: number; // 0..100 match percentage (mapped from cosine similarity)
+}
+
+export type RetrievalMode = 'server' | 'client' | 'empty' | 'disabled';
+
+export interface SemanticSearchServerResult {
+  results: SemanticSearchHit[];
+  total: number;
+  retrieval: RetrievalMode;
+  modelUsed: string;
+}
+
+/** Optional structured filters the client may attach to an Ask My Life query. */
+export interface AskMyLifeRetrievalFilters {
+  includePrivate?: boolean;
+  includeArchived?: boolean;
+}

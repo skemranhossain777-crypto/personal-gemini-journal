@@ -498,6 +498,45 @@ it('rejects a document id containing a path separator (path escape)', async () =
     });
   });
 
+  describe('G3 embedding collections — locked against direct client access', () => {
+    // `entryEmbeddings` / `memoryEmbeddings` are written and queried exclusively
+    // by the server Admin SDK (rules bypass); the client must never read or
+    // write vector data. Every direct client access must be denied.
+    const EMBEDDING_SEED = { uid: OWNER, sourceType: 'entry', textHash: 'abc123' };
+
+    describe.each(['entryEmbeddings', 'memoryEmbeddings'])('%s', (collectionName) => {
+      it('denies the owner from reading an embedding document', async () => {
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await setDoc(doc(ctx.firestore(), 'users', OWNER, collectionName, 'emb-1'), EMBEDDING_SEED);
+        });
+        await assertFails(getDoc(doc(ownerDb, 'users', OWNER, collectionName, 'emb-1')));
+      });
+
+      it('denies the owner from writing an embedding document', async () => {
+        await assertFails(setDoc(doc(ownerDb, 'users', OWNER, collectionName, 'emb-1'), EMBEDDING_SEED));
+      });
+
+      it('denies the owner from deleting an embedding document', async () => {
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await setDoc(doc(ctx.firestore(), 'users', OWNER, collectionName, 'emb-1'), EMBEDDING_SEED);
+        });
+        await assertFails(deleteDoc(doc(ownerDb, 'users', OWNER, collectionName, 'emb-1')));
+      });
+
+      it('denies an intruder from reading the owner embedding partition', async () => {
+        await testEnv.withSecurityRulesDisabled(async (ctx) => {
+          await setDoc(doc(ctx.firestore(), 'users', OWNER, collectionName, 'emb-1'), EMBEDDING_SEED);
+        });
+        await assertFails(getDoc(doc(intruderDb, 'users', OWNER, collectionName, 'emb-1')));
+      });
+
+      it('denies unauthenticated access to embedding data', async () => {
+        await assertFails(getDoc(doc(anonDb, 'users', OWNER, collectionName, 'emb-1')));
+        await assertFails(setDoc(doc(anonDb, 'users', OWNER, collectionName, 'emb-1'), EMBEDDING_SEED));
+      });
+    });
+  });
+
   describe('cross-account isolation', () => {
     it('rejects an intruder who forges an owner uid in the data payload', async () => {
       const f = FIXTURES[0];

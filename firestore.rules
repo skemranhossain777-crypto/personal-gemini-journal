@@ -221,6 +221,21 @@ service cloud.firestore {
     }
 
     // ===============================================================
+    // G3 embedding collections (generative semantic retrieval)
+    // `entryEmbeddings` / `memoryEmbeddings` are authored EXCLUSIVELY by the
+    // server Admin SDK (bypasses security rules) on the verified user's path —
+    // the client never writes them. Retrieval/search also run server-side, so
+    // the client never needs to read them either. They are locked at the rules
+    // layer: no direct client read/write of vector data is permitted.
+    // ===============================================================
+    match /users/{userId}/entryEmbeddings/{embeddingId} {
+      allow read, write: if false;
+    }
+    match /users/{userId}/memoryEmbeddings/{embeddingId} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
     // 3. conversations
     // ===============================================================
     function isValidMessage(m) {

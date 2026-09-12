@@ -6,6 +6,12 @@ import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import multer from 'multer';
 import { GeminiService } from './server/gemini/service';
+import { EmbeddingStore } from './server/gemini/embeddingStore';
+import {
+  EMBEDDING_MODEL,
+  RETRIEVAL_CANDIDATE_LIMIT,
+  RETRIEVAL_CANDIDATE_LIMIT_FILTERED,
+} from './server/gemini/embeddings';
 import { MAX_IMAGE_BYTES, MAX_AUDIO_BYTES } from './server/gemini/validation';
 
 const geminiService = new GeminiService();
@@ -187,6 +193,28 @@ function getAdminApp(): Promise<admin.app.App> {
   return adminAppPromise;
 }
 const getAdminFirestore = () => getAdminApp().then((a) => a.firestore());
+
+// ─── Generative Semantic Retrieval (G3) store ────────────────────────────────
+// Lazily bound to the named Firestore database and the pinned embedding model.
+// Feature-gated by the ENABLE_SEMANTIC_RETRIEVAL flag (default off): when off,
+// every new endpoint reports `disabled` and Ask My Life keeps its exact
+// previous behavior (client-side context retrieval).
+const isSemanticRetrievalEnabled = () => process.env.ENABLE_SEMANTIC_RETRIEVAL === 'true';
+
+let embeddingStorePromise: Promise<EmbeddingStore> | null = null;
+function getEmbeddingStore(): Promise<EmbeddingStore> {
+  if (!embeddingStorePromise) {
+    embeddingStorePromise = (async () => {
+      const db = getFirestore(await getAdminApp(), FIRESTORE_DATABASE_ID);
+      return new EmbeddingStore({
+        db,
+        embedQuery: (text) => geminiService.embedQuery(text),
+        embedDocuments: (items) => geminiService.embedDocuments(items),
+      });
+    })();
+  }
+  return embeddingStorePromise;
+}
 
 // ─── AI Interaction Audit Log (multimodal journaling) ────────────────────────
 // Best-effort, server-authorized write into the canonical owner-scoped
@@ -609,17 +637,218 @@ app.post('/api/gemini/reframe', verifyFirebaseToken, rateLimiter, async (req: Re
   }
 });
 
-app.post('/api/gemini/ask-my-life', verifyFirebaseToken, rateLimiter, async (req: Request, res: Response): Promise<void> => {
+export async function askMyLifeHandler(req: Request, res: Response): Promise<void> {
   try {
-    const result = await geminiService.askMyLife((req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {}));
-    res.json({ success: true, ...result, result });
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const uid = (req as AuthenticatedRequest).auth?.uid;
+    let contextDocuments = Array.isArray(body.contextDocuments) ? body.contextDocuments : [];
+    let retrievalMode: 'server' | 'client' | 'empty' | 'disabled' = 'disabled';
+
+    // Server-side semantic retrieval path (behind the feature flag). On any
+    // retrieval failure the request degrades gracefully to the client-provided
+    // context documents — never a hard failure for Ask My Life.
+    if (isSemanticRetrievalEnabled() && uid && typeof body.question === 'string' && body.question.trim()) {
+      retrievalMode = 'client';
+      try {
+        const store = await getEmbeddingStore();
+        if (await store.hasEmbeddings(uid)) {
+          const queryVector = await geminiService.embedQuery(body.question);
+          const dateFilter = body.dateFilter && typeof body.dateFilter === 'object' ? body.dateFilter : {};
+          const retrieved = await store.retrieveContext(uid, body.question, queryVector, {
+            startDate: typeof dateFilter.startDate === 'string' ? dateFilter.startDate : undefined,
+            endDate: typeof dateFilter.endDate === 'string' ? dateFilter.endDate : undefined,
+          });
+          if (retrieved.mode === 'server' && retrieved.documents.length > 0) {
+            contextDocuments = retrieved.documents;
+            retrievalMode = 'server';
+          } else {
+            retrievalMode = 'empty';
+          }
+        }
+      } catch (error: any) {
+        logCloudFormat('WARNING', 'Ask My Life semantic retrieval fell back to client context', {
+          message: error?.message || String(error || ''),
+        });
+        retrievalMode = 'empty';
+      }
+    } else if (contextDocuments.length > 0) {
+      retrievalMode = 'client';
+    }
+
+    const result = await geminiService.askMyLife({
+      question: body.question,
+      contextDocuments,
+    });
+    res.json({ success: true, ...result, result, retrieval: retrievalMode });
   } catch (error: any) {
     console.error('Ask My Life error:', error);
     const status = error.status || 500;
     const msg = process.env.NODE_ENV === 'production' ? 'Failed to process Ask My Life query' : error?.message;
     res.status(status).json({ success: false, error: msg || 'Failed to process Ask My Life query' });
   }
-});
+}
+
+app.post('/api/gemini/ask-my-life', verifyFirebaseToken, rateLimiter, askMyLifeHandler);
+
+// ─── Generative Semantic Retrieval Endpoints (G3) ────────────────────────────
+// All owned by the verified uid; paths are derived server-side, never from the
+// client. Every endpoint reports `disabled` when the feature flag is off so the
+// client keeps its exact legacy engines.
+
+const embeddingSourceTypeOf = (v: unknown): 'entry' | 'memory' | null =>
+  v === 'entry' || v === 'memory' ? v : null;
+
+export async function ensureEmbeddingHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const uid = (req as AuthenticatedRequest).auth?.uid;
+    if (!uid) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const sourceType = embeddingSourceTypeOf(body.sourceType);
+    const sourceId = typeof body.sourceId === 'string' ? body.sourceId : '';
+    if (!sourceType || !sourceId) {
+      res.status(400).json({ success: false, error: 'sourceType ("entry" | "memory") and sourceId are required' });
+      return;
+    }
+    if (!isSemanticRetrievalEnabled()) {
+      res.json({ success: true, result: { sourceType, sourceId, status: 'disabled', textHash: '' } });
+      return;
+    }
+    const store = await getEmbeddingStore();
+    const result = await store.ensureEmbedding(uid, { sourceType, sourceId });
+    res.json({ success: true, result });
+  } catch (error: any) {
+    console.error('Ensure embedding error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to embed document' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to embed document' });
+  }
+}
+
+export async function removeEmbeddingHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const uid = (req as AuthenticatedRequest).auth?.uid;
+    if (!uid) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const sourceType = embeddingSourceTypeOf(body.sourceType);
+    const sourceId = typeof body.sourceId === 'string' ? body.sourceId : '';
+    if (!sourceType || !sourceId) {
+      res.status(400).json({ success: false, error: 'sourceType ("entry" | "memory") and sourceId are required' });
+      return;
+    }
+    if (!isSemanticRetrievalEnabled()) {
+      // Feature off: nothing exists to remove (no-op, idempotent).
+      res.json({ success: true, removed: { sourceType, sourceId } });
+      return;
+    }
+    const store = await getEmbeddingStore();
+    await store.removeEmbedding(uid, { sourceType, sourceId });
+    res.json({ success: true, removed: { sourceType, sourceId } });
+  } catch (error: any) {
+    console.error('Remove embedding error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to remove embedding' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to remove embedding' });
+  }
+}
+
+export async function backfillEmbeddingsHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const uid = (req as AuthenticatedRequest).auth?.uid;
+    if (!uid) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const limit = Number.isInteger(body.limit) ? Math.min(Math.max(body.limit, 1), 100) : undefined;
+    if (!isSemanticRetrievalEnabled()) {
+      res.json({
+        success: true,
+        result: {
+          processed: 0,
+          written: 0,
+          unchanged: 0,
+          missing: 0,
+          sourceCounts: { entries: 0, memories: 0 },
+          modelUsed: EMBEDDING_MODEL,
+        },
+        retrieval: 'disabled',
+      });
+      return;
+    }
+    const store = await getEmbeddingStore();
+    const result = await store.backfillEmbeddings(uid, limit ? { limit } : {});
+    res.json({ success: true, result, retrieval: 'server' });
+  } catch (error: any) {
+    console.error('Backfill embeddings error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to backfill embeddings' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to backfill embeddings' });
+  }
+}
+
+export async function semanticSearchHandler(req: Request, res: Response): Promise<void> {
+  try {
+    const uid = (req as AuthenticatedRequest).auth?.uid;
+    if (!uid) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const query = typeof body.query === 'string' ? body.query : '';
+    if (!query.trim()) {
+      res.status(400).json({ success: false, error: 'Query is required' });
+      return;
+    }
+    if (!isSemanticRetrievalEnabled()) {
+      res.json({
+        success: true,
+        result: { results: [], total: 0, retrieval: 'disabled', modelUsed: EMBEDDING_MODEL },
+        retrieval: 'disabled',
+      });
+      return;
+    }
+    const store = await getEmbeddingStore();
+    if (!(await store.hasEmbeddings(uid))) {
+      res.json({
+        success: true,
+        result: { results: [], total: 0, retrieval: 'empty', modelUsed: EMBEDDING_MODEL },
+        retrieval: 'empty',
+      });
+      return;
+    }
+    const filters = body.filters && typeof body.filters === 'object' && !Array.isArray(body.filters) ? body.filters : undefined;
+    const hasFilters = Boolean(
+      filters &&
+        Object.keys(filters).some((key) => (filters as Record<string, any>)[key] != null)
+    );
+    const pageSize = hasFilters ? RETRIEVAL_CANDIDATE_LIMIT_FILTERED : RETRIEVAL_CANDIDATE_LIMIT;
+    const queryVector = await geminiService.embedQuery(query);
+    const search = await store.semanticSearchEntries(uid, queryVector, pageSize);
+    const result = {
+      results: search.hits,
+      total: search.hits.length,
+      retrieval: search.mode,
+      modelUsed: EMBEDDING_MODEL,
+    };
+    res.json({ success: true, result, retrieval: search.mode });
+  } catch (error: any) {
+    console.error('Semantic search error:', error);
+    const status = error.status || 500;
+    const msg = process.env.NODE_ENV === 'production' ? 'Failed to run semantic search' : error?.message;
+    res.status(status).json({ success: false, error: msg || 'Failed to run semantic search' });
+  }
+}
+
+app.post('/api/gemini/ensure-embedding', verifyFirebaseToken, rateLimiter, ensureEmbeddingHandler);
+app.post('/api/gemini/remove-embedding', verifyFirebaseToken, rateLimiter, removeEmbeddingHandler);
+app.post('/api/gemini/backfill-embeddings', verifyFirebaseToken, rateLimiter, backfillEmbeddingsHandler);
+app.post('/api/gemini/semantic-search', verifyFirebaseToken, rateLimiter, semanticSearchHandler);
 
 // ─── Gemini Multimodal Endpoints (Image & Voice journaling) ──────────────────
 // Gated by verifyFirebaseToken + rateLimiter. Media arrives as multipart/form-data

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
@@ -25,6 +25,7 @@ import {
   type SemanticSearchFilters,
   type SemanticSearchResult,
 } from '../../services/semanticSearch';
+import { isSemanticRetrievalEnabledClient, runSemanticSearchServer } from '../../services/embeddingSync';
 
 interface SemanticSearchViewProps {
   entries: JournalEntry[];
@@ -71,6 +72,50 @@ export const SemanticSearchView: React.FC<SemanticSearchViewProps> = ({
     return Array.from(set);
   }, [entries]);
 
+  // G3 server-side semantic retrieval (flag-gated, best-effort). When enabled
+  // with a non-empty query, the server's KNN ranking narrows the candidate set;
+  // otherwise the view keeps its exact legacy local-engine behavior.
+  const [semanticHits, setSemanticHits] = useState<Map<string, number> | null>(null);
+  const [retrievalMode, setRetrievalMode] = useState<'off' | 'server' | 'empty'>('off');
+
+  useEffect(() => {
+    if (!isSemanticRetrievalEnabledClient() || !query.trim()) {
+      setSemanticHits(null);
+      setRetrievalMode('off');
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void runSemanticSearchServer({
+        query,
+        filters: {
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          tag: selectedTag || undefined,
+          mood: selectedMood !== '' ? Number(selectedMood) : undefined,
+          theme: selectedTheme || undefined,
+          person: selectedPerson || undefined,
+          place: selectedPlace || undefined,
+          goal: selectedGoal || undefined,
+          collection: selectedCollection || undefined,
+        },
+      }).then((res) => {
+        if (cancelled) return;
+        if (!res || res.retrieval !== 'server') {
+          setSemanticHits(null);
+          setRetrievalMode(res ? 'empty' : 'off');
+          return;
+        }
+        setSemanticHits(new Map(res.hits.map((h) => [h.entryId, h.score])));
+        setRetrievalMode('server');
+      });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, startDate, endDate, selectedTag, selectedMood, selectedTheme, selectedPerson, selectedPlace, selectedGoal, selectedCollection]);
+
   // Execute Semantic Search
   const searchPage = useMemo(() => {
     const filters: SemanticSearchFilters = {
@@ -88,7 +133,32 @@ export const SemanticSearchView: React.FC<SemanticSearchViewProps> = ({
       pageSize: 6,
     };
 
-    return executeSemanticSearch(entries, filters, collections, memories, goals);
+    // Server-side KNN retrieval narrows the candidate set to semantically
+    // relevant entries (when active). Structured filters are still applied by
+    // the local engine to that subset verbatim, then displayed scores/
+    // explanations are overridden with the semantic values.
+    const useServer = retrievalMode === 'server' && semanticHits !== null && query.trim() !== '';
+    const effectiveEntries = useServer ? entries.filter((e) => semanticHits!.has(e.id)) : entries;
+    const local = executeSemanticSearch(effectiveEntries, filters, collections, memories, goals);
+
+    if (useServer && semanticHits) {
+      return {
+        ...local,
+        results: [
+          ...local.results
+            .map((r) => ({
+              ...r,
+              score: semanticHits.get(r.entry.id) ?? r.score,
+              relevanceExplanation: `Semantic: ${semanticHits.get(r.entry.id) ?? r.score}% similarity. ${r.relevanceExplanation}`,
+            }))
+            .sort(
+              (a, b) =>
+                (semanticHits.get(b.entry.id) ?? b.score) - (semanticHits.get(a.entry.id) ?? a.score)
+            ),
+        ],
+      };
+    }
+    return local;
   }, [
     entries,
     query,
@@ -105,6 +175,8 @@ export const SemanticSearchView: React.FC<SemanticSearchViewProps> = ({
     collections,
     memories,
     goals,
+    retrievalMode,
+    semanticHits,
   ]);
 
   const clearAllFilters = () => {

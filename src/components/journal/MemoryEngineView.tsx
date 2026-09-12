@@ -29,6 +29,7 @@ import {
   memoriesApi,
 } from '../../data/services/memories';
 import { toast } from '../../services/toast';
+import { ensureEmbedding, removeEmbedding } from '../../services/embeddingSync';
 
 interface MemoryEngineViewProps {
   userId: string;
@@ -106,6 +107,8 @@ export const MemoryEngineView: React.FC<MemoryEngineViewProps> = ({
     setIsProcessing(m.id);
     try {
       await saveMemory(m.id);
+      // G3 semantic retrieval: embed the now-saved memory (best-effort, flag-gated).
+      void ensureEmbedding('memory', m.id);
       toast.success(`Saved "${m.title}" to persistent memory.`);
       if (onRefresh) onRefresh();
     } catch (err) {
@@ -134,6 +137,9 @@ export const MemoryEngineView: React.FC<MemoryEngineViewProps> = ({
     setIsProcessing(m.id);
     try {
       await forgetMemory(m.id);
+      // G3 semantic retrieval: this memory is no longer approved, so its
+      // vector must not remain retrievable (best-effort, flag-gated).
+      void removeEmbedding('memory', m.id);
       toast.success(`Un-saved memory "${m.title}".`);
       if (onRefresh) onRefresh();
     } catch (err) {
@@ -148,6 +154,9 @@ export const MemoryEngineView: React.FC<MemoryEngineViewProps> = ({
     setIsProcessing(memoryId);
     try {
       await deleteMemory(memoryId);
+      // G3 semantic retrieval: permanently-deleted memories must not leave an
+      // orphaned, retrievable vector behind (best-effort, flag-gated).
+      void removeEmbedding('memory', memoryId);
       toast.success('Permanently deleted memory.');
       setDeletingId(null);
       if (onRefresh) onRefresh();
@@ -184,6 +193,10 @@ export const MemoryEngineView: React.FC<MemoryEngineViewProps> = ({
         importance: editImportance,
         tags: tagsArray,
       });
+
+      // G3 semantic retrieval: refreshed content should refresh the memory's
+      // vector (best-effort, flag-gated; server re-embeds only on text change).
+      void ensureEmbedding('memory', editingMemory.id);
 
       toast.success('Memory updated successfully.');
       setEditingMemory(null);

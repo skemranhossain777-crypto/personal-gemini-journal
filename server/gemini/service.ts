@@ -26,9 +26,17 @@ import type {
   VoiceJournalInput,
   MultimodalMedia,
   MultimodalJournalOutput,
+  EmbeddingTextInput,
 } from './types';
 import { GeminiError } from './types';
 import { parseAndValidateJson, validateTextInput, sanitizeRetrievedContext, validateMultimodalMedia } from './validation';
+import {
+  EMBEDDING_MODEL,
+  EMBEDDING_OUTPUT_DIM,
+  EMBEDDING_TASK_DOCUMENT,
+  EMBEDDING_TASK_QUERY,
+  l2Normalize,
+} from './embeddings';
 import { MEMORY_TYPES, type MemoryType } from '../../src/data/models';
 
 function extractErrorStatus(err: any): number | null {
@@ -765,6 +773,73 @@ Return a valid JSON object:
       },
       fallback
     );
+  }
+
+  // ─── 8.5 Generative embedding operations (G3) ────────────────────────────
+  /**
+   * Embeds arbitrary text items with the pinned embedding model. Handles both
+   * RETRIEVAL_DOCUMENT (with optional title) and RETRIEVAL_QUERY task types in
+   * one batched call, truncates to 768 dims via outputDimensionality, and
+   * L2-normalizes each returned vector (required for MRL-truncated
+   * gemini-embedding-001 so DOT_PRODUCT distance == cosine similarity).
+   */
+  async embedContentBatch(inputs: EmbeddingTextInput[]): Promise<number[][]> {
+    if (!inputs || inputs.length === 0) return [];
+    const safeInputs = inputs
+      .map((item) => ({
+        text: validateTextInput(item.text, this.config.maxPromptLength, 'Embedding input'),
+        title: item.title ? String(item.title).slice(0, 500) : undefined,
+        taskType: item.taskType,
+      }))
+      .filter((item) => item.text.length > 0);
+
+    if (safeInputs.length === 0) return [];
+
+    try {
+      const ai = this.getClient();
+      const contents = safeInputs.map((item) => item.text);
+      const response = await ai.models.embedContent({
+        model: EMBEDDING_MODEL,
+        contents,
+        config: {
+          taskType: safeInputs[0].taskType,
+          outputDimensionality: EMBEDDING_OUTPUT_DIM,
+          ...(safeInputs[0].taskType === EMBEDDING_TASK_DOCUMENT && safeInputs[0].title
+            ? { title: safeInputs[0].title }
+            : {}),
+        },
+      });
+
+      const raw = (response?.embeddings || []).map((e: any) => {
+        const values = Array.isArray(e?.values) ? e.values : [];
+        return values.slice(0, EMBEDDING_OUTPUT_DIM).map(Number);
+      });
+
+      if (raw.length === 0) {
+        throw new GeminiError('Embedding API returned no embeddings.', 'EMPTY_RESPONSE', 500);
+      }
+      return raw.map(l2Normalize);
+    } catch (err: any) {
+      if (err instanceof GeminiError) throw err;
+      const errMsg = err?.message || String(err || '');
+      if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('api key')) {
+        throw new GeminiError('Embedding API authentication failure.', 'API_ERROR', 401, err);
+      }
+      throw new GeminiError(`Embedding request failed: ${errMsg}`, 'API_ERROR', 500, err);
+    }
+  }
+
+  /** Embeds stored documents (RETRIEVAL_DOCUMENT task) as unit vectors. */
+  async embedDocuments(items: { text: string; title?: string }[]): Promise<number[][]> {
+    return this.embedContentBatch(
+      items.map((item) => ({ text: item.text, title: item.title, taskType: EMBEDDING_TASK_DOCUMENT }))
+    );
+  }
+
+  /** Embeds a single user query (RETRIEVAL_QUERY task) as a unit vector. */
+  async embedQuery(text: string): Promise<number[]> {
+    const vectors = await this.embedContentBatch([{ text, taskType: EMBEDDING_TASK_QUERY }]);
+    return vectors[0] || [];
   }
 
   // ─── 9. Multimodal Image Journal Operation ──────────────────────────────

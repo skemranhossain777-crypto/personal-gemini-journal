@@ -1,5 +1,20 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "entryEmbeddings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "embedding", "vectorConfig": { "dimension": 768, "flat": {} } }
+      ]
+    },
+    {
+      "collectionGroup": "memoryEmbeddings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "embedding", "vectorConfig": { "dimension": 768, "flat": {} } }
+      ]
+    }
+  ],
   "fieldOverrides": [
     { "collectionGroup": "journalEntries", "fieldPath": "body", "indexes": [] },
     { "collectionGroup": "journalEntries", "fieldPath": "aiMetadata.summary", "indexes": [] },

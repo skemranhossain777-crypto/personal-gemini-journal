@@ -10,6 +10,8 @@ import { validateJournalEntryInput } from '../../src/data/validation';
 import { createFirestoreJournalStore } from '../../src/journal/store';
 import { DraftEngine } from '../../src/journal/draftEngine';
 import { isUntouched } from '../../src/journal/types';
+import admin from 'firebase-admin';
+import { EmbeddingStore } from '../../server/gemini/embeddingStore';
 
 // The integration suite runs on the SAME emulator process (127.0.0.1:8080) but
 // under its own project id, so its clearFirestore()/rules upload never races the
@@ -254,5 +256,227 @@ describe('journal engine — Firestore emulator integration', () => {
     const { items } = await api.list({ limit: 10 });
     expect(items.map((i) => i.title)).toEqual(['Second', 'First']);
     expect(items.some((i) => i.id === id1 && i.body === 'one, revised')).toBe(true);
+  });
+});
+
+// ─── G3: generative semantic retrieval against the Firestore emulator ───────
+// Exercises the real EmbeddingStore write/retrieve/search paths with
+// deterministic FAKE embedding functions (the Gemini model itself is mocked in
+// unit tests). This is the committed regression gate for the emulator's vector
+// support (R7): `FieldValue.vector` writes + `findNearest` + readback.
+describe('G3 generative semantic retrieval — Firestore vector store', () => {
+  let adminDb: ReturnType<typeof admin.firestore>;
+  let vectorStore: EmbeddingStore;
+  let adminApp: admin.app.App;
+  let g3Env: RulesTestEnvironment;
+
+  // Query = axis 0. Entry vectors rank by cosine with axis 0:
+  //   entry-a / entry-p → dot 1.0 (strong match)
+  //   entry-c           → dot 0.5 (above the 0.35 threshold)
+  //   entry-b           → dot 0.1 (below threshold → excluded)
+  const QUERY_VECTOR = Array.from({ length: 16 }, (_, i) => (i === 0 ? 1 : 0));
+
+  function fakeVectorFor(text: string): number[] {
+    // Returns a UNIT-norm vector whose cosine with the axis-0 query is `x`
+    // (the store L2-normalizes again, so raw inputs must already be unit-norm).
+    const cosine = (x: number) => {
+      const arr = Array.from({ length: 16 }, (_, i) => 0);
+      arr[0] = x;
+      arr[1] = Math.sqrt(Math.max(0, 1 - x * x));
+      return arr;
+    };
+    if (text.includes('business launch')) return cosine(1); // dot 1.0 → strong match
+    if (text.includes('happy and proud')) return cosine(0.5);
+    return cosine(0.1);
+  }
+
+  beforeAll(async () => {
+    setLogLevel('silent');
+    process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+    g3Env = await initializeTestEnvironment({
+      projectId: PROJECT_ID,
+      firestore: {
+        host: '127.0.0.1',
+        port: 8080,
+        rules: rulesText,
+      },
+    });
+    adminApp = admin.initializeApp({ projectId: PROJECT_ID }, 'g3-integration');
+    adminDb = admin.firestore(adminApp);
+
+    vectorStore = new EmbeddingStore({
+      db: adminDb,
+      embedQuery: async () => QUERY_VECTOR,
+      embedDocuments: async (items) => items.map((item) => fakeVectorFor(item.text)),
+    });
+
+    const seedEntry = (id: string, data: Record<string, any>) =>
+      adminDb
+        .collection('users')
+        .doc(OWNER)
+        .collection('journalEntries')
+        .doc(id)
+        .set({ uid: OWNER, id, createdAt: admin.firestore.Timestamp.now(), tags: [], ...data });
+
+    await adminDb
+      .collection('users')
+      .doc(OWNER)
+      .collection('memories')
+      .doc('mem-1')
+      .set({
+        uid: OWNER,
+        id: 'mem-1',
+        type: 'achievement',
+        title: 'Launch complete',
+        narrative: 'We shipped the business launch to customers.',
+        importance: 5,
+        confidence: 0.9,
+        sourceEntryIds: [],
+        saved: true,
+        createdAt: admin.firestore.Timestamp.now(),
+        tags: ['business'],
+      });
+  });
+
+  beforeEach(async () => {
+    await g3Env.clearFirestore();
+    const seedEntry = (id: string, data: Record<string, any>) =>
+      adminDb
+        .collection('users')
+        .doc(OWNER)
+        .collection('journalEntries')
+        .doc(id)
+        .set({
+          uid: OWNER,
+          id,
+          createdAt: admin.firestore.Timestamp.fromDate(new Date('2024-01-15T10:00:00Z')),
+          tags: [],
+          ...data,
+        });
+    await Promise.all([
+      seedEntry('entry-a', { title: 'Launch recap', body: 'About the business launch and revenue milestones.' }),
+      seedEntry('entry-b', { title: 'Kitchen notes', body: 'Cooking pasta and pantry staples.', createdAt: admin.firestore.Timestamp.fromDate(new Date('2024-02-20T10:00:00Z')) }),
+      seedEntry('entry-c', { title: 'Proud day', body: 'Honored, happy and proud of the whole team.', createdAt: admin.firestore.Timestamp.fromDate(new Date('2024-03-05T10:00:00Z')) }),
+      seedEntry('entry-p', {
+        title: 'Private launch plan',
+        body: 'Confidential planning for the business launch.',
+        private: true,
+        createdAt: admin.firestore.Timestamp.fromDate(new Date('2024-04-10T10:00:00Z')),
+      }),
+      adminDb
+        .collection('users')
+        .doc(OWNER)
+        .collection('memories')
+        .doc('mem-1')
+        .set({
+          uid: OWNER,
+          id: 'mem-1',
+          type: 'achievement',
+          title: 'Launch complete',
+          narrative: 'We shipped the business launch to customers.',
+          importance: 5,
+          confidence: 0.9,
+          sourceEntryIds: [],
+          saved: true,
+          createdAt: admin.firestore.Timestamp.now(),
+          tags: ['business'],
+        }),
+    ]);
+  });
+
+  afterAll(async () => {
+    await g3Env.cleanup();
+    await adminApp.delete();
+  });
+
+  it('ensures embeddings idempotently via text-hash dedup', async () => {
+    const first = await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-a' });
+    expect(first.status).toBe('written');
+    expect(first.textHash.length).toBe(64);
+
+    const second = await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-a' });
+    expect(second.status).toBe('unchanged');
+  });
+
+  it('retrieves the most similar documents with legacy parity (private included)', async () => {
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-a' });
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-c' });
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-p' });
+
+    const result = await vectorStore.retrieveContext(
+      OWNER,
+      'Where did I celebrate my launch?',
+      QUERY_VECTOR,
+      {}
+    );
+
+    expect(result.mode).toBe('server');
+    const ids = result.documents.map((d) => d.id);
+    expect(ids).toContain('entry-a');
+    expect(ids).toContain('entry-p');
+    expect(ids).not.toContain('entry-b');
+    // entry-a (dot 1.0) must outrank entry-c (dot 0.5)
+    expect(ids.indexOf('entry-a')).toBeLessThan(ids.indexOf('entry-c'));
+  });
+
+  it('honors explicit opt-out filters without breaking parity defaults', async () => {
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-p' });
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-c' });
+
+    const all = await vectorStore.retrieveContext(OWNER, 'launch', QUERY_VECTOR, {});
+    expect(all.documents.map((d) => d.id)).toContain('entry-p');
+
+    const publicOnly = await vectorStore.retrieveContext(OWNER, 'launch', QUERY_VECTOR, {
+      includePrivate: false,
+    });
+    expect(publicOnly.documents.map((d) => d.id)).not.toContain('entry-p');
+  });
+
+  it('applies a date filter at retrieval time', async () => {
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-a' });
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-c' });
+
+    const result = await vectorStore.retrieveContext(OWNER, 'proud launch', QUERY_VECTOR, {
+      startDate: '2024-03-01',
+    });
+    const ids = result.documents.map((d) => d.id);
+    expect(ids).toContain('entry-c');
+    expect(ids).not.toContain('entry-a');
+  });
+
+  it('ranks semantic search hits with match scores and excludes weak matches', async () => {
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-a' });
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-b' });
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-c' });
+
+    const result = await vectorStore.semanticSearchEntries(OWNER, QUERY_VECTOR, 40);
+
+    expect(result.mode).toBe('server');
+    const byId = new Map(result.hits.map((h) => [h.entryId, h.score]));
+    expect(byId.get('entry-a')).toBe(100);
+    expect(byId.get('entry-c')).toBe(50);
+    expect(byId.has('entry-b')).toBe(false);
+  });
+
+  it('never leaks another user through the vector store (cross-uid isolation)', async () => {
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-a' });
+
+    const result = await vectorStore.semanticSearchEntries('mallory', QUERY_VECTOR, 40);
+    expect(result.mode).toBe('empty');
+    expect(result.hits).toEqual([]);
+  });
+
+  it('backfills embeddings for un-embedded sources then stays idempotent', async () => {
+    await vectorStore.ensureEmbedding(OWNER, { sourceType: 'entry', sourceId: 'entry-a' });
+
+    const first = await vectorStore.backfillEmbeddings(OWNER, { limit: 50 });
+    expect(first.written).toBe(4); // entry-b, entry-c, entry-p, mem-1
+    expect(first.unchanged).toBe(1); // entry-a already embedded
+    expect(first.missing).toBe(0);
+    expect(first.sourceCounts.entries + first.sourceCounts.memories).toBeGreaterThanOrEqual(5);
+
+    const second = await vectorStore.backfillEmbeddings(OWNER, { limit: 50 });
+    expect(second.written).toBe(0);
+    expect(second.unchanged).toBeGreaterThanOrEqual(5);
   });
 });

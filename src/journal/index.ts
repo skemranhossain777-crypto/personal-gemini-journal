@@ -11,4 +11,6 @@ export { useDraftEntry } from './useDraftEntry';
 export type { UseDraftEntryOptions, UseDraftEntryResult } from './useDraftEntry';
 export { useMemoryExtraction } from './useMemoryExtraction';
 export type { MemoryExtractionController, MemoryExtractionPhase } from './useMemoryExtraction';
+export { useEmbeddingSync } from './useEmbeddingSync';
+export type { EmbeddingSyncController } from './useEmbeddingSync';
 export { isFirestoreTimestamp, toFirestoreTimestamp, toPlain, toDate, formatEntryDate, formatShortDate, formatRelativeTime, buildSnippet } from './format';

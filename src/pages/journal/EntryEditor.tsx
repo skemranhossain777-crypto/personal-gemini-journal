@@ -4,9 +4,11 @@ import { Archive, ArrowLeft, CalendarDays, FolderOpen, Image as ImageIcon, Loade
 import type { Collection, JournalEntry } from '../../data';
 import { LIMITS } from '../../data';
 import { toast } from '../../services/toast';
+import { removeEmbedding } from '../../services/embeddingSync';
 import {
   useDraftEntry,
   useMemoryExtraction,
+  useEmbeddingSync,
   type AttachmentStore,
   type DraftSnapshot,
   type JournalDraft,
@@ -80,6 +82,10 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
   // (never blocking the journal), with manual retry for existing entries.
   const memoryExtraction = useMemoryExtraction(entry, { autoExtract: entryId === null });
 
+  // G3 semantic retrieval: best-effort embedding sync after every save
+  // (create + in-place edits). Idempotent server-side via text hash.
+  useEmbeddingSync(entry);
+
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -105,6 +111,8 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
       await flush();
       if (entry) {
         await store.remove(entry.id);
+        // G3 semantic retrieval: fire-and-forget vector cleanup.
+        void removeEmbedding('entry', entry.id);
       }
       onDeleted();
     } catch (err) {
