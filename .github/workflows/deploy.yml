@@ -112,7 +112,7 @@ jobs:
 
       - name: Build & Push Container to Staging Registry
         run: |
-          docker build -t gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }} .
+          docker build --build-arg VITE_ENABLE_SEMANTIC_RETRIEVAL=false -t gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }} .
           docker push gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }}
 
       - name: 11. Deploy Container to Cloud Run (Staging)
@@ -170,7 +170,7 @@ jobs:
 
       - name: Tag & Push Container to Production Registry
         run: |
-          docker build -t gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }} -t gcr.io/gen-lang-client-0345619653/journal-app:latest .
+          docker build --build-arg VITE_ENABLE_SEMANTIC_RETRIEVAL=true -t gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }} -t gcr.io/gen-lang-client-0345619653/journal-app:latest .
           docker push gcr.io/gen-lang-client-0345619653/journal-app:${{ github.sha }}
           docker push gcr.io/gen-lang-client-0345619653/journal-app:latest
 
@@ -184,7 +184,7 @@ jobs:
             --port="3000" \
             --allow-unauthenticated \
             --labels="dev-tutorial=cloud-run-ai-challenge" \
-            --set-env-vars="FIRESTORE_DATABASE_ID=gemini-journal,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653,NODE_ENV=production,APP_URL=${{ secrets.PROD_APP_URL }}" \
+            --set-env-vars="FIRESTORE_DATABASE_ID=gemini-journal,VITE_FIREBASE_PROJECT_ID=gen-lang-client-0345619653,NODE_ENV=production,APP_URL=${{ secrets.PROD_APP_URL }},ENABLE_SEMANTIC_RETRIEVAL=true" \
             --set-secrets="GEMINI_API_KEY=journal-gemini-api-key:latest,GOOGLE_MAPS_API_KEY=journal-maps-api-key:latest,ADMIN_EMAILS=journal-admin-emails:latest,FIREBASE_SERVICE_ACCOUNT_JSON=journal-firebase-sa-json:latest"
 
       - name: 13b. Verify Production Revision Ready & 100% Traffic

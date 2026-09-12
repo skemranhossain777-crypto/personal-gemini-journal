@@ -17,6 +17,12 @@ COPY . .
 # Server-side secrets are none of these - they are runtime-only process.env
 # values injected via Cloud Run Secret Manager (Gemini/Maps API keys, admin
 # emails, service-account JSON) and never enter this Dockerfile.
+#
+# G3 semantic retrieval client gate (Vite build-time). Default off; the deploy
+# pipeline passes --build-arg VITE_ENABLE_SEMANTIC_RETRIEVAL=true for the
+# production image only so the browser bundle enables G3 client calls there.
+ARG VITE_ENABLE_SEMANTIC_RETRIEVAL=false
+ENV VITE_ENABLE_SEMANTIC_RETRIEVAL=$VITE_ENABLE_SEMANTIC_RETRIEVAL
 RUN npm run build
 
 # Runtime stage
