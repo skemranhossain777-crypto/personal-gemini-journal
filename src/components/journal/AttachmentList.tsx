@@ -101,6 +101,12 @@ export const AttachmentList: React.FC<AttachmentListProps> = ({
           </div>
         )}
       </div>
+
+      {attachments.length > 0 && (
+        <p className="mt-2 text-[11px] text-ink-faint" data-testid="session-only-media-note">
+          Media previews are kept on this device and are available only for this session.
+        </p>
+      )}
     </div>
   );
 };

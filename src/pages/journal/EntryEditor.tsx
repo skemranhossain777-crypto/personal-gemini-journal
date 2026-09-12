@@ -45,6 +45,8 @@ interface EntryEditorProps {
   autosaveDebounceMs?: number;
   /** Optional authenticated uid used by the image journaling view. */
   currentUserId?: string;
+  /** Optional jump to the Memory Engine's Candidates tab (after extraction). */
+  onReviewCandidates?: () => void;
 }
 
 /** Full-screen composer for one journal entry. The entire document surface is
@@ -63,6 +65,7 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
   onDeleted,
   autosaveDebounceMs,
   currentUserId = '',
+  onReviewCandidates,
 }) => {
   const {
     draft,
@@ -81,6 +84,10 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
   // AI Memory Engine: auto-extract candidates once after a new entry is saved
   // (never blocking the journal), with manual retry for existing entries.
   const memoryExtraction = useMemoryExtraction(entry, { autoExtract: entryId === null });
+  const memoryExtractionHint =
+    entryId === null
+      ? 'New entries are reviewed for memory candidates automatically. Extraction never changes or blocks your writing.'
+      : 'Memory extraction is optional and never changes your entry. Any candidates appear in the Memory Engine for your review.';
 
   // G3 semantic retrieval: best-effort embedding sync after every save
   // (create + in-place edits). Idempotent server-side via text hash.
@@ -325,7 +332,11 @@ export const EntryEditor: React.FC<EntryEditorProps> = ({
             )}
 
             {/* AI Memory Engine extraction status */}
-            <MemoryExtractionBar {...memoryExtraction} />
+            <MemoryExtractionBar
+              {...memoryExtraction}
+              hint={memoryExtractionHint}
+              onReviewCandidates={onReviewCandidates}
+            />
 
             {/* Voice & Image journaling entry points */}
             <div className="mb-4 flex flex-wrap items-center gap-2">

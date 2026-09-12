@@ -195,7 +195,7 @@ export const ImageJournalView: React.FC<ImageJournalViewProps> = ({
             {uploading ? 'Uploading Image...' : 'Click or drop an image here to attach'}
           </div>
           <div className="text-[11px] text-slate-500 mt-1">
-            Stored privately under your user account; analyzed in-flight with your authorized Gemini session
+            Sent directly to Gemini for analysis; the preview stays on this device only for this session and is not uploaded to cloud storage.
           </div>
         </div>
 

@@ -1,7 +1,14 @@
 import React from 'react';
-import { AlertCircle, Brain, Check, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowRight, Brain, Check, Loader2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import type { MemoryExtractionController } from '../../journal/useMemoryExtraction';
+
+interface MemoryExtractionBarProps extends MemoryExtractionController {
+  /** Optional one-click jump to the Memory Engine's "Candidates for Review" tab. */
+  onReviewCandidates?: () => void;
+  /** Clarifies whether extraction is automatic or optional for this entry. */
+  hint?: string;
+}
 
 /**
  * Compact, non-blocking status for the AI Memory Engine in the entry composer.
@@ -9,17 +16,23 @@ import type { MemoryExtractionController } from '../../journal/useMemoryExtracti
  * no candidates, extraction failed + retry, all in the JOURNAL∞ visual
  * language. Extraction never blocks writing — this bar only reflects state.
  */
-export const MemoryExtractionBar: React.FC<MemoryExtractionController> = ({
+export const MemoryExtractionBar: React.FC<MemoryExtractionBarProps> = ({
   phase,
   candidatesCreated,
   message,
   run,
   isRunning,
   canRun,
+  onReviewCandidates,
+  hint,
 }) => {
   if (phase === 'running' || isRunning) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs text-ink-mid">
+      <div
+        className="flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs text-ink-mid"
+        role="status"
+        data-testid="memory-extraction-status"
+      >
         <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" aria-hidden="true" />
         <span>Gemini is reviewing this entry for memory candidates…</span>
       </div>
@@ -31,6 +44,7 @@ export const MemoryExtractionBar: React.FC<MemoryExtractionController> = ({
       {phase === 'success' && (
         <span
           className="inline-flex items-center gap-1.5 text-xs text-ink-low"
+          role="status"
           data-testid="memory-extraction-status"
         >
           {candidatesCreated > 0 ? (
@@ -42,13 +56,33 @@ export const MemoryExtractionBar: React.FC<MemoryExtractionController> = ({
         </span>
       )}
 
+      {phase === 'success' && candidatesCreated > 0 && onReviewCandidates && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onReviewCandidates}
+          aria-label="Review memory candidates in the Memory Engine"
+          data-testid="review-memory-candidates-button"
+          icon={<ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />}
+        >
+          Review candidates
+        </Button>
+      )}
+
       {phase === 'error' && (
         <span
           className="inline-flex items-center gap-1.5 text-xs text-amber-300"
+          role="status"
           data-testid="memory-extraction-status"
         >
           <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
           {message || 'Memory extraction failed. Please try again.'}
+        </span>
+      )}
+
+      {phase === 'idle' && hint && (
+        <span role="note" className="text-xs text-ink-faint" data-testid="memory-extraction-hint">
+          {hint}
         </span>
       )}
 

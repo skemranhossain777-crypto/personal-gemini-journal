@@ -37,9 +37,11 @@ interface MemoryEngineViewProps {
   onRefresh?: () => void;
   onViewSourceEntry?: (entryId: string) => void;
   className?: string;
+  /** Initial tab to land on. Lets the composer jump straight to Candidates. */
+  initialTab?: TabMode;
 }
 
-type TabMode = 'candidates' | 'saved' | 'ignored_forgotten' | 'all';
+export type TabMode = 'candidates' | 'saved' | 'ignored_forgotten' | 'all';
 
 export const MemoryEngineView: React.FC<MemoryEngineViewProps> = ({
   userId,
@@ -47,8 +49,9 @@ export const MemoryEngineView: React.FC<MemoryEngineViewProps> = ({
   onRefresh,
   onViewSourceEntry,
   className = '',
+  initialTab,
 }) => {
-  const [activeTab, setActiveTab] = useState<TabMode>('saved');
+  const [activeTab, setActiveTab] = useState<TabMode>(initialTab ?? 'saved');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<MemoryType | 'all'>('all');
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);

@@ -49,6 +49,7 @@ const ReflectionReportsView = React.lazy(() =>
 const SemanticSearchView = React.lazy(() =>
   import('../journal/SemanticSearchView').then((m) => ({ default: m.SemanticSearchView })),
 );
+import type { TabMode } from '../journal/MemoryEngineView';
 
 export type NavTab = 'home' | 'journal' | 'memories' | 'growth' | 'timeline' | 'ask-my-life' | 'profile';
 
@@ -98,6 +99,9 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
   const [journalSubview, setJournalSubview] = useState<'journal' | 'companion'>(initialJournalSubview ?? 'journal');
   const [growthSubview, setGrowthSubview] = useState<'habits' | 'goals'>('habits');
   const [memoriesSubview, setMemoriesSubview] = useState<'memories' | 'reports'>('memories');
+  // Landing tab for the Memory Engine; set when arriving from the composer's
+  // "Review candidates" action, reset to the default on ordinary navigation.
+  const [memoryOpenTab, setMemoryOpenTab] = useState<TabMode | undefined>(undefined);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Presentation-only identity resolution. `currentUserId` (uid) remains the
@@ -137,6 +141,7 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
 
   const handleNavigateToTab = (tabId: string) => {
     if (NAV_ITEMS.some((n) => n.id === tabId)) {
+      if (tabId === 'memories') setMemoryOpenTab(undefined);
       setActiveTab(tabId as NavTab);
     }
   };
@@ -144,6 +149,14 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
   const handleOpenReflectionReports = () => {
     setActiveTab('memories');
     setMemoriesSubview('reports');
+  };
+
+  const handleOpenMemoryCandidates = () => {
+    setEditingEntryId(null);
+    setIsComposerNew(false);
+    setMemoriesSubview('memories');
+    setMemoryOpenTab('candidates');
+    setActiveTab('memories');
   };
 
   // Sync composer/companion state from hash routes (#/journal, #/journal/new,
@@ -187,6 +200,7 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
       if (hash === '#/memories/reports') {
         setActiveTab('memories');
         setMemoriesSubview('reports');
+        setMemoryOpenTab(undefined);
         return;
       }
     };
@@ -396,6 +410,7 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
                     }}
                     onOpenNew={() => handleOpenComposer()}
                     onOpenEntry={(id) => handleOpenEntry(id)}
+                    onOpenMemoryCandidates={handleOpenMemoryCandidates}
                   />
                 )}
               </div>
@@ -446,6 +461,7 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
                     userId={currentUserId}
                     memories={memories}
                     onViewSourceEntry={handleOpenEntry}
+                    initialTab={memoryOpenTab}
                   />
                 )}
               </div>
@@ -574,6 +590,7 @@ export const ResponsiveNavigationShell: React.FC<ResponsiveNavigationShellProps>
               aria-current={isActive ? 'page' : undefined}
               aria-label={item.label}
               onClick={() => {
+                if (item.id === 'memories') setMemoryOpenTab(undefined);
                 setActiveTab(item.id);
                 if (item.id !== 'journal') {
                   setEditingEntryId(null);

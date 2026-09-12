@@ -44,6 +44,12 @@ jobs:
       - name: 4. Execute Unit Tests
         run: npm test
 
+      - name: 4a. Validate Firebase Config & Firestore Targets
+        run: node scripts/validate-firebase-config.mjs
+
+      - name: 4b. Run Firestore Security Rules Suite (Emulator)
+        run: npm run test:rules
+
       - name: 5. Execute Complete Production Build
         run: npm run build
 
@@ -195,6 +201,30 @@ jobs:
           gcloud run services describe gemini-journal \
             --project=gen-lang-client-0345619653 --region=us-central1 \
             --format='json' | python3 -c "import json,sys; t=json.load(sys.stdin)['status']['traffic']; assert any(x.get('percent')==100 and x.get('latestRevision') for x in t), 'traffic is not 100% latest'; print('revision ready + 100% traffic OK')"
+
+      - name: Setup Node.js for Firestore Rules Deployment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies (Firebase CLI)
+        run: npm ci
+
+      - name: 13c. Deploy Firestore Rules & Indexes to Production
+        # Deploys only the Firestore targets of `gen-lang-client-0345619653`
+        # for the named database `gemini-journal` (resolved from firebase.json).
+        # The google-github-actions/auth step above exports GOOGLE_APPLICATION_CREDENTIALS,
+        # which firebase-tools reads for its deploy credentials. No Storage or
+        # Data Connect targets are deployed.
+        run: |
+          npx firebase deploy --only firestore:rules,firestore:indexes \
+            --project gen-lang-client-0345619653 --non-interactive
+
+      - name: 13d. Verify Deployed Firestore Rules Match Repo Source
+        run: |
+          TOKEN="$(gcloud auth print-access-token)"
+          node scripts/verify-firestore-rules.mjs "$TOKEN"
 
       - name: Production Smoke Tests
         env:

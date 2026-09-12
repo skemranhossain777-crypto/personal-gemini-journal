@@ -15,6 +15,8 @@ interface JournalWorkspaceProps {
   onNavigateHome: () => void;
   onOpenNew: () => void;
   onOpenEntry: (id: string) => void;
+  /** Optional jump to the Memory Engine's Candidates tab. */
+  onOpenMemoryCandidates?: () => void;
 }
 
 /** Journal∞ workspace: owns the data sources (per-user store + collections),
@@ -25,6 +27,7 @@ export const JournalWorkspace: React.FC<JournalWorkspaceProps> = ({
   onNavigateHome,
   onOpenNew,
   onOpenEntry,
+  onOpenMemoryCandidates,
 }) => {
   const { user } = useAuth();
   const uid = user?.uid ?? '';
@@ -177,6 +180,7 @@ export const JournalWorkspace: React.FC<JournalWorkspaceProps> = ({
       onNavigateHome={onNavigateHome}
       onDeleted={handleDeleted}
       currentUserId={uid}
+      onReviewCandidates={onOpenMemoryCandidates}
     />
   ) : (
     <JournalHome
