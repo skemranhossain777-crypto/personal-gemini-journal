@@ -47,6 +47,12 @@ jobs:
       - name: 4a. Validate Firebase Config & Firestore Targets
         run: node scripts/validate-firebase-config.mjs
 
+      - name: Setup Java 21 for Firestore Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: 4b. Run Firestore Security Rules Suite (Emulator)
         run: npm run test:rules
 

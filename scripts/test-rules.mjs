@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, writeFileSync, unlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve, dirname, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,7 +12,10 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '..');
-const tmp = resolve(process.env.TEMP ?? join(root, '.tmp'), `firebase-rules-test-${process.pid}.json`);
+// Use the OS temp dir (never a workspace-relative path) so the throwaway
+// emulator config works on Linux CI as well as on Windows dev machines.
+const tmpBase = process.env.TMPDIR ?? process.env.TMP ?? process.env.TEMP ?? tmpdir();
+const tmp = resolve(tmpBase, `firebase-rules-test-${process.pid}.json`);
 
 const javaCandidates = [
   process.env.TEST_JRE_DIR,
